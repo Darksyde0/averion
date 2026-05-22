@@ -1,62 +1,76 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminSidebar from '../../components/Admin/AdminSidebar'
-
-const initialSimulations = [
-  {
-    id: 1,
-    name: 'Phishing Email 1',
-    category: 'Phishing Detection',
-    difficulty: 'Medium',
-    type: 'image',
-    date: '4/9/2026',
-    hidden: false,
-  },
-  {
-    id: 2,
-    name: 'Password Security Check',
-    category: 'Password Security',
-    difficulty: 'Easy',
-    type: 'text',
-    date: '4/9/2026',
-    hidden: false,
-  },
-  {
-    id: 3,
-    name: 'Social Engineering Trap',
-    category: 'Social Engineering',
-    difficulty: 'Hard',
-    type: 'text',
-    date: '4/9/2026',
-    hidden: true,
-  },
-]
+import { supabase } from '../../supabaseClient'
 
 function ViewSimulations() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [simulations, setSimulations] = useState(initialSimulations)
+  const [simulations, setSimulations] = useState([])
+  const [loading, setLoading] = useState(true)
   const [deleteModal, setDeleteModal] = useState(false)
   const [deleteItem, setDeleteItem] = useState(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
 
+  // ── FETCH SIMULATIONS FROM SUPABASE ──
+  useEffect(() => {
+    fetchSimulations()
+  }, [])
+
+  async function fetchSimulations() {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('simulations')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      const mapped = data.map(s => ({
+        id: s.id,
+        name: s.scenario_name,
+        category: s.category,
+        difficulty: s.difficulty,
+        type: s.type,
+        date: new Date(s.created_at).toLocaleDateString(),
+        hidden: s.hidden,
+      }))
+      setSimulations(mapped)
+    }
+    setLoading(false)
+  }
+
   function handleDeleteClick(sim) {
     setDeleteItem(sim)
     setDeleteModal(true)
   }
 
-  function confirmDelete() {
-    setSimulations(simulations.filter(s => s.id !== deleteItem.id))
-    setDeleteModal(false)
-    setDeleteItem(null)
+  async function confirmDelete() {
+    const { error } = await supabase
+      .from('simulations')
+      .delete()
+      .eq('id', deleteItem.id)
+
+    if (!error) {
+      setSimulations(simulations.filter(s => s.id !== deleteItem.id))
+      setDeleteModal(false)
+      setDeleteItem(null)
+    }
   }
 
-  function toggleHide(id) {
-    setSimulations(simulations.map(s =>
-      s.id === id ? { ...s, hidden: !s.hidden } : s
-    ))
+  async function toggleHide(id) {
+    const sim = simulations.find(s => s.id === id)
+    const { error } = await supabase
+      .from('simulations')
+      .update({ hidden: !sim.hidden })
+      .eq('id', id)
+
+    if (!error) {
+      setSimulations(simulations.map(s =>
+        s.id === id ? { ...s, hidden: !s.hidden } : s
+      ))
+    }
   }
 
   const totalCount = simulations.length
@@ -234,8 +248,12 @@ function ViewSimulations() {
             <p className="col-span-2 text-gray-500 text-sm font-semibold">Actions</p>
           </div>
 
-          {/* Simulation rows */}
-          {filteredSimulations.length > 0 ? (
+          {/* Loading state */}
+          {loading ? (
+            <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-200">
+              <p className="text-gray-400 text-sm">Loading simulations...</p>
+            </div>
+          ) : filteredSimulations.length > 0 ? (
             <div className="flex flex-col gap-3">
               {filteredSimulations.map((sim) => (
                 <div

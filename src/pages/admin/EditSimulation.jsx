@@ -1,83 +1,62 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import AdminSidebar from '../../components/Admin/AdminSidebar'
-
-// Hardcoded simulations data
-// When backend is ready this will come from MongoDB using the ID
-const simulationsData = {
-  1: {
-    id: 1,
-    scenarioName: 'Phishing Email 1',
-    question: 'You are working on your computer when you receive the following email. What should you do in this situation?',
-    category: 'Phishing Detection',
-    difficulty: 'Medium',
-    type: 'image',
-    imageUrl: '/images/phishing-email.png',
-    options: [
-      'Click the link and enter your details immediately',
-      'Verify the request by contacting IT through official channels',
-      'Reply to the email asking if it is real',
-      'Ignore the email completely',
-    ],
-    correctIndex: 1,
-    explanation: 'This is likely a social engineering attack. Red flags include urgent tone, request for sensitive information, and a suspicious link that is not the official company domain.',
-  },
-  2: {
-    id: 2,
-    scenarioName: 'Password Security Check',
-    question: 'Your manager sends you a WhatsApp message asking for your login password urgently because the system is down. What should you do?',
-    category: 'Password Security',
-    difficulty: 'Easy',
-    type: 'text',
-    imageUrl: '',
-    options: [
-      'Send the password immediately since it is your manager',
-      'Ignore the message completely',
-      'Verify the request through official company channels before doing anything',
-      'Change your password and then send the new one',
-    ],
-    correctIndex: 2,
-    explanation: 'Legitimate managers and IT teams will never ask for your password through WhatsApp or any messaging app.',
-  },
-}
+import { supabase } from '../../supabaseClient'
 
 function EditSimulation() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [submitted, setSubmitted] = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [fetching, setFetching] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [imagePreview, setImagePreview] = useState(null)
+  const [imageFile, setImageFile] = useState(null)
+  const [correctOption, setCorrectOption] = useState(null)
+  const [scenarioName, setScenarioName] = useState('')
 
-  // Get the simulation data based on ID
-  const existing = simulationsData[id]
-
-  // If simulation not found
-  if (!existing) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100">
-        <div className="bg-white rounded-2xl p-10 text-center shadow">
-          <p className="text-gray-500 text-sm mb-4">Simulation not found.</p>
-          <button
-            onClick={() => navigate('/admin/simulations')}
-            className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-semibold"
-          >
-            Back to Simulations
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  const [imagePreview, setImagePreview] = useState(existing.imageUrl || null)
-  const [correctOption, setCorrectOption] = useState(existing.correctIndex)
   const [formData, setFormData] = useState({
-    scenarioName: existing.scenarioName,
-    question: existing.question,
-    category: existing.category,
-    difficulty: existing.difficulty,
-    options: [...existing.options],
-    explanation: existing.explanation,
+    scenarioName: '',
+    question: '',
+    category: '',
+    difficulty: '',
+    options: ['', '', '', ''],
+    explanation: '',
   })
+
+  // ── FETCH SIMULATION FROM SUPABASE ──
+  useEffect(() => {
+    fetchSimulation()
+  }, [id])
+
+  async function fetchSimulation() {
+    setFetching(true)
+
+    const { data, error } = await supabase
+      .from('simulations')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error || !data) {
+      setFetching(false)
+      return
+    }
+
+    setFormData({
+      scenarioName: data.scenario_name,
+      question: data.question,
+      category: data.category,
+      difficulty: data.difficulty,
+      options: data.options,
+      explanation: data.explanation,
+    })
+    setCorrectOption(data.correct_index)
+    setScenarioName(data.scenario_name)
+    if (data.image_url) setImagePreview(data.image_url)
+    setFetching(false)
+  }
 
   function handleChange(e) {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -92,18 +71,103 @@ function EditSimulation() {
   function handleImageUpload(e) {
     const file = e.target.files[0]
     if (file) {
+      setImageFile(file)
       setImagePreview(URL.createObjectURL(file))
     }
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     if (correctOption === null) {
       alert('Please select the correct answer.')
       return
     }
-    // Backend will save the updated simulation
-    setSubmitted(true)
+
+    setLoading(true)
+    setError('')
+
+    try {
+      let imageUrl = imagePreview
+
+      // Upload new image if provided
+      if (imageFile) {
+        const fileExt = imageFile.name.split('.').pop()
+        const fileName = `${Date.now()}.${fileExt}`
+        const { error: uploadError } = await supabase.storage
+          .from('simulation-images')
+          .upload(fileName, imageFile)
+
+        if (uploadError) {
+          setError('Failed to upload image: ' + uploadError.message)
+          setLoading(false)
+          return
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('simulation-images')
+          .getPublicUrl(fileName)
+
+        imageUrl = urlData.publicUrl
+      }
+
+      // If image was removed
+      if (!imagePreview) imageUrl = null
+
+      // Update simulation in Supabase
+      const { error: updateError } = await supabase
+        .from('simulations')
+        .update({
+          scenario_name: formData.scenarioName,
+          question: formData.question,
+          category: formData.category,
+          difficulty: formData.difficulty,
+          type: imageUrl ? 'image' : 'text',
+          image_url: imageUrl,
+          options: formData.options,
+          correct_index: correctOption,
+          explanation: formData.explanation,
+        })
+        .eq('id', id)
+
+      if (updateError) {
+        setError('Failed to update simulation: ' + updateError.message)
+        setLoading(false)
+        return
+      }
+
+      setSubmitted(true)
+
+    } catch (err) {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Loading state
+  if (fetching) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-100">
+        <p className="text-gray-500 text-sm">Loading simulation...</p>
+      </div>
+    )
+  }
+
+  // Not found state
+  if (!formData.scenarioName && !fetching) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-100">
+        <div className="bg-white rounded-2xl p-10 text-center shadow">
+          <p className="text-gray-500 text-sm mb-4">Simulation not found.</p>
+          <button
+            onClick={() => navigate('/admin/simulations')}
+            className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-semibold"
+          >
+            Back to Simulations
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -163,7 +227,7 @@ function EditSimulation() {
                   </button>
                   <h1 className="text-gray-800 text-3xl font-bold">Edit Simulation</h1>
                   <p className="text-gray-500 text-sm mt-1">
-                    Update the details for <span className="font-semibold text-gray-700">{existing.scenarioName}</span>
+                    Update the details for <span className="font-semibold text-gray-700">{scenarioName}</span>
                   </p>
                 </div>
 
@@ -185,6 +249,13 @@ function EditSimulation() {
                 </div>
               </div>
 
+              {/* Error message */}
+              {error && (
+                <div className="bg-red-50 border border-red-300 rounded-xl px-4 py-3 mb-6">
+                  <p className="text-red-600 text-sm">{error}</p>
+                </div>
+              )}
+
               {/* Image preview */}
               {imagePreview && (
                 <div className="mb-6 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
@@ -197,7 +268,7 @@ function EditSimulation() {
                     <p className="text-gray-500 text-xs">Scenario image</p>
                     <button
                       type="button"
-                      onClick={() => setImagePreview(null)}
+                      onClick={() => { setImagePreview(null); setImageFile(null) }}
                       className="text-red-400 hover:text-red-600 text-xs font-semibold transition"
                     >
                       Remove
@@ -341,9 +412,14 @@ function EditSimulation() {
                   </button>
                   <button
                     type="submit"
-                    className="px-10 py-3 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white transition"
+                    disabled={loading}
+                    className={`px-10 py-3 rounded-xl text-sm font-bold transition
+                      ${loading
+                        ? 'bg-blue-400 text-white cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                      }`}
                   >
-                    Save Changes
+                    {loading ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
 
