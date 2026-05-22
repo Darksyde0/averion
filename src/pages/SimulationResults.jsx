@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from '../components/dashboard/Sidebar'
+import { useProfile } from '../hooks/useProfile'
+import TopBar from '../components/dashboard/TopBar'
+
 
 function SimulationResults() {
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const profile = useProfile()
 
   const { simulations, userAnswers, score, total } = location.state || {
     simulations: [],
@@ -31,24 +35,8 @@ function SimulationResults() {
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-60' : 'ml-16'}`}>
 
         {/* Top bar */}
-        <div className="bg-[#0d1117] flex items-center justify-between px-8 py-1">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-white">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-              </svg>
-            </div>
-            <div>
-              <p className="text-white font-semibold text-sm">John Doe</p>
-              <span className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">USER</span>
-            </div>
-          </div>
-        </div>
+        <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+
 
         {/* Results content */}
         <div className="flex-1 p-8">

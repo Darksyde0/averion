@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import AdminSidebar from '../../components/Admin/AdminSidebar'
+import AdminTopBar from '../../components/Admin/AdminTopBar'
 import { supabase } from '../../supabaseClient'
 
 function EditSimulation() {
@@ -25,24 +26,19 @@ function EditSimulation() {
     explanation: '',
   })
 
-  // ── FETCH SIMULATION FROM SUPABASE ──
   useEffect(() => {
     fetchSimulation()
   }, [id])
 
   async function fetchSimulation() {
     setFetching(true)
-
     const { data, error } = await supabase
       .from('simulations')
       .select('*')
       .eq('id', id)
       .single()
 
-    if (error || !data) {
-      setFetching(false)
-      return
-    }
+    if (error || !data) { setFetching(false); return }
 
     setFormData({
       scenarioName: data.scenario_name,
@@ -78,10 +74,7 @@ function EditSimulation() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (correctOption === null) {
-      alert('Please select the correct answer.')
-      return
-    }
+    if (correctOption === null) { alert('Please select the correct answer.'); return }
 
     setLoading(true)
     setError('')
@@ -89,7 +82,6 @@ function EditSimulation() {
     try {
       let imageUrl = imagePreview
 
-      // Upload new image if provided
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop()
         const fileName = `${Date.now()}.${fileExt}`
@@ -103,17 +95,12 @@ function EditSimulation() {
           return
         }
 
-        const { data: urlData } = supabase.storage
-          .from('simulation-images')
-          .getPublicUrl(fileName)
-
+        const { data: urlData } = supabase.storage.from('simulation-images').getPublicUrl(fileName)
         imageUrl = urlData.publicUrl
       }
 
-      // If image was removed
       if (!imagePreview) imageUrl = null
 
-      // Update simulation in Supabase
       const { error: updateError } = await supabase
         .from('simulations')
         .update({
@@ -136,7 +123,6 @@ function EditSimulation() {
       }
 
       setSubmitted(true)
-
     } catch (err) {
       setError('Something went wrong. Please try again.')
     } finally {
@@ -144,191 +130,135 @@ function EditSimulation() {
     }
   }
 
-  // Loading state
+  // ── Loading state ──
   if (fetching) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100">
-        <p className="text-gray-500 text-sm">Loading simulation...</p>
+      <div className="flex min-h-screen bg-gray-50">
+        <AdminSidebar isOpen={true} />
+        <div className="flex-1 flex flex-col ml-48">
+          <AdminTopBar onMenuClick={() => {}} />
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-gray-400 text-sm">Loading simulation...</p>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
 
-  // Not found state
+  // ── Not found state ──
   if (!formData.scenarioName && !fetching) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100">
-        <div className="bg-white rounded-2xl p-10 text-center shadow">
-          <p className="text-gray-500 text-sm mb-4">Simulation not found.</p>
-          <button
-            onClick={() => navigate('/admin/simulations')}
-            className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-semibold"
-          >
-            Back to Simulations
-          </button>
+      <div className="flex min-h-screen bg-gray-50">
+        <AdminSidebar isOpen={true} />
+        <div className="flex-1 flex flex-col ml-48">
+          <AdminTopBar onMenuClick={() => {}} />
+          <div className="flex-1 flex items-center justify-center">
+            <div className="bg-white rounded-2xl p-10 text-center shadow-sm border border-gray-100">
+              <p className="text-gray-500 text-sm mb-4">Simulation not found.</p>
+              <button onClick={() => navigate('/admin/simulations')}
+                className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-semibold">
+                Back to Simulations
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen bg-gray-50">
       <AdminSidebar isOpen={sidebarOpen} />
 
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-48' : 'ml-16'}`}>
 
-        {/* Top bar */}
-        <div className="bg-[#0d1117] flex items-center justify-between px-8 py-1">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-white">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 bg-[#1a1a2e] rounded-full pl-1 pr-5 py-1">
-              <div className="w-10 h-10 rounded-full bg-gray-500 flex items-center justify-center flex-shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-200" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-                </svg>
-              </div>
-              <div className="flex flex-col items-start">
-                <p className="text-white font-bold text-sm leading-tight">John Doe</p>
-                <span className="bg-red-600 text-white text-xs font-bold px-3 py-0.5 rounded-full mt-0.5">
-                  ADMIN
-                </span>
-              </div>
-            </div>
-            <button className="relative text-white hover:text-blue-400 transition">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-              </svg>
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-[#0d1117]" />
-            </button>
-          </div>
-        </div>
+        <AdminTopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
-        {/* Page content */}
         <div className="flex-1 p-8">
 
           {!submitted ? (
 
-            <div className="max-w-4xl">
+            <div className="max-w-3xl">
 
-              {/* Page heading */}
+              {/* Header */}
               <div className="flex items-start justify-between mb-8">
                 <div>
-                  <button
-                    onClick={() => navigate('/admin/simulations')}
-                    className="flex items-center gap-2 text-gray-500 hover:text-gray-800 text-sm mb-3 transition"
-                  >
+                  <button onClick={() => navigate('/admin/simulations')}
+                    className="flex items-center gap-1.5 text-gray-400 hover:text-gray-700 text-sm mb-3 transition">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
-                    Back to Simulations
+                    Back
                   </button>
-                  <h1 className="text-gray-800 text-3xl font-bold">Edit Simulation</h1>
-                  <p className="text-gray-500 text-sm mt-1">
-                    Update the details for <span className="font-semibold text-gray-700">{scenarioName}</span>
+                  <h1 className="text-gray-900 text-2xl font-bold">Edit Simulation</h1>
+                  <p className="text-gray-400 text-sm mt-0.5">
+                    Updating <span className="font-semibold text-gray-600">{scenarioName}</span>
                   </p>
                 </div>
 
-                {/* Upload Image button */}
-                <div className="flex flex-col items-end gap-1">
-                  <label className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 py-3 rounded-xl cursor-pointer transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                    </svg>
-                    {imagePreview ? 'Replace Image' : 'Upload Image'}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageUpload}
-                    />
-                  </label>
-                  <p className="text-gray-400 text-xs">Optional — skip if text only</p>
-                </div>
+                <label className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold text-sm px-4 py-2 rounded-xl cursor-pointer transition shadow-sm flex-shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  </svg>
+                  {imagePreview ? 'Replace Image' : 'Upload Image'}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                </label>
               </div>
 
-              {/* Error message */}
               {error && (
-                <div className="bg-red-50 border border-red-300 rounded-xl px-4 py-3 mb-6">
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5">
                   <p className="text-red-600 text-sm">{error}</p>
                 </div>
               )}
 
               {/* Image preview */}
               {imagePreview && (
-                <div className="mb-6 bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                  <img
-                    src={imagePreview}
-                    alt="Scenario"
-                    className="w-full max-h-64 object-contain p-4"
-                  />
-                  <div className="px-4 pb-3 flex justify-between items-center">
-                    <p className="text-gray-500 text-xs">Scenario image</p>
-                    <button
-                      type="button"
-                      onClick={() => { setImagePreview(null); setImageFile(null) }}
-                      className="text-red-400 hover:text-red-600 text-xs font-semibold transition"
-                    >
+                <div className="mb-5 bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+                  <img src={imagePreview} alt="Scenario" className="w-full max-h-56 object-contain p-4" />
+                  <div className="px-4 pb-3 flex justify-between items-center border-t border-gray-50">
+                    <p className="text-gray-400 text-xs">Scenario image</p>
+                    <button type="button" onClick={() => { setImagePreview(null); setImageFile(null) }}
+                      className="text-red-400 hover:text-red-600 text-xs font-semibold transition">
                       Remove
                     </button>
                   </div>
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+              <form onSubmit={handleSubmit}>
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm mb-5">
 
-                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-5">
-                    <h2 className="text-gray-800 text-lg font-bold">Edit Question</h2>
-                    <p className="text-gray-500 text-sm">
-                      Select the radio button to mark the correct answer
-                    </p>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-gray-800 font-bold">Question Details</h2>
+                    <p className="text-gray-400 text-xs">Click the circle to mark the correct answer</p>
                   </div>
 
                   {/* Scenario Name */}
                   <div className="mb-5">
-                    <label className="text-gray-700 text-sm font-semibold mb-2 block">
-                      Scenario Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="scenarioName"
-                      value={formData.scenarioName}
-                      onChange={handleChange}
-                      className="w-full bg-gray-100 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
-                      required
-                    />
+                    <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Scenario Name <span className="text-red-400">*</span></label>
+                    <input type="text" name="scenarioName" value={formData.scenarioName} onChange={handleChange}
+                      className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
+                      required />
                   </div>
 
-                  {/* Question Text */}
+                  {/* Question */}
                   <div className="mb-5">
-                    <label className="text-gray-700 text-sm font-semibold mb-2 block">
-                      Question Text <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      name="question"
-                      value={formData.question}
-                      onChange={handleChange}
+                    <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Question <span className="text-red-400">*</span></label>
+                    <textarea name="question" value={formData.question} onChange={handleChange}
                       rows={3}
-                      className="w-full bg-gray-100 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                      required
-                    />
+                      className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      required />
                   </div>
 
                   {/* Category + Difficulty */}
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     <div>
-                      <label className="text-gray-700 text-sm font-semibold mb-2 block">Category</label>
-                      <select
-                        name="category"
-                        value={formData.category}
-                        onChange={handleChange}
-                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
-                      >
+                      <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Category</label>
+                      <select name="category" value={formData.category} onChange={handleChange}
+                        className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
                         <option>Password Security</option>
                         <option>Phishing Detection</option>
                         <option>Social Engineering</option>
@@ -337,13 +267,9 @@ function EditSimulation() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-gray-700 text-sm font-semibold mb-2 block">Difficulty</label>
-                      <select
-                        name="difficulty"
-                        value={formData.difficulty}
-                        onChange={handleChange}
-                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
-                      >
+                      <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Difficulty</label>
+                      <select name="difficulty" value={formData.difficulty} onChange={handleChange}
+                        className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
                         <option>Easy</option>
                         <option>Medium</option>
                         <option>Hard</option>
@@ -351,34 +277,21 @@ function EditSimulation() {
                     </div>
                   </div>
 
-                  {/* Answer options */}
+                  {/* Answer Options */}
                   <div className="mb-5">
-                    <label className="text-gray-700 text-sm font-semibold mb-3 block">
-                      Answer Options <span className="text-red-500">*</span>
-                    </label>
-                    <div className="flex flex-col gap-3">
+                    <label className="text-gray-700 text-xs font-semibold mb-3 block uppercase tracking-wide">Answer Options <span className="text-red-400">*</span></label>
+                    <div className="flex flex-col gap-2.5">
                       {formData.options.map((option, index) => (
                         <div key={index} className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setCorrectOption(index)}
-                            className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition
-                              ${correctOption === index
-                                ? 'border-blue-600 bg-blue-600'
-                                : 'border-gray-300 bg-gray-100 hover:border-blue-400'
-                              }`}
-                          >
-                            {correctOption === index && (
-                              <div className="w-3 h-3 rounded-full bg-white" />
-                            )}
+                          <button type="button" onClick={() => setCorrectOption(index)}
+                            className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition
+                              ${correctOption === index ? 'border-blue-600 bg-blue-600' : 'border-gray-300 bg-white hover:border-blue-400'}`}>
+                            {correctOption === index && <div className="w-2.5 h-2.5 rounded-full bg-white" />}
                           </button>
-                          <input
-                            type="text"
-                            value={option}
-                            onChange={(e) => handleOptionChange(index, e.target.value)}
-                            className="flex-1 bg-gray-100 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
-                            required
-                          />
+                          <input type="text" value={option} onChange={(e) => handleOptionChange(index, e.target.value)}
+                            placeholder={`Option ${index + 1}`}
+                            className="flex-1 bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
+                            required />
                         </div>
                       ))}
                     </div>
@@ -386,39 +299,24 @@ function EditSimulation() {
 
                   {/* Explanation */}
                   <div>
-                    <label className="text-gray-700 text-sm font-semibold mb-2 block">
-                      Explanation <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      name="explanation"
-                      value={formData.explanation}
-                      onChange={handleChange}
+                    <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Explanation <span className="text-red-400">*</span></label>
+                    <textarea name="explanation" value={formData.explanation} onChange={handleChange}
                       rows={3}
-                      className="w-full bg-gray-100 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                      required
-                    />
+                      className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      required />
                   </div>
 
                 </div>
 
-                {/* Action buttons */}
+                {/* Actions */}
                 <div className="flex justify-between pb-8">
-                  <button
-                    type="button"
-                    onClick={() => navigate('/admin/simulations')}
-                    className="px-8 py-3 rounded-xl text-sm font-bold bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition"
-                  >
+                  <button type="button" onClick={() => navigate('/admin/simulations')}
+                    className="px-6 py-2.5 rounded-xl text-sm font-semibold bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition shadow-sm">
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className={`px-10 py-3 rounded-xl text-sm font-bold transition
-                      ${loading
-                        ? 'bg-blue-400 text-white cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                      }`}
-                  >
+                  <button type="submit" disabled={loading}
+                    className={`px-8 py-2.5 rounded-xl text-sm font-bold transition
+                      ${loading ? 'bg-blue-400 text-white cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
                     {loading ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
@@ -428,32 +326,28 @@ function EditSimulation() {
 
           ) : (
 
-            // Success view
-            <div className="max-w-lg mx-auto mt-20 text-center">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-10">
-
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            // ── Success ──
+            <div className="max-w-md mx-auto mt-20 text-center">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                 </div>
-
-                <h2 className="text-gray-800 text-2xl font-bold mb-2">
-                  Simulation Updated!
-                </h2>
-                <p className="text-gray-500 text-sm mb-8">
-                  <span className="font-semibold text-gray-700">{formData.scenarioName}</span> has been updated successfully.
+                <h2 className="text-gray-800 text-xl font-bold mb-1">Simulation Updated!</h2>
+                <p className="text-gray-400 text-sm mb-6">
+                  <span className="font-semibold text-gray-600">{formData.scenarioName}</span> has been updated successfully.
                 </p>
-
                 <div className="flex gap-3">
-                  <button
-                    onClick={() => navigate('/admin/simulations')}
-                    className="flex-1 py-3 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white transition"
-                  >
+                  <button onClick={() => navigate('/admin/simulations')}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white transition">
                     Back to Simulations
                   </button>
+                  <button onClick={() => { setSubmitted(false); setError('') }}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
+                    Edit Again
+                  </button>
                 </div>
-
               </div>
             </div>
 

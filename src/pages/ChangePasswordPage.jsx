@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '../supabaseClient'
 
 function ChangePasswordPage() {
   const navigate = useNavigate()
@@ -8,10 +9,12 @@ function ChangePasswordPage() {
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+
     if (newPassword.length < 8) {
       setError('Password must be at least 8 characters.')
       return
@@ -20,7 +23,49 @@ function ChangePasswordPage() {
       setError('Passwords do not match.')
       return
     }
-    navigate('/dashboard')
+
+    setLoading(true)
+
+    try {
+      // Step 1 — Update password in Supabase Auth
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword
+      })
+
+      if (updateError) {
+        setError('Failed to update password. Please try again.')
+        setLoading(false)
+        return
+      }
+
+      // Step 2 — Mark first_login as false in users table
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (user) {
+        await supabase
+          .from('users')
+          .update({ first_login: false })
+          .eq('id', user.id)
+      }
+
+      // Step 3 — Get role and redirect accordingly
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.role === 'admin') {
+        navigate('/admin/dashboard')
+      } else {
+        navigate('/dashboard')
+      }
+
+    } catch (err) {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -124,14 +169,14 @@ function ChangePasswordPage() {
             {/* Submit button */}
             <button
               type="submit"
-              disabled={!newPassword || !confirmPassword}
+              disabled={!newPassword || !confirmPassword || loading}
               className={`w-full font-semibold py-3 rounded-xl transition text-sm mt-2
-                ${!newPassword || !confirmPassword
+                ${!newPassword || !confirmPassword || loading
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
                 }`}
             >
-              Continue to Dashboard
+              {loading ? 'Saving...' : 'Continue to Dashboard'}
             </button>
 
           </form>

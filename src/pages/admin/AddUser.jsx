@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminSidebar from '../../components/Admin/AdminSidebar'
 import { supabase } from '../../supabaseClient'
+import { useProfile } from '../../hooks/useProfile'
 
 function generatePassword() {
   const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
@@ -25,6 +26,7 @@ function generatePassword() {
 
 function AddUser() {
   const navigate = useNavigate()
+  const profile = useProfile()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [copied, setCopied] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -62,6 +64,13 @@ function AddUser() {
     setLoading(true)
     setError('')
 
+    // Guard — need admin profile to get organization_id
+    if (!profile?.id) {
+      setError('Admin profile not loaded. Please try again.')
+      setLoading(false)
+      return
+    }
+
     try {
       const employeeId = 'EMP-' + Math.floor(1000 + Math.random() * 9000)
       const fullName = `${formData.firstName} ${formData.lastName}`
@@ -78,7 +87,7 @@ function AddUser() {
         return
       }
 
-      // Step 2 — Insert into users table
+      // Step 2 — Insert into users table with organization_id = admin's id
       const { error: profileError } = await supabase
         .from('users')
         .insert({
@@ -90,6 +99,7 @@ function AddUser() {
           employee_id: employeeId,
           role: 'user',
           first_login: true,
+          organization_id: profile.id, // ← links user to this admin
         })
 
       if (profileError) {
@@ -137,13 +147,19 @@ function AddUser() {
           </button>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 bg-[#1a1a2e] rounded-full pl-1 pr-5 py-1">
-              <div className="w-10 h-10 rounded-full bg-gray-500 flex items-center justify-center flex-shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-200" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-                </svg>
+              <div className="w-10 h-10 rounded-full bg-gray-500 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-200" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                  </svg>
+                )}
               </div>
               <div className="flex flex-col items-start">
-                <p className="text-white font-bold text-sm leading-tight">John Doe</p>
+                <p className="text-white font-bold text-sm leading-tight">
+                  {profile?.full_name || 'Loading...'}
+                </p>
                 <span className="bg-red-600 text-white text-xs font-bold px-3 py-0.5 rounded-full mt-0.5">
                   ADMIN
                 </span>
@@ -163,14 +179,13 @@ function AddUser() {
 
           {!submitted ? (
 
-            <div className="max-w-4xl">
+            <div className="max-w-full">
 
               <h1 className="text-gray-800 text-3xl font-bold mb-1">Add New User</h1>
               <p className="text-gray-500 text-sm mb-8">
                 Create a new user account. A strong password will be generated automatically.
               </p>
 
-              {/* Error message */}
               {error && (
                 <div className="bg-red-50 border border-red-300 rounded-xl px-4 py-3 mb-6">
                   <p className="text-red-600 text-sm">{error}</p>
@@ -191,67 +206,30 @@ function AddUser() {
                   </h2>
 
                   <div className="grid grid-cols-2 gap-6">
-
                     <div>
-                      <label className="text-gray-700 text-sm font-semibold mb-2 block">
-                        First Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="firstName"
-                        value={formData.firstName}
-                        onChange={handleChange}
-                        placeholder="Enter First Name"
-                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400"
-                        required
-                      />
+                      <label className="text-gray-700 text-sm font-semibold mb-2 block">First Name <span className="text-red-500">*</span></label>
+                      <input type="text" name="firstName" value={formData.firstName} onChange={handleChange}
+                        placeholder="Enter First Name" required
+                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400" />
                     </div>
-
                     <div>
-                      <label className="text-gray-700 text-sm font-semibold mb-2 block">
-                        Last Name <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="lastName"
-                        value={formData.lastName}
-                        onChange={handleChange}
-                        placeholder="Enter Last Name"
-                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400"
-                        required
-                      />
+                      <label className="text-gray-700 text-sm font-semibold mb-2 block">Last Name <span className="text-red-500">*</span></label>
+                      <input type="text" name="lastName" value={formData.lastName} onChange={handleChange}
+                        placeholder="Enter Last Name" required
+                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400" />
                     </div>
-
                     <div>
-                      <label className="text-gray-700 text-sm font-semibold mb-2 block">
-                        Email Address <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        placeholder="Enter Email Address"
-                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400"
-                        required
-                      />
+                      <label className="text-gray-700 text-sm font-semibold mb-2 block">Email Address <span className="text-red-500">*</span></label>
+                      <input type="email" name="email" value={formData.email} onChange={handleChange}
+                        placeholder="Enter Email Address" required
+                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400" />
                     </div>
-
                     <div>
-                      <label className="text-gray-700 text-sm font-semibold mb-2 block">
-                        Username <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="username"
-                        value={formData.username}
-                        onChange={handleChange}
-                        placeholder="Enter Username"
-                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400"
-                        required
-                      />
+                      <label className="text-gray-700 text-sm font-semibold mb-2 block">Username <span className="text-red-500">*</span></label>
+                      <input type="text" name="username" value={formData.username} onChange={handleChange}
+                        placeholder="Enter Username" required
+                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400" />
                     </div>
-
                   </div>
                 </div>
 
@@ -267,18 +245,10 @@ function AddUser() {
                   </h2>
 
                   <div className="grid grid-cols-2 gap-6">
-
                     <div>
-                      <label className="text-gray-700 text-sm font-semibold mb-2 block">
-                        Department <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        name="department"
-                        value={formData.department}
-                        onChange={handleChange}
-                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
-                        required
-                      >
+                      <label className="text-gray-700 text-sm font-semibold mb-2 block">Department <span className="text-red-500">*</span></label>
+                      <select name="department" value={formData.department} onChange={handleChange} required
+                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
                         <option value="">Select Department</option>
                         <option>Engineering</option>
                         <option>Human Resources</option>
@@ -289,22 +259,12 @@ function AddUser() {
                         <option>Management</option>
                       </select>
                     </div>
-
                     <div>
-                      <label className="text-gray-700 text-sm font-semibold mb-2 block">
-                        Job Title <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="jobTitle"
-                        value={formData.jobTitle}
-                        onChange={handleChange}
-                        placeholder="Enter job title"
-                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400"
-                        required
-                      />
+                      <label className="text-gray-700 text-sm font-semibold mb-2 block">Job Title <span className="text-red-500">*</span></label>
+                      <input type="text" name="jobTitle" value={formData.jobTitle} onChange={handleChange}
+                        placeholder="Enter job title" required
+                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400" />
                     </div>
-
                   </div>
                 </div>
 
@@ -326,11 +286,8 @@ function AddUser() {
                     <p className="text-gray-800 font-mono text-sm tracking-widest">
                       {showPassword ? formData.password : '••••••••••••'}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="text-gray-400 hover:text-gray-700 transition"
-                    >
+                    <button type="button" onClick={() => setShowPassword(!showPassword)}
+                      className="text-gray-400 hover:text-gray-700 transition">
                       {showPassword ? (
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
@@ -345,33 +302,22 @@ function AddUser() {
                   </div>
 
                   <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={handleCopyPassword}
+                    <button type="button" onClick={handleCopyPassword}
                       className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition
-                        ${copied
-                          ? 'bg-green-500 text-white border-green-500'
-                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
-                    >
+                        ${copied ? 'bg-green-500 text-white border-green-500' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
                       </svg>
                       {copied ? 'Copied!' : 'Copy Password'}
                     </button>
-
-                    <button
-                      type="button"
-                      onClick={handleRegeneratePassword}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
-                    >
+                    <button type="button" onClick={handleRegeneratePassword}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
                       </svg>
                       Regenerate
                     </button>
                   </div>
-
                 </div>
 
                 {/* Important note */}
@@ -390,22 +336,13 @@ function AddUser() {
 
                 {/* Action buttons */}
                 <div className="flex justify-between pb-8">
-                  <button
-                    type="button"
-                    onClick={() => navigate('/admin/users')}
-                    className="px-8 py-3 rounded-xl text-sm font-semibold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
-                  >
+                  <button type="button" onClick={() => navigate('/admin/users')}
+                    className="px-8 py-3 rounded-xl text-sm font-semibold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition">
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
+                  <button type="submit" disabled={loading}
                     className={`px-10 py-3 rounded-xl text-sm font-bold transition
-                      ${loading
-                        ? 'bg-blue-400 text-white cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                      }`}
-                  >
+                      ${loading ? 'bg-blue-400 text-white cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
                     {loading ? 'Creating User...' : 'Create User'}
                   </button>
                 </div>
@@ -425,17 +362,12 @@ function AddUser() {
                   </svg>
                 </div>
 
-                <h2 className="text-gray-800 text-2xl font-bold mb-2">
-                  User Created Successfully!
-                </h2>
+                <h2 className="text-gray-800 text-2xl font-bold mb-2">User Created Successfully!</h2>
                 <p className="text-gray-500 text-sm mb-2">
-                  <span className="font-semibold text-gray-700">
-                    {formData.firstName} {formData.lastName}
-                  </span> has been added to Averion.
+                  <span className="font-semibold text-gray-700">{formData.firstName} {formData.lastName}</span> has been added to Averion.
                 </p>
                 <p className="text-gray-400 text-xs mb-8">
-                  They can now log in using their email and the generated password.
-                  They will be prompted to change their password on first login.
+                  They can now log in using their email and the generated password. They will be prompted to change their password on first login.
                 </p>
 
                 <div className="bg-gray-50 rounded-xl p-4 text-left mb-8">
@@ -461,16 +393,12 @@ function AddUser() {
                 </div>
 
                 <div className="flex gap-3">
-                  <button
-                    onClick={handleAddAnother}
-                    className="flex-1 py-3 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition"
-                  >
+                  <button onClick={handleAddAnother}
+                    className="flex-1 py-3 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
                     Add Another User
                   </button>
-                  <button
-                    onClick={() => navigate('/admin/users')}
-                    className="flex-1 py-3 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white transition"
-                  >
+                  <button onClick={() => navigate('/admin/users')}
+                    className="flex-1 py-3 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white transition">
                     View All Users
                   </button>
                 </div>

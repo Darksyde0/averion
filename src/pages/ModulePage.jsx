@@ -1,166 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Sidebar from '../components/dashboard/Sidebar'
+import { supabase } from '../supabaseClient'
+import { useProfile } from '../hooks/useProfile'
+import TopBar from '../components/dashboard/TopBar'
 
-const moduleData = {
-  1: {
-    title: 'Social Engineering Awareness',
-    subtitle: 'Expand your cybersecurity knowledge',
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-      </svg>
-    ),
-    time: '5 mins',
-    lessons: [
-      {
-        id: 1,
-        title: 'Introduction to Social Engineering',
-        subtitle: 'Understanding what social engineering is and why it is dangerous',
-        content: [
-          {
-            heading: 'What is Social Engineering?',
-            body: 'Social engineering is a type of cyber attack where someone manipulates people into giving away sensitive information such as passwords, bank details, or company data.',
-            list: ['Phone calls', 'Emails', 'In-person deception'],
-          },
-          {
-            heading: 'Why is it Dangerous?',
-            body: 'Unlike technical hacking, social engineering exploits human psychology. Attackers use trust, fear, and urgency to trick victims.',
-            list: ['It targets people, not systems', 'Hard to detect', 'Can bypass all technical security'],
-          },
-        ],
-      },
-      {
-        id: 2,
-        title: 'Common Social Engineering Tactics',
-        subtitle: 'Learn how attackers manipulate people',
-        content: [
-          {
-            heading: 'Pretexting',
-            body: 'The attacker creates a fabricated scenario to extract information. For example, pretending to be IT support to get your password.',
-            list: ['Fake IT support calls', 'Impersonating managers', 'Fake surveys'],
-          },
-          {
-            heading: 'Baiting',
-            body: 'Attackers leave infected USB drives in public places or offer free downloads that contain malware.',
-            list: ['Infected USB drives', 'Free software downloads', 'Fake prize notifications'],
-          },
-        ],
-      },
-    ],
-    quiz: [
-      {
-        question: 'What is social engineering?',
-        options: ['Hacking into computer systems', 'Manipulating people to give away sensitive information', 'Installing malware on devices', 'Breaking encryption codes'],
-        correctIndex: 1,
-        explanation: 'Social engineering is about manipulating people, not systems. Attackers exploit human psychology rather than technical vulnerabilities.',
-      },
-      {
-        question: 'Which of the following is an example of baiting?',
-        options: ['Sending a fake email from IT support', 'Calling someone pretending to be their manager', 'Leaving an infected USB drive in a parking lot', 'Creating a fake login page'],
-        correctIndex: 2,
-        explanation: 'Baiting involves leaving infected physical media like USB drives in public places hoping someone will plug them in out of curiosity.',
-      },
-    ],
-  },
-  2: {
-    title: 'Phishing Detection Fundamentals',
-    subtitle: 'Expand your cybersecurity knowledge',
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-      </svg>
-    ),
-    time: '5 mins',
-    lessons: [
-      {
-        id: 1,
-        title: 'Introduction to Phishing',
-        subtitle: 'Understanding what phishing is and why it is dangerous',
-        content: [
-          {
-            heading: 'What is Phishing?',
-            body: 'Phishing is a type of cyber attack where someone tries to trick you into giving away sensitive information such as passwords, bank details, or company data.',
-            list: ['Emails', 'Messages', 'Fake websites'],
-          },
-          {
-            heading: 'Why Should You Care?',
-            body: 'Phishing is the most common form of cyber attack. Most data breaches start with a phishing email.',
-            list: ['Most common cyber attack', 'Targets everyone', 'Easy to fall for'],
-          },
-        ],
-      },
-      {
-        id: 2,
-        title: 'How to Spot a Phishing Email',
-        subtitle: 'Learn the red flags to watch out for',
-        content: [
-          {
-            heading: 'Check the Sender Email',
-            body: 'Always look at the full email address, not just the display name. Phishing emails often use domains that look similar to real ones.',
-            list: ['support@paypa1.com instead of paypal.com', 'admin@company-secure.net', 'noreply@g00gle.com'],
-          },
-          {
-            heading: 'Watch for Urgency',
-            body: 'Phishing emails often create a sense of urgency to make you act without thinking.',
-            list: ['Your account will be suspended', 'Act immediately', 'Verify now or lose access'],
-          },
-        ],
-      },
-    ],
-    quiz: [
-      {
-        question: 'What is the first thing you should check in a suspicious email?',
-        options: ['The subject line', 'The sender email address', 'The email body', 'The attachments'],
-        correctIndex: 1,
-        explanation: 'Always check the full sender email address first. Phishing emails disguise themselves with familiar display names but use fake domains.',
-      },
-      {
-        question: 'Why do phishing emails create urgency?',
-        options: ['To make the email look important', 'To trick you into acting without thinking', 'Because they are sent automatically', 'To get your attention'],
-        correctIndex: 1,
-        explanation: 'Urgency is a psychological trick. When people feel pressured they make poor decisions and are more likely to click links without checking.',
-      },
-    ],
-  },
-  3: {
-    title: 'Password Security Best Practices',
-    subtitle: 'Expand your cybersecurity knowledge',
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-      </svg>
-    ),
-    time: '5 mins',
-    lessons: [
-      {
-        id: 1,
-        title: 'Why Password Security Matters',
-        subtitle: 'Understanding the importance of strong passwords',
-        content: [
-          {
-            heading: 'Weak Passwords are Dangerous',
-            body: 'Weak passwords are one of the most common causes of data breaches. Attackers use automated tools to guess millions of passwords per second.',
-            list: ['123456 is the most used password', 'Names and birthdays are easy to guess', 'Short passwords are cracked in seconds'],
-          },
-          {
-            heading: 'What Makes a Strong Password?',
-            body: 'A strong password is long, random and uses a mix of characters.',
-            list: ['At least 12 characters', 'Mix of uppercase and lowercase', 'Numbers and special characters'],
-          },
-        ],
-      },
-    ],
-    quiz: [
-      {
-        question: 'Which of the following is the strongest password?',
-        options: ['password123', 'John1990', 'Tr$9#mK!2pL@', '123456789'],
-        correctIndex: 2,
-        explanation: 'A strong password uses a mix of uppercase, lowercase, numbers and special characters.',
-      },
-    ],
-  },
-}
 
 function ModulePage() {
   const { id } = useParams()
@@ -170,18 +14,103 @@ function ModulePage() {
   const [showQuiz, setShowQuiz] = useState(false)
   const [quizAnswers, setQuizAnswers] = useState({})
   const [quizSubmitted, setQuizSubmitted] = useState(false)
+  const [module, setModule] = useState(null)
+  const [lessons, setLessons] = useState([])
+  const [quiz, setQuiz] = useState([])
+  const [loading, setLoading] = useState(true)
+  const profile = useProfile()
 
-  const module = moduleData[id]
+  // ── FETCH MODULE DATA FROM SUPABASE ──
+  useEffect(() => {
+    fetchModule()
+  }, [id])
 
-  if (!module) {
+  async function fetchModule() {
+    setLoading(true)
+
+    // Fetch module
+    const { data: mod, error: modError } = await supabase
+      .from('modules')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (modError || !mod) {
+      setLoading(false)
+      return
+    }
+
+    setModule(mod)
+
+    // Fetch lessons with sections
+    const { data: lessonsData } = await supabase
+      .from('lessons')
+      .select('*, lesson_sections(*)')
+      .eq('module_id', id)
+      .order('order_index', { ascending: true })
+
+    if (lessonsData) {
+      const mapped = lessonsData.map(l => ({
+        id: l.id,
+        title: l.title,
+        subtitle: mod.description,
+        content: l.lesson_sections
+          .sort((a, b) => a.order_index - b.order_index)
+          .map(s => ({
+            heading: s.heading || '',
+            body: s.body || '',
+            bulletLabel: s.bullet_label || 'It usually comes in the form of:',
+            list: s.bullets || [],
+          }))
+      }))
+      setLessons(mapped)
+    }
+
+    // Fetch quiz questions
+    const { data: quizData } = await supabase
+      .from('quiz_questions')
+      .select('*')
+      .eq('module_id', id)
+
+    if (quizData) {
+      const mappedQ = quizData.map(q => ({
+        question: q.question,
+        options: q.options,
+        correctIndex: q.correct_index,
+        explanation: q.explanation,
+      }))
+      setQuiz(mappedQ)
+    }
+
+    setLoading(false)
+  }
+
+  // ── LOADING STATE ──
+  if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <p className="text-gray-500">Module not found.</p>
+      <div className="flex min-h-screen bg-gray-100 items-center justify-center">
+        <p className="text-gray-500 text-sm">Loading module...</p>
       </div>
     )
   }
 
-  const lessons = module.lessons
+  // ── NOT FOUND ──
+  if (!module) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-100">
+        <div className="bg-white rounded-2xl p-10 text-center shadow">
+          <p className="text-gray-500 text-sm mb-4">Module not found.</p>
+          <button
+            onClick={() => navigate('/training')}
+            className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-semibold"
+          >
+            Back to Training
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const currentLessonData = lessons[currentLesson]
   const isLastLesson = currentLesson === lessons.length - 1
   const totalSteps = lessons.length + 1
@@ -215,8 +144,8 @@ function ModulePage() {
     setQuizSubmitted(true)
   }
 
-  const quizScore = module.quiz.filter((q, i) => quizAnswers[i] === q.correctIndex).length
-  const scorePercent = Math.round((quizScore / module.quiz.length) * 100)
+  const quizScore = quiz.filter((q, i) => quizAnswers[i] === q.correctIndex).length
+  const scorePercent = quiz.length > 0 ? Math.round((quizScore / quiz.length) * 100) : 0
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -225,24 +154,7 @@ function ModulePage() {
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-60' : 'ml-16'}`}>
 
         {/* Top bar */}
-        <div className="bg-[#0d1117] flex items-center justify-between px-8 py-1">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-white">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-white font-semibold text-sm">John Doe</p>
-              <span className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">USER</span>
-            </div>
-          </div>
-        </div>
+        <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
         {/* Page content */}
         <div className="flex-1 p-8">
@@ -251,11 +163,13 @@ function ModulePage() {
           <div className="bg-blue-600 rounded-2xl px-6 py-4 flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
               <div className="bg-white bg-opacity-20 p-2 rounded-xl">
-                {module.icon}
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0118 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                </svg>
               </div>
               <div>
-                <h1 className="text-white text-xl font-bold">{module.title}</h1>
-                <p className="text-blue-200 text-sm">{module.subtitle}</p>
+                <h1 className="text-white text-xl font-bold">{module.name}</h1>
+                <p className="text-blue-200 text-sm">{module.description}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -263,7 +177,7 @@ function ModulePage() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                {module.time}
+                {module.estimated_time} mins
               </span>
               <span className="text-blue-700 font-semibold text-sm bg-white px-4 py-2 rounded-lg">
                 {showQuiz ? '📝 Quiz' : `Lesson ${currentLesson + 1} of ${lessons.length}`}
@@ -287,50 +201,54 @@ function ModulePage() {
 
             // ── LESSON VIEW ──
             <div>
-              {/* Lesson title bar */}
-              <div className="bg-[#0d1117] rounded-t-2xl px-6 py-5">
-                <h2 className="text-white text-xl font-bold">{currentLessonData.title}</h2>
-                <p className="text-gray-400 text-sm mt-1">{currentLessonData.subtitle}</p>
-              </div>
-
-              {/* Lesson content — dark navy */}
-              <div className="bg-[#1a2744] rounded-b-2xl px-8 py-8 mb-6">
-                {currentLessonData.content.map((section, i) => (
-                  <div key={i} className={`${i < currentLessonData.content.length - 1 ? 'mb-8 pb-8 border-b border-blue-900' : ''}`}>
-
-                    {/* Section heading */}
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-1 h-6 bg-blue-400 rounded-full flex-shrink-0" />
-                      <h3 className="text-blue-300 font-bold text-base">
-                        {section.heading}
-                      </h3>
-                    </div>
-
-                    {/* Body text */}
-                    <p className="text-gray-300 text-sm leading-relaxed mb-4 ml-4">
-                      {section.body}
-                    </p>
-
-                    {/* Bullet list */}
-                    {section.list && (
-                      <div className="ml-4 bg-[#243860] rounded-xl p-4">
-                        <p className="text-blue-400 text-xs font-bold uppercase tracking-wide mb-3">
-                          It usually comes in the form of:
-                        </p>
-                        <div className="flex flex-col gap-2">
-                          {section.list.map((item, j) => (
-                            <div key={j} className="flex items-center gap-3">
-                              <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
-                              <p className="text-gray-200 text-sm">{item}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
+              {currentLessonData && (
+                <>
+                  {/* Lesson title bar */}
+                  <div className="bg-[#0d1117] rounded-t-2xl px-6 py-5">
+                    <h2 className="text-white text-xl font-bold">{currentLessonData.title}</h2>
+                    <p className="text-gray-400 text-sm mt-1">{currentLessonData.subtitle}</p>
                   </div>
-                ))}
-              </div>
+
+                  {/* Lesson content */}
+                  <div className="bg-[#1a2744] rounded-b-2xl px-8 py-8 mb-6">
+                    {currentLessonData.content.map((section, i) => (
+                      <div key={i} className={`${i < currentLessonData.content.length - 1 ? 'mb-8 pb-8 border-b border-blue-900' : ''}`}>
+
+                        {/* Section heading */}
+                        {section.heading && (
+                          <div className="flex items-center gap-3 mb-3">
+                            <div className="w-1 h-6 bg-blue-400 rounded-full flex-shrink-0" />
+                            <h3 className="text-blue-300 font-bold text-base">{section.heading}</h3>
+                          </div>
+                        )}
+
+                        {/* Body text */}
+                        {section.body && (
+                          <p className="text-gray-300 text-sm leading-relaxed mb-4 ml-4">{section.body}</p>
+                        )}
+
+                        {/* Bullet list */}
+                        {section.list && section.list.length > 0 && (
+                          <div className="ml-4 bg-[#243860] rounded-xl p-4">
+                            <p className="text-blue-400 text-xs font-bold uppercase tracking-wide mb-3">
+                              {section.bulletLabel || 'It usually comes in the form of:'}
+                            </p>
+                            <div className="flex flex-col gap-2">
+                              {section.list.map((item, j) => (
+                                <div key={j} className="flex items-center gap-3">
+                                  <div className="w-2 h-2 rounded-full bg-blue-400 flex-shrink-0" />
+                                  <p className="text-gray-200 text-sm">{item}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
 
               {/* Navigation buttons */}
               <div className="flex justify-between">
@@ -387,20 +305,16 @@ function ModulePage() {
 
                   {/* Quiz questions */}
                   <div className="bg-[#1a2744] rounded-b-2xl px-8 py-8 mb-6">
-                    {module.quiz.map((q, index) => (
-                      <div key={index} className={`${index < module.quiz.length - 1 ? 'mb-8 pb-8 border-b border-blue-900' : ''}`}>
+                    {quiz.map((q, index) => (
+                      <div key={index} className={`${index < quiz.length - 1 ? 'mb-8 pb-8 border-b border-blue-900' : ''}`}>
 
-                        {/* Question */}
                         <div className="flex items-start gap-3 mb-4">
                           <span className="bg-blue-600 text-white text-xs font-bold px-2.5 py-1 rounded-lg flex-shrink-0 mt-0.5">
                             Q{index + 1}
                           </span>
-                          <p className="text-white font-semibold text-sm leading-relaxed">
-                            {q.question}
-                          </p>
+                          <p className="text-white font-semibold text-sm leading-relaxed">{q.question}</p>
                         </div>
 
-                        {/* Options */}
                         <div className="flex flex-col gap-3 ml-9">
                           {q.options.map((option, optIndex) => (
                             <button
@@ -413,11 +327,7 @@ function ModulePage() {
                                 }`}
                             >
                               <div className={`w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition
-                                ${quizAnswers[index] === optIndex
-                                  ? 'border-white bg-white'
-                                  : 'border-gray-500'
-                                }`}
-                              >
+                                ${quizAnswers[index] === optIndex ? 'border-white bg-white' : 'border-gray-500'}`}>
                                 {quizAnswers[index] === optIndex && (
                                   <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
                                 )}
@@ -441,9 +351,9 @@ function ModulePage() {
                     </button>
                     <button
                       onClick={handleQuizSubmit}
-                      disabled={Object.keys(quizAnswers).length < module.quiz.length}
+                      disabled={Object.keys(quizAnswers).length < quiz.length}
                       className={`px-8 py-3 rounded-xl font-semibold text-sm transition flex items-center gap-2
-                        ${Object.keys(quizAnswers).length < module.quiz.length
+                        ${Object.keys(quizAnswers).length < quiz.length
                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                           : 'bg-green-600 hover:bg-green-700 text-white'
                         }`}
@@ -465,13 +375,11 @@ function ModulePage() {
                   <div className="bg-[#0d1117] rounded-2xl px-6 py-8 mb-6 text-center">
                     <h2 className="text-white text-2xl font-bold mb-1">Quiz Complete!</h2>
                     <p className="text-gray-400 text-sm mb-6">
-                      You scored <span className="text-white font-bold">{quizScore}</span> out of <span className="text-white font-bold">{module.quiz.length}</span>
+                      You scored <span className="text-white font-bold">{quizScore}</span> out of <span className="text-white font-bold">{quiz.length}</span>
                     </p>
 
-                    {/* Score circle */}
                     <div className={`w-28 h-28 rounded-full border-8 flex items-center justify-center mx-auto mb-4
-                      ${scorePercent >= 80 ? 'border-green-500' : scorePercent >= 50 ? 'border-yellow-500' : 'border-red-500'}`}
-                    >
+                      ${scorePercent >= 80 ? 'border-green-500' : scorePercent >= 50 ? 'border-yellow-500' : 'border-red-500'}`}>
                       <p className={`text-3xl font-extrabold
                         ${scorePercent >= 80 ? 'text-green-400' : scorePercent >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
                         {scorePercent}%
@@ -480,21 +388,19 @@ function ModulePage() {
 
                     <span className={`inline-block text-sm font-bold px-6 py-2 rounded-full
                       ${scorePercent >= 80 ? 'bg-green-500 text-white' :
-                        scorePercent >= 50 ? 'bg-yellow-500 text-white' : 'bg-red-500 text-white'
-                      }`}>
+                        scorePercent >= 50 ? 'bg-yellow-500 text-white' : 'bg-red-500 text-white'}`}>
                       {scorePercent >= 80 ? '✓ Pass' : scorePercent >= 50 ? 'Average' : 'High Risk'}
                     </span>
                   </div>
 
                   {/* Answer review */}
                   <div className="flex flex-col gap-4 mb-6">
-                    {module.quiz.map((q, index) => {
+                    {quiz.map((q, index) => {
                       const userAnswer = quizAnswers[index]
                       const isCorrect = userAnswer === q.correctIndex
                       return (
                         <div key={index} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
 
-                          {/* Question header */}
                           <div className="flex items-start gap-3 mb-4">
                             <span className={`text-xs font-bold px-2.5 py-1 rounded-lg flex-shrink-0 mt-0.5
                               ${isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -507,7 +413,6 @@ function ModulePage() {
                             </span>
                           </div>
 
-                          {/* Options */}
                           <div className="flex flex-col gap-2 mb-4">
                             {q.options.map((option, optIndex) => {
                               let style = 'bg-gray-50 text-gray-600 border-gray-200'
@@ -534,7 +439,6 @@ function ModulePage() {
                             })}
                           </div>
 
-                          {/* Explanation */}
                           <div className="bg-[#0d1117] rounded-xl p-4">
                             <p className="text-blue-400 font-bold text-xs mb-1 uppercase tracking-wide">Explanation</p>
                             <p className="text-gray-300 text-xs leading-relaxed">{q.explanation}</p>

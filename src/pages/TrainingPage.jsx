@@ -1,50 +1,118 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/dashboard/Sidebar'
+import { supabase } from '../supabaseClient'
+import { useProfile } from '../hooks/useProfile'
+import TopBar from '../components/dashboard/TopBar'
 
-const modules = [
-  {
-    id: 1,
-    title: 'Social Engineering Awareness',
-    description: 'Understand manipulation techniques used by attackers to gain unauthorized access.',
-    status: 'in-progress',
-    color: 'from-red-800 to-red-500',
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-      </svg>
-    ),
-  },
-  {
-    id: 2,
-    title: 'Phishing Detection Fundamentals',
-    description: 'Learn to identify and respond to phishing attempts through email and messaging platforms.',
-    status: 'new',
-    color: 'from-blue-700 to-blue-500',
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-      </svg>
-    ),
-  },
-  {
-    id: 3,
-    title: 'Password Security Best Practices',
-    description: 'Create strong passwords, use password managers, and enable multi-factor authentication.',
-    status: 'completed',
-    color: 'from-green-700 to-green-500',
-    icon: (
-      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-      </svg>
-    ),
-  },
-]
+const categoryIcons = {
+  'Social Engineering': (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+    </svg>
+  ),
+  'Phishing Detection': (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+    </svg>
+  ),
+  'Password Security': (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+    </svg>
+  ),
+  'Data Privacy': (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+    </svg>
+  ),
+  'Network Security': (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253" />
+    </svg>
+  ),
+}
+
+const categoryColors = {
+  'Social Engineering': 'from-red-800 to-red-500',
+  'Phishing Detection': 'from-blue-700 to-blue-500',
+  'Password Security': 'from-green-700 to-green-500',
+  'Data Privacy': 'from-purple-700 to-purple-500',
+  'Network Security': 'from-orange-700 to-orange-500',
+}
 
 function TrainingPage() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [modules, setModules] = useState([])
+  const [loading, setLoading] = useState(true)
+  const profile = useProfile()
+
+  const [totalModules, setTotalModules] = useState(0)
+  const [completedCount, setCompletedCount] = useState(0)
+  const [inProgressCount, setInProgressCount] = useState(0)
+  const [totalPoints, setTotalPoints] = useState(0)
+
+  useEffect(() => {
+    fetchModules()
+  }, [])
+
+  async function fetchModules() {
+    setLoading(true)
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { data, error } = await supabase
+      .from('modules')
+      .select('*')
+      .eq('hidden', false)
+      .order('created_at', { ascending: false })
+
+    if (!error && data) {
+      setTotalModules(data.length)
+
+      let completedIds = []
+      let inProgressIds = []
+
+      if (user) {
+        const { data: progress } = await supabase
+          .from('module_progress')
+          .select('module_id, completed')
+          .eq('user_id', user.id)
+
+        completedIds = (progress || []).filter(p => p.completed).map(p => p.module_id)
+        inProgressIds = (progress || []).filter(p => !p.completed).map(p => p.module_id)
+
+        setCompletedCount(completedIds.length)
+        setInProgressCount(inProgressIds.length)
+        setTotalPoints(completedIds.length * 100)
+      }
+
+      const mapped = data.map(m => ({
+        id: m.id,
+        title: m.name,
+        description: m.description,
+        category: m.category,
+        estimatedTime: m.estimated_time,
+        status: completedIds.includes(m.id)
+          ? 'completed'
+          : inProgressIds.includes(m.id)
+          ? 'in-progress'
+          : 'new',
+        color: categoryColors[m.category] || 'from-blue-700 to-blue-500',
+        icon: categoryIcons[m.category] || categoryIcons['Phishing Detection'],
+      }))
+
+      setModules(mapped)
+    }
+
+    setLoading(false)
+  }
+
+  const completionPercent = totalModules > 0
+    ? Math.round((completedCount / totalModules) * 100)
+    : 0
 
   const filteredModules = filter === 'all'
     ? modules
@@ -57,24 +125,7 @@ function TrainingPage() {
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-60' : 'ml-16'}`}>
 
         {/* Top bar */}
-        <div className="bg-[#0d1117] flex items-center justify-between px-8 py-1">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-white">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-              </svg>
-            </div>
-            <div>
-              <p className="text-white font-semibold text-sm">John Doe</p>
-              <span className="bg-green-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">USER</span>
-            </div>
-          </div>
-        </div>
+        <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
         {/* Page content */}
         <div className="flex-1 p-8">
@@ -86,19 +137,28 @@ function TrainingPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
               <p className="text-gray-500 text-xs mb-1">Total Modules</p>
-              <p className="text-blue-600 text-xl font-bold">38% Complete</p>
+              <p className="text-blue-600 text-xl font-bold">{completionPercent}% Complete</p>
+              <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                <div
+                  className="bg-blue-600 h-1.5 rounded-full transition-all duration-500"
+                  style={{ width: `${completionPercent}%` }}
+                />
+              </div>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
               <p className="text-gray-500 text-xs mb-1">Completed</p>
-              <p className="text-gray-800 text-2xl font-bold">3</p>
+              <p className="text-gray-800 text-2xl font-bold">{completedCount}</p>
+              <p className="text-gray-400 text-xs mt-1">of {totalModules} modules</p>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
               <p className="text-gray-500 text-xs mb-1">In Progress</p>
-              <p className="text-gray-800 text-2xl font-bold">3</p>
+              <p className="text-gray-800 text-2xl font-bold">{inProgressCount}</p>
+              <p className="text-gray-400 text-xs mt-1">modules started</p>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
               <p className="text-gray-500 text-xs mb-1">Total Points</p>
-              <p className="text-gray-800 text-2xl font-bold">450</p>
+              <p className="text-gray-800 text-2xl font-bold">{totalPoints}</p>
+              <p className="text-gray-400 text-xs mt-1">100 pts per module</p>
             </div>
           </div>
 
@@ -130,59 +190,59 @@ function TrainingPage() {
             </div>
           </div>
 
-          {/* Module cards grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-            {filteredModules.map((mod) => (
-              <div
-                key={mod.id}
-                className={`bg-gradient-to-br ${mod.color} rounded-2xl p-6 flex flex-col justify-between min-h-[240px] shadow-lg`}
-              >
-                {/* Top — icon + badge */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="bg-white bg-opacity-20 p-2 rounded-xl">
-                    {mod.icon}
+          {/* Loading state */}
+          {loading ? (
+            <div className="text-center py-12">
+              <p className="text-gray-400 text-sm">Loading modules...</p>
+            </div>
+          ) : filteredModules.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-400 text-sm">No modules found.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredModules.map((mod) => (
+                <div
+                  key={mod.id}
+                  className={`bg-gradient-to-br ${mod.color} rounded-2xl p-6 flex flex-col justify-between min-h-[240px] shadow-lg`}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="bg-white bg-opacity-20 p-2 rounded-xl">
+                      {mod.icon}
+                    </div>
+                    {mod.status === 'new' && (
+                      <span className="bg-white text-gray-800 text-xs font-bold px-2 py-1 rounded-lg">NEW</span>
+                    )}
+                    {mod.status === 'in-progress' && (
+                      <span className="bg-orange-400 text-white text-xs font-bold px-2 py-1 rounded-lg">IN PROGRESS</span>
+                    )}
+                    {mod.status === 'completed' && (
+                      <span className="bg-green-400 text-white text-xs font-bold px-2 py-1 rounded-lg">COMPLETED</span>
+                    )}
                   </div>
-                  {mod.status === 'new' && (
-                    <span className="bg-white text-gray-800 text-xs font-bold px-2 py-1 rounded-lg">NEW</span>
-                  )}
-                  {mod.status === 'in-progress' && (
-                    <span className="bg-orange-400 text-white text-xs font-bold px-2 py-1 rounded-lg">IN PROGRESS</span>
-                  )}
-                  {mod.status === 'completed' && (
-                    <span className="bg-green-400 text-white text-xs font-bold px-2 py-1 rounded-lg">COMPLETED</span>
+
+                  <div className="flex-1">
+                    <h2 className="text-white text-lg font-bold mb-2 leading-snug">{mod.title}</h2>
+                    <p className="text-white text-xs leading-relaxed opacity-90 line-clamp-3">{mod.description}</p>
+                  </div>
+
+                  {mod.status === 'completed' ? (
+                    <button className="mt-4 w-full bg-white text-green-600 font-semibold text-sm py-2 rounded-xl cursor-default" disabled>
+                      Completed ✓
+                    </button>
+                  ) : mod.status === 'in-progress' ? (
+                    <button onClick={() => navigate(`/training/${mod.id}`)} className="mt-4 w-full bg-white text-orange-500 font-semibold text-sm py-2 rounded-xl hover:bg-gray-100 transition">
+                      Continue Module &gt;
+                    </button>
+                  ) : (
+                    <button onClick={() => navigate(`/training/${mod.id}`)} className="mt-4 w-full bg-white text-blue-600 font-semibold text-sm py-2 rounded-xl hover:bg-gray-100 transition">
+                      Start Module &gt;
+                    </button>
                   )}
                 </div>
-
-                {/* Title + description */}
-                <div className="flex-1">
-                  <h2 className="text-white text-lg font-bold mb-2 leading-snug">
-                    {mod.title}
-                  </h2>
-                  <p className="text-white text-xs leading-relaxed opacity-90 line-clamp-3">
-                    {mod.description}
-                  </p>
-                </div>
-
-                {/* Button changes based on status */}
-                {mod.status === 'completed' ? (
-                  <button className="mt-4 w-full bg-white text-green-600 font-semibold text-sm py-2 rounded-xl cursor-default" disabled>
-                    Completed ✓
-                  </button>
-                ) : mod.status === 'in-progress' ? (
-                  <button onClick={() => navigate(`/training/${mod.id}`)} className="mt-4 w-full bg-white text-orange-500 font-semibold text-sm py-2 rounded-xl hover:bg-gray-100 transition">
-                    Continue Module &gt;
-                  </button>
-                ) : (
-                  <button onClick={() => navigate(`/training/${mod.id}`)} className="mt-4 w-full bg-white text-blue-600 font-semibold text-sm py-2 rounded-xl hover:bg-gray-100 transition">
-                    Start Module &gt;
-                  </button>
-                )}
-
-              </div>
-            ))}
-
-          </div>
+              ))}
+            </div>
+          )}
 
         </div>
       </div>
