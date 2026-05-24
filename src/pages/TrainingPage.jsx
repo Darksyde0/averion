@@ -33,12 +33,30 @@ const categoryIcons = {
   ),
 }
 
-const categoryColors = {
-  'Social Engineering': 'from-red-800 to-red-500',
-  'Phishing Detection': 'from-blue-700 to-blue-500',
-  'Password Security': 'from-green-700 to-green-500',
-  'Data Privacy': 'from-purple-700 to-purple-500',
-  'Network Security': 'from-orange-700 to-orange-500',
+const defaultIcon = (
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 001.5-.189m-1.5.189a6.01 6.01 0 01-1.5-.189m3.75 7.478a12.06 12.06 0 01-4.5 0m3.75 2.383a14.406 14.406 0 01-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 10-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+  </svg>
+)
+
+const colorPalette = [
+  ['#1d4ed8', '#3b82f6'],
+  ['#6d28d9', '#8b5cf6'],
+  ['#be123c', '#f43f5e'],
+  ['#065f46', '#10b981'],
+  ['#c2410c', '#f97316'],
+  ['#0e7490', '#06b6d4'],
+  ['#86198f', '#d946ef'],
+  ['#0f766e', '#14b8a6'],
+  ['#b91c1c', '#ef4444'],
+  ['#4338ca', '#6366f1'],
+  ['#b45309', '#f59e0b'],
+  ['#be185d', '#ec4899'],
+]
+
+function getModuleColor(id) {
+  const sum = String(id).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  return colorPalette[sum % colorPalette.length]
 }
 
 function TrainingPage() {
@@ -54,9 +72,7 @@ function TrainingPage() {
   const [inProgressCount, setInProgressCount] = useState(0)
   const [totalPoints, setTotalPoints] = useState(0)
 
-  useEffect(() => {
-    fetchModules()
-  }, [])
+  useEffect(() => { fetchModules() }, [])
 
   async function fetchModules() {
     setLoading(true)
@@ -76,13 +92,14 @@ function TrainingPage() {
       let inProgressIds = []
 
       if (user) {
+        // ── Fix: select quiz_completed not completed ──
         const { data: progress } = await supabase
           .from('module_progress')
-          .select('module_id, completed')
+          .select('module_id, quiz_completed')
           .eq('user_id', user.id)
 
-        completedIds = (progress || []).filter(p => p.completed).map(p => p.module_id)
-        inProgressIds = (progress || []).filter(p => !p.completed).map(p => p.module_id)
+        completedIds = (progress || []).filter(p => p.quiz_completed === true).map(p => p.module_id)
+        inProgressIds = (progress || []).filter(p => p.quiz_completed === false).map(p => p.module_id)
 
         setCompletedCount(completedIds.length)
         setInProgressCount(inProgressIds.length)
@@ -98,10 +115,10 @@ function TrainingPage() {
         status: completedIds.includes(m.id)
           ? 'completed'
           : inProgressIds.includes(m.id)
-          ? 'in-progress'
-          : 'new',
-        color: categoryColors[m.category] || 'from-blue-700 to-blue-500',
-        icon: categoryIcons[m.category] || categoryIcons['Phishing Detection'],
+            ? 'in-progress'
+            : 'new',
+        color: getModuleColor(m.id),
+        icon: categoryIcons[m.category] || defaultIcon,
       }))
 
       setModules(mapped)
@@ -123,11 +140,8 @@ function TrainingPage() {
       <Sidebar isOpen={sidebarOpen} />
 
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-60' : 'ml-16'}`}>
-
-        {/* Top bar */}
         <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
-        {/* Page content */}
         <div className="flex-1 p-8">
 
           <h1 className="text-gray-800 text-3xl font-bold mb-1">Training Modules</h1>
@@ -139,10 +153,8 @@ function TrainingPage() {
               <p className="text-gray-500 text-xs mb-1">Total Modules</p>
               <p className="text-blue-600 text-xl font-bold">{completionPercent}% Complete</p>
               <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
-                <div
-                  className="bg-blue-600 h-1.5 rounded-full transition-all duration-500"
-                  style={{ width: `${completionPercent}%` }}
-                />
+                <div className="bg-blue-600 h-1.5 rounded-full transition-all duration-500"
+                  style={{ width: `${completionPercent}%` }} />
               </div>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
@@ -164,35 +176,30 @@ function TrainingPage() {
 
           {/* Filter buttons */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm mb-6">
-            <p className="text-gray-700 text-sm font-semibold mb-3">Filter by Category</p>
+            <p className="text-gray-700 text-sm font-semibold mb-3">Filter by Status</p>
             <div className="flex gap-3">
-              <button
-                onClick={() => setFilter('all')}
+              <button onClick={() => setFilter('all')}
                 className={`px-5 py-2 rounded-full text-sm font-semibold transition
-                  ${filter === 'all' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}
-              >
+                  ${filter === 'all' ? 'bg-blue-600 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
                 All
               </button>
-              <button
-                onClick={() => setFilter('in-progress')}
+              <button onClick={() => setFilter('in-progress')}
                 className={`px-5 py-2 rounded-full text-sm font-semibold transition
-                  ${filter === 'in-progress' ? 'bg-orange-500 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}
-              >
+                  ${filter === 'in-progress' ? 'bg-orange-500 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
                 In Progress
               </button>
-              <button
-                onClick={() => setFilter('completed')}
+              <button onClick={() => setFilter('completed')}
                 className={`px-5 py-2 rounded-full text-sm font-semibold transition
-                  ${filter === 'completed' ? 'bg-green-600 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}
-              >
+                  ${filter === 'completed' ? 'bg-green-600 text-white' : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-100'}`}>
                 Completed
               </button>
             </div>
           </div>
 
-          {/* Loading state */}
+          {/* Modules grid */}
           {loading ? (
             <div className="text-center py-12">
+              <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
               <p className="text-gray-400 text-sm">Loading modules...</p>
             </div>
           ) : filteredModules.length === 0 ? (
@@ -202,10 +209,10 @@ function TrainingPage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredModules.map((mod) => (
-                <div
-                  key={mod.id}
-                  className={`bg-gradient-to-br ${mod.color} rounded-2xl p-6 flex flex-col justify-between min-h-[240px] shadow-lg`}
-                >
+                <div key={mod.id}
+                  style={{ background: `linear-gradient(135deg, ${mod.color[0]}, ${mod.color[1]})` }}
+                  className="rounded-2xl p-6 flex flex-col justify-between min-h-[240px] shadow-lg">
+
                   <div className="flex items-start justify-between mb-4">
                     <div className="bg-white bg-opacity-20 p-2 rounded-xl">
                       {mod.icon}
@@ -222,23 +229,32 @@ function TrainingPage() {
                   </div>
 
                   <div className="flex-1">
+                    <p className="text-white text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">{mod.category}</p>
                     <h2 className="text-white text-lg font-bold mb-2 leading-snug">{mod.title}</h2>
-                    <p className="text-white text-xs leading-relaxed opacity-90 line-clamp-3">{mod.description}</p>
+                    <p className="text-white text-xs leading-relaxed opacity-80 line-clamp-2">{mod.description}</p>
                   </div>
 
-                  {mod.status === 'completed' ? (
-                    <button className="mt-4 w-full bg-white text-green-600 font-semibold text-sm py-2 rounded-xl cursor-default" disabled>
-                      Completed ✓
-                    </button>
-                  ) : mod.status === 'in-progress' ? (
-                    <button onClick={() => navigate(`/training/${mod.id}`)} className="mt-4 w-full bg-white text-orange-500 font-semibold text-sm py-2 rounded-xl hover:bg-gray-100 transition">
-                      Continue Module &gt;
-                    </button>
-                  ) : (
-                    <button onClick={() => navigate(`/training/${mod.id}`)} className="mt-4 w-full bg-white text-blue-600 font-semibold text-sm py-2 rounded-xl hover:bg-gray-100 transition">
-                      Start Module &gt;
-                    </button>
-                  )}
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="text-white text-xs opacity-70">⏱ {mod.estimatedTime} mins</span>
+                    {mod.status === 'completed' ? (
+                      <button className="bg-white font-semibold text-sm px-4 py-1.5 rounded-xl cursor-default opacity-80"
+                        style={{ color: mod.color[0] }} disabled>
+                        Completed ✓
+                      </button>
+                    ) : mod.status === 'in-progress' ? (
+                      <button onClick={() => navigate(`/training/${mod.id}`)}
+                        className="bg-white font-semibold text-sm px-4 py-1.5 rounded-xl hover:bg-gray-100 transition"
+                        style={{ color: mod.color[0] }}>
+                        Continue →
+                      </button>
+                    ) : (
+                      <button onClick={() => navigate(`/training/${mod.id}`)}
+                        className="bg-white font-semibold text-sm px-4 py-1.5 rounded-xl hover:bg-gray-100 transition"
+                        style={{ color: mod.color[0] }}>
+                        Start →
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

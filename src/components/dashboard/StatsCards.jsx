@@ -5,14 +5,11 @@ function StatsCards() {
   const [stats, setStats] = useState({
     trainingProgress: 0,
     latestScore: null,
-    latestModuleName: '',
     pendingModules: 0,
     threatLevel: 'Low',
   })
 
-  useEffect(() => {
-    fetchStats()
-  }, [])
+  useEffect(() => { fetchStats() }, [])
 
   async function fetchStats() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -26,12 +23,12 @@ function StatsCards() {
 
     const totalModules = allModules?.length || 0
 
-    // ── Completed modules (from module_progress) ──
+    // ── Fix: use quiz_completed instead of completed ──
     const { data: progress } = await supabase
       .from('module_progress')
-      .select('*')
+      .select('module_id, quiz_completed')
       .eq('user_id', user.id)
-      .eq('completed', true)
+      .eq('quiz_completed', true)
 
     const completedCount = progress?.length || 0
     const pendingCount = totalModules - completedCount

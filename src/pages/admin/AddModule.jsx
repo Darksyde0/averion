@@ -165,7 +165,6 @@ function AddModule() {
     setError('')
 
     try {
-      // Step 1 — Insert module with organization_id
       const { data: moduleRow, error: moduleError } = await supabase
         .from('modules')
         .insert({
@@ -174,14 +173,13 @@ function AddModule() {
           category: moduleData.category,
           estimated_time: parseInt(moduleData.estimatedTime),
           hidden: false,
-          organization_id: profile.id, // ← org filter
+          organization_id: profile.id,
         })
         .select()
         .single()
 
       if (moduleError) { setError('Failed to save module: ' + moduleError.message); setLoading(false); return }
 
-      // Step 2 — Insert lessons and sections
       for (let i = 0; i < lessons.length; i++) {
         const lesson = lessons[i]
         const { data: lessonRow, error: lessonError } = await supabase
@@ -209,7 +207,6 @@ function AddModule() {
         }
       }
 
-      // Step 3 — Insert quiz questions
       for (const q of questions) {
         const { error: quizError } = await supabase
           .from('quiz_questions')
@@ -248,7 +245,6 @@ function AddModule() {
 
             <div className="w-full">
 
-              {/* Header */}
               <div className="mb-8">
                 <h1 className="text-gray-900 text-2xl font-bold">Add Training Module</h1>
                 <p className="text-gray-400 text-sm mt-0.5">Create a new training module with lessons and quiz questions</p>
@@ -300,16 +296,26 @@ function AddModule() {
                       </div>
                     </div>
 
+                    {/* ── Category: free text + suggestions ── */}
                     <div>
                       <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Category <span className="text-red-400">*</span></label>
-                      <select name="category" value={moduleData.category} onChange={handleModuleChange}
-                        className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
-                        <option>Phishing Detection</option>
-                        <option>Password Security</option>
-                        <option>Social Engineering</option>
-                        <option>Data Privacy</option>
-                        <option>Network Security</option>
-                      </select>
+                      <input
+                        type="text"
+                        name="category"
+                        value={moduleData.category}
+                        onChange={handleModuleChange}
+                        placeholder="e.g. Phishing Detection"
+                        list="module-category-options"
+                        className="w-full bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
+                        required
+                      />
+                      <datalist id="module-category-options">
+                        <option value="Phishing Detection" />
+                        <option value="Password Security" />
+                        <option value="Social Engineering" />
+                        <option value="Data Privacy" />
+                        <option value="Network Security" />
+                      </datalist>
                     </div>
 
                     <div>
@@ -331,7 +337,6 @@ function AddModule() {
                   {lessons.map((lesson, lessonIndex) => (
                     <div key={lesson.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
-                      {/* Lesson header */}
                       <div className="flex items-center justify-between px-6 py-3.5 bg-[#0d1117]">
                         <div className="flex items-center gap-3">
                           <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -352,7 +357,6 @@ function AddModule() {
 
                       <div className="p-6">
 
-                        {/* Lesson Title */}
                         <div className="mb-5">
                           <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Lesson Title <span className="text-red-400">*</span></label>
                           <input type="text" value={lesson.title} onChange={(e) => updateLessonTitle(lesson.id, e.target.value)}
@@ -624,7 +628,6 @@ function AddModule() {
 
           ) : (
 
-            // ── SUCCESS ──
             <div className="max-w-md mx-auto mt-20 text-center">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
