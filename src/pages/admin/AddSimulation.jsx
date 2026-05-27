@@ -56,6 +56,14 @@ function shuffleSim(sim) {
   return { ...sim, options: shuffled, correctIndex: shuffled.indexOf(correct) }
 }
 
+// ── Generate a shared batch_id (UUID v4) ──
+function generateBatchId() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16)
+  })
+}
+
 function AddSimulation() {
   const navigate = useNavigate()
   const profile = useProfile()
@@ -125,6 +133,9 @@ function AddSimulation() {
         imageUrl = urlData.publicUrl
       }
 
+      // ── Single simulation gets its own unique batch_id ──
+      const batchId = generateBatchId()
+
       const { error: simError } = await supabase.from('simulations').insert({
         scenario_name: formData.scenarioName,
         question: formData.question,
@@ -137,6 +148,7 @@ function AddSimulation() {
         explanation: formData.explanation,
         hidden: false,
         organization_id: profile.id,
+        batch_id: batchId,
       })
 
       if (simError) { setError('Failed to save simulation: ' + simError.message); setLoading(false); return }
@@ -197,17 +209,33 @@ function AddSimulation() {
     if (!profile?.id) return
     setLoading(true); setError('')
     try {
+      // ── All AI-generated sims in one batch share the same batch_id ──
+      const batchId = generateBatchId()
+
       const rows = generatedSims.map(sim => ({
-        scenario_name: sim.scenarioName, question: sim.question, category: sim.category,
-        difficulty: sim.difficulty, type: 'text', image_url: null, options: sim.options,
-        correct_index: sim.correctIndex, explanation: sim.explanation, hidden: false, organization_id: profile.id,
+        scenario_name: sim.scenarioName,
+        question: sim.question,
+        category: sim.category,
+        difficulty: sim.difficulty,
+        type: 'text',
+        image_url: null,
+        options: sim.options,
+        correct_index: sim.correctIndex,
+        explanation: sim.explanation,
+        hidden: false,
+        organization_id: profile.id,
+        batch_id: batchId,
       }))
+
       const { error: simError } = await supabase.from('simulations').insert(rows)
       if (simError) { setError('Failed to save simulations: ' + simError.message); setLoading(false); return }
       setGeneratedSims([]); setShowGenerated(false)
       alert(`${rows.length} simulations saved successfully!`)
-    } catch (err) { setError('Something went wrong. Please try again.') }
-    finally { setLoading(false) }
+    } catch (err) {
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   function getDifficultyColor(difficulty) {
@@ -298,7 +326,6 @@ function AddSimulation() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-5">
-                    {/* ── Category: free text + suggestions ── */}
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                       <label className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-3 block">Category</label>
                       <input
@@ -399,13 +426,21 @@ function AddSimulation() {
                     <div className="flex items-center justify-between mb-5">
                       <div>
                         <h2 className="text-gray-800 font-bold">{generatedSims.length} Simulation{generatedSims.length > 1 ? 's' : ''} Generated</h2>
-                        <p className="text-gray-400 text-xs mt-0.5">Review, edit or delete before saving</p>
+                        <p className="text-gray-400 text-xs mt-0.5">These will be saved as one batch — review before saving</p>
                       </div>
                       <button onClick={handleSaveAll} disabled={loading}
                         className={`font-bold text-sm px-5 py-2.5 rounded-xl transition
                           ${loading ? 'bg-blue-400 text-white cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
                         {loading ? 'Saving...' : `Save All ${generatedSims.length}`}
                       </button>
+                    </div>
+
+                    {/* Batch info banner */}
+                    <div className="bg-violet-50 border border-violet-100 rounded-xl px-4 py-3 mb-5 flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-violet-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                      </svg>
+                      <p className="text-violet-700 text-xs">All {generatedSims.length} simulations will be saved as a single batch — users will complete them together.</p>
                     </div>
 
                     <div className="flex flex-col gap-4">
@@ -493,15 +528,12 @@ function AddSimulation() {
                   </div>
                 </div>
               </div>
-
             )}
           </div>
 
-          {/* ── Sleek AI Chat Panel — sits below topbar ── */}
+          {/* ── AI Chat Panel ── */}
           {aiPanelOpen && (
             <div className="fixed right-0 top-[49px] h-[calc(100vh-49px)] w-80 bg-[#0d1117] border-l border-white border-opacity-5 flex flex-col z-30">
-
-              {/* Header */}
               <div className="flex items-center justify-between px-5 py-4 border-b border-white border-opacity-5 flex-shrink-0">
                 <div className="flex items-center gap-2.5">
                   <div className="w-7 h-7 bg-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -514,15 +546,13 @@ function AddSimulation() {
                     <p className="text-gray-500 text-xs">GPT-4o</p>
                   </div>
                 </div>
-                <button onClick={() => setAiPanelOpen(false)}
-                  className="text-gray-600 hover:text-gray-300 transition">
+                <button onClick={() => setAiPanelOpen(false)} className="text-gray-600 hover:text-gray-300 transition">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
-              {/* Messages */}
               <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 hide-scrollbar">
                 {aiMessages.map((msg, index) => (
                   <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -553,7 +583,6 @@ function AddSimulation() {
                 <div ref={chatEndRef} />
               </div>
 
-              {/* Input */}
               <div className="px-4 py-4 border-t border-white border-opacity-5 flex-shrink-0">
                 <div className="flex items-center gap-2 bg-white bg-opacity-5 rounded-xl px-3 py-2.5">
                   <input
@@ -565,9 +594,7 @@ function AddSimulation() {
                     className="flex-1 bg-transparent text-gray-300 placeholder-gray-600 text-xs outline-none"
                     disabled={aiLoading}
                   />
-                  <button
-                    onClick={handleAiSend}
-                    disabled={aiLoading || !aiInput.trim()}
+                  <button onClick={handleAiSend} disabled={aiLoading || !aiInput.trim()}
                     className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition
                       ${aiLoading || !aiInput.trim()
                         ? 'bg-white bg-opacity-5 text-gray-600 cursor-not-allowed'
@@ -580,7 +607,6 @@ function AddSimulation() {
                 </div>
                 <p className="text-gray-700 text-xs text-center mt-2">Press Enter to send</p>
               </div>
-
             </div>
           )}
 
