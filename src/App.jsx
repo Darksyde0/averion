@@ -23,6 +23,7 @@ import AddModule from './pages/admin/AddModule'
 import ViewModules from './pages/admin/ViewModules'
 import AboutPage from './pages/AboutPage'
 import EditModule from './pages/admin/EditModule'
+import UserProfile from './pages/admin/UserProfile'
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/users" element={<AllUsers />} />
         <Route path="/admin/users/add" element={<AddUser />} />
+        <Route path="/admin/users/:id" element={<UserProfile />} />
         <Route path="/admin/simulations/add" element={<AddSimulation />} />
         <Route path="/admin/simulations" element={<ViewSimulations />} />
         <Route path="/admin/simulations/edit/:id" element={<EditSimulation />} />

@@ -50,13 +50,17 @@ function AdminDashboard() {
   })
   const [allBarData, setAllBarData] = useState([])
   const [recentActivity, setRecentActivity] = useState([])
+  const [topPerformers, setTopPerformers] = useState([])
+  const [atRiskList, setAtRiskList] = useState([])
   const [loading, setLoading] = useState(true)
   const [activityLoading, setActivityLoading] = useState(true)
+  const [leaderboardLoading, setLeaderboardLoading] = useState(true)
 
   useEffect(() => {
     if (profile?.id) {
       fetchStats()
       fetchRecentActivity()
+      fetchLeaderboard()
     }
   }, [profile])
 
@@ -78,9 +82,14 @@ function AdminDashboard() {
 
       if (simResults && simResults.length > 0) {
         avgScore = Math.round(simResults.reduce((sum, r) => sum + r.score, 0) / simResults.length)
+
         const userScores = {}
-        simResults.forEach(r => { userScores[r.user_id] = r.score })
-        atRiskUsers = Object.values(userScores).filter(s => s < 50).length
+        simResults.forEach(r => {
+          if (!userScores[r.user_id] || r.completed_at > userScores[r.user_id].date) {
+            userScores[r.user_id] = { score: r.score, date: r.completed_at }
+          }
+        })
+        atRiskUsers = Object.values(userScores).filter(s => s.score < 50).length
 
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
         const grouped = {}
@@ -107,22 +116,25 @@ function AdminDashboard() {
     if (userIds.length > 0 && totalModules > 0) {
       const { data: progress } = await supabase
         .from('module_progress')
-        .select('user_id, quiz_completed')
+        .select('user_id, module_id, quiz_completed')
         .in('user_id', userIds)
 
-      const userProgress = {}
-      userIds.forEach(id => { userProgress[id] = { completed: 0, inProgress: 0 } })
+      const userModuleMap = {}
+      userIds.forEach(id => {
+        userModuleMap[id] = { completedModules: new Set(), startedModules: new Set() }
+      })
 
-      progress?.forEach(p => {
-        if (p.quiz_completed === true) userProgress[p.user_id].completed++
-        else userProgress[p.user_id].inProgress++
+      ;(progress || []).forEach(p => {
+        if (!userModuleMap[p.user_id]) return
+        if (p.quiz_completed === true) userModuleMap[p.user_id].completedModules.add(p.module_id)
+        else userModuleMap[p.user_id].startedModules.add(p.module_id)
       })
 
       userIds.forEach(id => {
-        const c = userProgress[id].completed
-        const ip = userProgress[id].inProgress
-        if (c >= totalModules) completedCount++
-        else if (c > 0 || ip > 0) inProgressCount++
+        const completed = userModuleMap[id].completedModules.size
+        const started = userModuleMap[id].startedModules.size
+        if (completed >= totalModules) completedCount++
+        else if (completed > 0 || started > 0) inProgressCount++
         else notStartedCount++
       })
     } else {
@@ -135,10 +147,53 @@ function AdminDashboard() {
     setLoading(false)
   }
 
+  async function fetchLeaderboard() {
+    setLeaderboardLoading(true)
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, full_name, avatar_url')
+      .eq('role', 'user')
+      .eq('organization_id', profile.id)
+
+    if (!users || users.length === 0) { setLeaderboardLoading(false); return }
+
+    const userIds = users.map(u => u.id)
+    const userMap = {}
+    users.forEach(u => { userMap[u.id] = { name: u.full_name || 'User', avatar: u.avatar_url || null } })
+
+    const { data: simResults } = await supabase
+      .from('simulation_results')
+      .select('user_id, score, completed_at')
+      .in('user_id', userIds)
+      .order('completed_at', { ascending: false })
+
+    if (!simResults || simResults.length === 0) { setLeaderboardLoading(false); return }
+
+    // ── Per user: avg score + attempt count ──
+    const userStats = {}
+    simResults.forEach(r => {
+      if (!userStats[r.user_id]) userStats[r.user_id] = { scores: [], latestDate: r.completed_at }
+      userStats[r.user_id].scores.push(r.score)
+    })
+
+    const ranked = Object.entries(userStats).map(([userId, data]) => ({
+      userId,
+      name: userMap[userId]?.name || 'User',
+      avatar: userMap[userId]?.avatar || null,
+      avgScore: Math.round(data.scores.reduce((a, b) => a + b, 0) / data.scores.length),
+      attempts: data.scores.length,
+      latestScore: data.scores[0],
+    })).sort((a, b) => b.avgScore - a.avgScore)
+
+    setTopPerformers(ranked.filter(u => u.avgScore >= 50).slice(0, 5))
+    setAtRiskList(ranked.filter(u => u.avgScore < 50).slice(0, 5))
+    setLeaderboardLoading(false)
+  }
+
   async function fetchRecentActivity() {
     setActivityLoading(true)
 
-    // ── Fetch avatar_url too ──
     const { data: users } = await supabase
       .from('users')
       .select('id, full_name, avatar_url')
@@ -150,10 +205,7 @@ function AdminDashboard() {
     const userIds = users.map(u => u.id)
     const userMap = {}
     users.forEach(u => {
-      userMap[u.id] = {
-        name: u.full_name || 'A user',
-        avatar: u.avatar_url || null,
-      }
+      userMap[u.id] = { name: u.full_name || 'A user', avatar: u.avatar_url || null }
     })
 
     const { data: simResults } = await supabase
@@ -244,6 +296,41 @@ function AdminDashboard() {
       icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>,
     },
   ]
+
+  function UserRow({ user, rank, showRank, scoreColor }) {
+    return (
+      <div className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+        {showRank && (
+          <span className={`text-xs font-extrabold w-4 text-right flex-shrink-0
+            ${rank === 1 ? 'text-yellow-500' : rank === 2 ? 'text-gray-400' : rank === 3 ? 'text-amber-600' : 'text-gray-300'}`}>
+            {rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`}
+          </span>
+        )}
+        {user.avatar ? (
+          <img src={user.avatar} alt={user.name}
+            className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+            onError={e => e.target.style.display = 'none'} />
+        ) : (
+          <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-gray-500">
+            {user.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-gray-800 text-xs font-semibold truncate">{user.name}</p>
+          <p className="text-gray-400 text-xs">{user.attempts} attempt{user.attempts > 1 ? 's' : ''}</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${user.avgScore}%`, backgroundColor: scoreColor }} />
+          </div>
+          <p className={`text-xs font-extrabold w-8 text-right`} style={{ color: scoreColor }}>
+            {user.avgScore}%
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -441,90 +528,151 @@ function AdminDashboard() {
                 )}
               </div>
             </div>
-
           </div>
 
           {/* ── Bottom row ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
+            {/* ── Left: Top Performers + At Risk ── */}
             <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-5">
 
+              {/* Top Performers */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-50 flex items-center gap-2">
-                  <div className="w-6 h-6 bg-green-50 rounded-lg flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                    </svg>
+                <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-yellow-50 rounded-lg flex items-center justify-center">
+                      <span className="text-xs">🏆</span>
+                    </div>
+                    <div>
+                      <h2 className="text-gray-800 text-sm font-bold">Top Performers</h2>
+                      <p className="text-gray-400 text-xs">Highest avg simulation scores</p>
+                    </div>
                   </div>
-                  <h2 className="text-gray-800 text-sm font-bold">Strengths</h2>
+                  <span className="bg-green-100 text-green-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                    {topPerformers.length}
+                  </span>
                 </div>
-                <div className="px-6 py-4 flex flex-col gap-2.5">
-                  {stats.avgScore >= 80 && (
-                    <div className="flex items-start gap-3 bg-green-50 rounded-xl px-4 py-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />
-                      <p className="text-gray-700 text-xs leading-relaxed">Average score excellent at <span className="font-bold text-green-600">{stats.avgScore}%</span></p>
+
+                <div className="px-5 py-3">
+                  {leaderboardLoading ? (
+                    <div className="flex flex-col gap-2 py-2">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="animate-pulse flex items-center gap-3 py-2">
+                          <div className="w-7 h-7 rounded-full bg-gray-100 flex-shrink-0" />
+                          <div className="flex-1">
+                            <div className="h-2.5 bg-gray-100 rounded w-3/4 mb-1" />
+                            <div className="h-2 bg-gray-100 rounded w-1/2" />
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                  {stats.completionRate >= 50 && (
-                    <div className="flex items-start gap-3 bg-green-50 rounded-xl px-4 py-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />
-                      <p className="text-gray-700 text-xs leading-relaxed">Completion rate at <span className="font-bold text-green-600">{stats.completionRate}%</span></p>
+                  ) : topPerformers.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 gap-2">
+                      <p className="text-2xl">🏆</p>
+                      <p className="text-gray-400 text-xs font-semibold text-center">No performers yet</p>
+                      <p className="text-gray-300 text-xs text-center">Users will appear once they complete simulations</p>
                     </div>
-                  )}
-                  {stats.atRiskUsers === 0 && stats.totalUsers > 0 && (
-                    <div className="flex items-start gap-3 bg-green-50 rounded-xl px-4 py-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-500 mt-1.5 flex-shrink-0" />
-                      <p className="text-gray-700 text-xs leading-relaxed">No at-risk users — all performing well</p>
-                    </div>
-                  )}
-                  {stats.totalUsers === 0 && (
-                    <div className="flex items-start gap-3 bg-gray-50 rounded-xl px-4 py-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-gray-300 mt-1.5 flex-shrink-0" />
-                      <p className="text-gray-400 text-xs leading-relaxed">Add users to start tracking</p>
-                    </div>
+                  ) : (
+                    topPerformers.map((user, i) => (
+                      <div key={user.userId} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+                        <span className="text-sm w-5 flex-shrink-0 text-center">
+                          {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : <span className="text-gray-300 text-xs font-bold">#{i + 1}</span>}
+                        </span>
+                        {user.avatar ? (
+                          <img src={user.avatar} alt={user.name}
+                            className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+                            onError={e => e.target.style.display = 'none'} />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-green-600">
+                            {user.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-800 text-xs font-semibold truncate">{user.name}</p>
+                          <p className="text-gray-400 text-xs">{user.attempts} attempt{user.attempts > 1 ? 's' : ''}</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="w-14 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full bg-green-500 transition-all duration-500"
+                              style={{ width: `${user.avgScore}%` }} />
+                          </div>
+                          <p className="text-xs font-extrabold text-green-600 w-8 text-right">{user.avgScore}%</p>
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
               </div>
 
+              {/* At Risk Users */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-50 flex items-center gap-2">
-                  <div className="w-6 h-6 bg-yellow-50 rounded-lg flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                    </svg>
+                <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-red-50 rounded-lg flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-gray-800 text-sm font-bold">Needs Attention</h2>
+                      <p className="text-gray-400 text-xs">Users scoring below 50%</p>
+                    </div>
                   </div>
-                  <h2 className="text-gray-800 text-sm font-bold">Areas for Improvement</h2>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full
+                    ${atRiskList.length > 0 ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-400'}`}>
+                    {atRiskList.length}
+                  </span>
                 </div>
-                <div className="px-6 py-4 flex flex-col gap-2.5">
-                  {stats.atRiskUsers > 0 && (
-                    <div className="flex items-start gap-3 bg-red-50 rounded-xl px-4 py-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1.5 flex-shrink-0" />
-                      <p className="text-gray-700 text-xs leading-relaxed"><span className="font-bold text-red-600">{stats.atRiskUsers} user{stats.atRiskUsers > 1 ? 's' : ''}</span> scored below 50%</p>
+
+                <div className="px-5 py-3">
+                  {leaderboardLoading ? (
+                    <div className="flex flex-col gap-2 py-2">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="animate-pulse flex items-center gap-3 py-2">
+                          <div className="w-7 h-7 rounded-full bg-gray-100 flex-shrink-0" />
+                          <div className="flex-1">
+                            <div className="h-2.5 bg-gray-100 rounded w-3/4 mb-1" />
+                            <div className="h-2 bg-gray-100 rounded w-1/2" />
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                  {stats.notStartedCount > 0 && (
-                    <div className="flex items-start gap-3 bg-yellow-50 rounded-xl px-4 py-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5 flex-shrink-0" />
-                      <p className="text-gray-700 text-xs leading-relaxed"><span className="font-bold text-yellow-600">{stats.notStartedCount} user{stats.notStartedCount > 1 ? 's' : ''}</span> haven't started training</p>
+                  ) : atRiskList.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 gap-2">
+                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      </div>
+                      <p className="text-gray-500 text-xs font-semibold">All users passing!</p>
+                      <p className="text-gray-300 text-xs text-center">No one is below 50% — great work</p>
                     </div>
-                  )}
-                  {stats.completionRate < 50 && stats.totalUsers > 0 && (
-                    <div className="flex items-start gap-3 bg-yellow-50 rounded-xl px-4 py-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5 flex-shrink-0" />
-                      <p className="text-gray-700 text-xs leading-relaxed">Completion rate below 50%</p>
-                    </div>
-                  )}
-                  {stats.avgScore > 0 && stats.avgScore < 80 && (
-                    <div className="flex items-start gap-3 bg-yellow-50 rounded-xl px-4 py-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-yellow-500 mt-1.5 flex-shrink-0" />
-                      <p className="text-gray-700 text-xs leading-relaxed">Average <span className="font-bold text-yellow-600">{stats.avgScore}%</span> below 80% threshold</p>
-                    </div>
-                  )}
-                  {stats.totalUsers === 0 && (
-                    <div className="flex items-start gap-3 bg-gray-50 rounded-xl px-4 py-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-gray-300 mt-1.5 flex-shrink-0" />
-                      <p className="text-gray-400 text-xs leading-relaxed">No users registered yet</p>
-                    </div>
+                  ) : (
+                    atRiskList.map((user, i) => (
+                      <div key={user.userId} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+                        <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse flex-shrink-0" />
+                        {user.avatar ? (
+                          <img src={user.avatar} alt={user.name}
+                            className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+                            onError={e => e.target.style.display = 'none'} />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-red-500">
+                            {user.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-800 text-xs font-semibold truncate">{user.name}</p>
+                          <p className="text-gray-400 text-xs">{user.attempts} attempt{user.attempts > 1 ? 's' : ''}</p>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="w-14 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full rounded-full bg-red-400 transition-all duration-500"
+                              style={{ width: `${user.avgScore}%` }} />
+                          </div>
+                          <p className="text-xs font-extrabold text-red-500 w-8 text-right">{user.avgScore}%</p>
+                        </div>
+                      </div>
+                    ))
                   )}
                 </div>
               </div>
@@ -569,22 +717,16 @@ function AdminDashboard() {
                   <div className="flex flex-col gap-1">
                     {recentActivity.map((item) => (
                       <div key={item.id} className="flex items-start gap-2.5 px-2 py-2.5 rounded-xl hover:bg-gray-50 transition">
-
-                        {/* ── Avatar: photo or initial ── */}
                         {item.avatar ? (
-                          <img
-                            src={item.avatar}
-                            alt={item.user}
+                          <img src={item.avatar} alt={item.user}
                             className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-                            onError={(e) => { e.target.style.display = 'none' }}
-                          />
+                            onError={(e) => { e.target.style.display = 'none' }} />
                         ) : (
                           <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold
                             ${item.type === 'simulation' ? 'bg-blue-100 text-blue-600' : 'bg-purple-100 text-purple-600'}`}>
                             {item.user.charAt(0).toUpperCase()}
                           </div>
                         )}
-
                         <div className="flex-1 min-w-0">
                           <p className="text-gray-800 text-xs font-semibold leading-tight truncate">{item.user}</p>
                           <p className="text-gray-400 text-xs truncate">{item.action}</p>
@@ -597,7 +739,6 @@ function AdminDashboard() {
                             <span className="text-gray-300" style={{ fontSize: '10px' }}>{timeAgo(item.time)}</span>
                           </div>
                         </div>
-
                         {item.score !== null && item.score !== undefined && (
                           <p className={`text-xs font-extrabold flex-shrink-0
                             ${item.score >= 80 ? 'text-green-500' : item.score >= 50 ? 'text-yellow-500' : 'text-red-500'}`}>
@@ -612,7 +753,6 @@ function AdminDashboard() {
             </div>
 
           </div>
-
         </div>
       </div>
     </div>

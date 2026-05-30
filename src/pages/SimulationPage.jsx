@@ -5,6 +5,59 @@ import { supabase } from '../supabaseClient'
 import { useProfile } from '../hooks/useProfile'
 import TopBar from '../components/dashboard/TopBar'
 
+// ── Countdown ──
+function Countdown({ expiresAt }) {
+  function getTimeLeft() {
+    const diff = new Date(expiresAt) - new Date()
+    if (diff <= 0) return null
+    return {
+      days: Math.floor(diff / 86400000),
+      hours: Math.floor((diff % 86400000) / 3600000),
+      minutes: Math.floor((diff % 3600000) / 60000),
+      seconds: Math.floor((diff % 60000) / 1000),
+    }
+  }
+
+  const [timeLeft, setTimeLeft] = useState(getTimeLeft)
+
+  useEffect(() => {
+    const interval = setInterval(() => setTimeLeft(getTimeLeft()), 1000)
+    return () => clearInterval(interval)
+  }, [expiresAt])
+
+  if (!timeLeft) {
+    return (
+      <div className="flex items-center gap-1.5 mt-1">
+        <div className="relative flex-shrink-0 w-1.5 h-1.5">
+          <div className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-75" />
+          <div className="relative rounded-full w-1.5 h-1.5 bg-red-400" />
+        </div>
+        <span className="text-red-400 text-xs font-medium">Expired</span>
+      </div>
+    )
+  }
+
+  const totalMs = new Date(expiresAt) - new Date()
+  const urgent = totalMs < 86400000 * 2
+  const warning = totalMs < 86400000 * 7
+  const color = urgent ? 'text-red-400' : warning ? 'text-amber-400' : 'text-gray-400'
+  const dot = urgent ? 'bg-red-400' : warning ? 'bg-amber-400' : 'bg-green-400'
+
+  const parts = timeLeft.days > 0
+    ? `${timeLeft.days}d ${timeLeft.hours}h ${timeLeft.minutes}m`
+    : `${timeLeft.hours}h ${timeLeft.minutes}m ${timeLeft.seconds}s`
+
+  return (
+    <div className="flex items-center gap-1.5 mt-1">
+      <div className="relative flex-shrink-0 w-1.5 h-1.5">
+        <div className={`absolute inset-0 rounded-full ${dot} animate-ping opacity-75`} />
+        <div className={`relative rounded-full w-1.5 h-1.5 ${dot}`} />
+      </div>
+      <span className={`text-xs font-medium ${color}`}>Expires in {parts}</span>
+    </div>
+  )
+}
+
 function SimulationPage() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -26,10 +79,12 @@ function SimulationPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) setUserId(user.id)
 
+    const now = new Date().toISOString()
     const { data: sims } = await supabase
       .from('simulations')
       .select('*')
       .eq('hidden', false)
+      .or(`expires_at.is.null,expires_at.gt.${now}`)
       .order('created_at', { ascending: true })
 
     if (!sims || sims.length === 0) { setLoading(false); return }
@@ -38,20 +93,19 @@ function SimulationPage() {
     sims.forEach(s => {
       const bid = s.batch_id || s.id
       if (!batchMap[bid]) {
-        batchMap[bid] = { batch_id: bid, created_at: s.created_at, sims: [] }
+        batchMap[bid] = {
+          batch_id: bid,
+          created_at: s.created_at,
+          expires_at: s.expires_at || null,
+          sims: []
+        }
       }
       batchMap[bid].sims.push({
-        id: s.id,
-        type: s.type,
-        title: s.scenario_name,
-        category: s.category,
-        difficulty: s.difficulty,
-        imageUrl: s.image_url || '',
-        question: s.question,
-        options: s.options,
-        correctIndex: s.correct_index,
-        explanation: s.explanation,
-        batch_id: bid,
+        id: s.id, type: s.type, title: s.scenario_name,
+        category: s.category, difficulty: s.difficulty,
+        imageUrl: s.image_url || '', question: s.question,
+        options: s.options, correctIndex: s.correct_index,
+        explanation: s.explanation, batch_id: bid,
       })
     })
 
@@ -118,10 +172,10 @@ function SimulationPage() {
 
   const optionLabels = ['A', 'B', 'C', 'D']
 
-  function getDifficultyColor(difficulty) {
-    if (difficulty === 'Easy') return 'bg-green-100 text-green-700'
-    if (difficulty === 'Medium') return 'bg-yellow-100 text-yellow-700'
-    if (difficulty === 'Hard') return 'bg-red-100 text-red-700'
+  function getDifficultyColor(d) {
+    if (d === 'Easy') return 'bg-green-100 text-green-700'
+    if (d === 'Medium') return 'bg-yellow-100 text-yellow-700'
+    if (d === 'Hard') return 'bg-red-100 text-red-700'
     return 'bg-gray-100 text-gray-600'
   }
 
@@ -134,16 +188,22 @@ function SimulationPage() {
   // ── Loading ──
   if (loading) {
     return (
-      <div className="flex min-h-screen bg-gray-50 items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-400 text-sm">Loading simulations...</p>
+      <div className="flex min-h-screen bg-gray-50">
+        <Sidebar isOpen={sidebarOpen} />
+        <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-60' : 'ml-16'}`}>
+          <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-gray-400 text-sm">Loading...</p>
+            </div>
+          </div>
         </div>
       </div>
     )
   }
 
-  // ── Active simulation ──
+  // ── Active simulation (unchanged) ──
   if (activeBatch) {
     const sims = activeBatch.sims
     const current = sims[currentIndex]
@@ -157,19 +217,13 @@ function SimulationPage() {
         <Sidebar isOpen={sidebarOpen} />
         <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-60' : 'ml-16'}`}>
           <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
-
           <div className="flex-1 p-8">
             <div className="mb-6">
               <h1 className="text-gray-900 text-2xl font-bold">Security Simulation</h1>
               <p className="text-gray-400 text-sm mt-0.5">Answer each scenario carefully — this can only be taken once</p>
             </div>
-
             <div className="flex gap-6 items-start">
-
-              {/* Left: Question */}
               <div className="flex-1 min-w-0">
-
-                {/* Progress */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-gray-500 text-xs font-semibold">
@@ -188,8 +242,6 @@ function SimulationPage() {
                     ))}
                   </div>
                 </div>
-
-                {/* Question card */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-4">
                   <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -205,7 +257,6 @@ function SimulationPage() {
                       {current.type === 'image' ? '🖼 Image' : '📝 Text'}
                     </span>
                   </div>
-
                   {current.type === 'image' && current.imageUrl && (
                     <div className="border-b border-gray-50 bg-gray-50">
                       <img src={current.imageUrl} alt="Scenario"
@@ -213,14 +264,11 @@ function SimulationPage() {
                         onError={e => { e.target.src = 'https://placehold.co/800x400/f3f4f6/9ca3af?text=Image+unavailable' }} />
                     </div>
                   )}
-
                   <div className="p-6">
                     <div className="rounded-xl p-5 mb-5" style={{ background: 'linear-gradient(135deg, #0e7490, #06b6d4)' }}>
                       <p className="text-white text-sm font-semibold leading-relaxed">{current.question}</p>
                     </div>
-
                     <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-3">Select your answer</p>
-
                     <div className="flex flex-col gap-2.5">
                       {current.options.map((option, index) => (
                         <button key={index} onClick={() => handleSelectOption(index)}
@@ -234,8 +282,8 @@ function SimulationPage() {
                               : 'border-gray-300 text-gray-400 bg-white'}`}>
                             {userAnswers[currentIndex] === index
                               ? <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                </svg>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                              </svg>
                               : optionLabels[index]}
                           </div>
                           <span className="flex-1">{option}</span>
@@ -243,7 +291,6 @@ function SimulationPage() {
                       ))}
                     </div>
                   </div>
-
                   <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
                     <p className="text-gray-400 text-xs">
                       {hasSelected ? '✓ Answer selected' : 'Select an answer to continue'}
@@ -270,8 +317,6 @@ function SimulationPage() {
                   </div>
                 </div>
               </div>
-
-              {/* Right: Info panel */}
               <div className="w-64 flex-shrink-0 flex flex-col gap-4">
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                   <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-4">Session</p>
@@ -295,7 +340,6 @@ function SimulationPage() {
                     </div>
                   </div>
                 </div>
-
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                   <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-4">This Question</p>
                   <div className="flex flex-col gap-3">
@@ -319,7 +363,6 @@ function SimulationPage() {
                     </div>
                   </div>
                 </div>
-
                 <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(135deg, #0e7490, #06b6d4)' }}>
                   <div className="flex items-center gap-2 mb-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-200 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -331,7 +374,6 @@ function SimulationPage() {
                     Always verify the sender's email address before clicking any links or downloading attachments.
                   </p>
                 </div>
-
                 <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-start gap-2.5">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
@@ -358,86 +400,89 @@ function SimulationPage() {
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-60' : 'ml-16'}`}>
         <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
-        <div className="flex-1 p-8">
-          <div className="mb-6">
-            <h1 className="text-gray-900 text-2xl font-bold">Simulations</h1>
-            <p className="text-gray-400 text-sm mt-0.5">Complete each simulation assigned by your administrator</p>
+        <div className="flex-1 p-6 lg:p-8">
+
+          {/* ── Header ── */}
+          <div className="mb-8">
+            <h1 className="text-gray-900 text-xl font-bold">Simulations</h1>
+            <p className="text-gray-400 text-sm mt-1">
+              {pendingBatches.length > 0
+                ? `${pendingBatches.length} pending simulation${pendingBatches.length > 1 ? 's' : ''} assigned to you`
+                : batches.length > 0 ? 'All simulations completed' : 'No simulations assigned yet'}
+            </p>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-1">Total</p>
-              <p className="text-blue-600 text-3xl font-extrabold">{batches.length}</p>
-              <p className="text-gray-400 text-xs mt-1">simulation sets</p>
+          {/* ── Stats ── */}
+          {batches.length > 0 && (
+            <div className="grid grid-cols-3 gap-4 mb-8">
+              {[
+                { label: 'Total', value: batches.length, sub: 'sets assigned', valueColor: 'text-gray-900' },
+                { label: 'Pending', value: pendingBatches.length, sub: 'to complete', valueColor: 'text-orange-400' },
+                { label: 'Completed', value: doneBatches.length, sub: 'sets done', valueColor: 'text-green-500' },
+              ].map((s, i) => (
+                <div key={i} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+                  <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2">{s.label}</p>
+                  <p className={`text-2xl font-extrabold mb-0.5 ${s.valueColor}`}>{s.value}</p>
+                  <p className="text-gray-400 text-xs">{s.sub}</p>
+                </div>
+              ))}
             </div>
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-1">Pending</p>
-              <p className="text-orange-500 text-3xl font-extrabold">{pendingBatches.length}</p>
-              <p className="text-gray-400 text-xs mt-1">to complete</p>
-            </div>
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-1">Completed</p>
-              <p className="text-green-500 text-3xl font-extrabold">{doneBatches.length}</p>
-              <p className="text-gray-400 text-xs mt-1">sets done</p>
-            </div>
-          </div>
+          )}
 
+          {/* ── Empty ── */}
           {batches.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-12 text-center">
-              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="bg-white border border-gray-100 rounded-2xl shadow-sm px-6 py-16 text-center">
+              <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 001.357 2.059l.042.018M14.25 3.104c.251.023.501.05.75.082M19.5 14.5l-4.091-4.091" />
                 </svg>
               </div>
-              <p className="text-gray-500 text-sm font-semibold mb-1">No simulations available</p>
-              <p className="text-gray-400 text-xs">Check back later or contact your administrator.</p>
+              <p className="text-gray-500 text-sm font-medium">No simulations assigned yet</p>
+              <p className="text-gray-400 text-xs mt-1">Check back later</p>
             </div>
-          ) : (
-            <div className="flex flex-col gap-4">
 
-              {/* Pending */}
+          ) : (
+            <div className="flex flex-col gap-8">
+
+              {/* ── Pending ── */}
               {pendingBatches.length > 0 && (
                 <div>
-                  <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-3">Pending</p>
+                  <p className="text-xs font-semibold text-orange-400 uppercase tracking-widest mb-3">Pending</p>
                   <div className="flex flex-col gap-3">
                     {pendingBatches.map(batch => {
-                      const categories = [...new Set(batch.sims.map(s => s.category))]
+                      const categories = [...new Set(batch.sims.map(s => s.category).filter(Boolean))]
+                      const difficulties = [...new Set(batch.sims.map(s => s.difficulty).filter(Boolean))]
+                      const hasHard = difficulties.includes('Hard')
+                      const hasMedium = difficulties.includes('Medium')
+                      const topDiff = hasHard ? 'Hard' : hasMedium ? 'Medium' : 'Easy'
+                      const hasExpiry = !!batch.expires_at
+                      const isUrgent = hasExpiry && new Date(batch.expires_at) < new Date(Date.now() + 86400000 * 2)
+                      const isWarning = hasExpiry && new Date(batch.expires_at) < new Date(Date.now() + 86400000 * 7)
+
                       return (
                         <div key={batch.batch_id}
-                          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-4 flex-1 min-w-0">
-                            <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-                              style={{ background: 'linear-gradient(135deg, #0e7490, #06b6d4)' }}>
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 001.357 2.059l.042.018M14.25 3.104c.251.023.501.05.75.082M19.5 14.5l-4.091-4.091" />
-                              </svg>
-                            </div>
+                          className={`bg-white border rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition-all duration-200
+                            ${isUrgent ? 'border-red-100' : isWarning ? 'border-amber-100' : 'border-gray-100'}`}>
+                          <div className="p-5 flex items-center justify-between gap-4">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <p className="text-gray-800 font-bold text-sm">
-                                  Simulation — {formatDate(batch.created_at)}
-                                </p>
-                                <span className="bg-orange-50 text-orange-500 text-xs font-bold px-2 py-0.5 rounded-full">NEW</span>
-                              </div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-gray-400 text-xs">{batch.sims.length} question{batch.sims.length > 1 ? 's' : ''}</span>
+                              <p className="text-gray-800 text-sm font-semibold mb-1.5">
+                                {formatDate(batch.created_at)}
+                              </p>
+                              <div className="flex items-center gap-2 text-gray-400 text-xs flex-wrap">
+                                <span>{batch.sims.length} question{batch.sims.length > 1 ? 's' : ''}</span>
+                                {topDiff && <><span>·</span><span>{topDiff}</span></>}
                                 {categories.slice(0, 2).map(cat => (
-                                  <span key={cat} className="bg-cyan-50 text-cyan-700 text-xs font-medium px-2 py-0.5 rounded-lg">{cat}</span>
+                                  <span key={cat}>· {cat}</span>
                                 ))}
-                                {categories.length > 2 && (
-                                  <span className="text-gray-400 text-xs">+{categories.length - 2} more</span>
-                                )}
+                                {categories.length > 2 && <span>+{categories.length - 2} more</span>}
                               </div>
+                              {hasExpiry && <Countdown expiresAt={batch.expires_at} />}
                             </div>
+                            <button onClick={() => handleStartBatch(batch)}
+                              className="flex-shrink-0 bg-gray-900 hover:bg-gray-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-colors duration-200">
+                              Start →
+                            </button>
                           </div>
-                          <button onClick={() => handleStartBatch(batch)}
-                            className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition flex-shrink-0">
-                            Start
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                            </svg>
-                          </button>
                         </div>
                       )
                     })}
@@ -445,46 +490,27 @@ function SimulationPage() {
                 </div>
               )}
 
-              {/* Completed */}
+              {/* ── Completed ── */}
               {doneBatches.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-3">Completed</p>
-                  <div className="flex flex-col gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-green-500 uppercase tracking-widest mb-3">Completed</p>
+                  <div className="flex flex-col gap-2">
                     {doneBatches.map(batch => {
                       const score = batchScores[batch.batch_id]
-                      const categories = [...new Set(batch.sims.map(s => s.category))]
+                      const scoreColor = score >= 80 ? 'text-green-600' : score >= 50 ? 'text-yellow-600' : 'text-red-500'
+                      const scoreLabel = score >= 80 ? 'Pass' : score >= 50 ? 'Average' : 'High Risk'
+
                       return (
                         <div key={batch.batch_id}
-                          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-center justify-between gap-4 opacity-75">
-                          <div className="flex items-center gap-4 flex-1 min-w-0">
-                            <div className="w-12 h-12 rounded-2xl bg-green-100 flex items-center justify-center flex-shrink-0">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                              </svg>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <p className="text-gray-800 font-bold text-sm">
-                                  Simulation — {formatDate(batch.created_at)}
-                                </p>
-                                <span className="bg-green-100 text-green-600 text-xs font-bold px-2 py-0.5 rounded-full">Completed ✓</span>
-                              </div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-gray-400 text-xs">{batch.sims.length} question{batch.sims.length > 1 ? 's' : ''}</span>
-                                {categories.slice(0, 2).map(cat => (
-                                  <span key={cat} className="bg-gray-100 text-gray-500 text-xs font-medium px-2 py-0.5 rounded-lg">{cat}</span>
-                                ))}
-                              </div>
-                            </div>
+                          className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 flex items-center justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-gray-600 text-sm font-semibold mb-1.5">{formatDate(batch.created_at)}</p>
+                            <p className="text-gray-400 text-xs">{batch.sims.length} question{batch.sims.length > 1 ? 's' : ''}</p>
                           </div>
                           {score !== undefined && (
                             <div className="text-right flex-shrink-0">
-                              <p className={`text-2xl font-extrabold ${score >= 80 ? 'text-green-500' : score >= 50 ? 'text-yellow-500' : 'text-red-500'}`}>
-                                {score}%
-                              </p>
-                              <p className={`text-xs font-bold ${score >= 80 ? 'text-green-400' : score >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
-                                {score >= 80 ? 'Pass' : score >= 50 ? 'Average' : 'High Risk'}
-                              </p>
+                              <p className={`text-sm font-bold ${scoreColor}`}>{score}%</p>
+                              <p className={`text-xs mt-0.5 ${scoreColor} opacity-75`}>{scoreLabel}</p>
                             </div>
                           )}
                         </div>
@@ -492,6 +518,13 @@ function SimulationPage() {
                     })}
                   </div>
                 </div>
+              )}
+
+              {/* ── All done ── */}
+              {pendingBatches.length === 0 && doneBatches.length > 0 && (
+                <p className="text-gray-400 text-xs text-center pt-2">
+                  You're all caught up — new simulations will appear here when assigned.
+                </p>
               )}
 
             </div>

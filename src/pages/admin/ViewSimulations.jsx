@@ -19,6 +19,12 @@ function ViewSimulations() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
 
+  // ── Expiry modal state ──
+  const [expiryModal, setExpiryModal] = useState(false)
+  const [expiryBatch, setExpiryBatch] = useState(null)
+  const [expiryDate, setExpiryDate] = useState('')
+  const [expiryLoading, setExpiryLoading] = useState(false)
+
   useEffect(() => {
     if (profile?.id) fetchSimulations()
   }, [profile])
@@ -32,7 +38,6 @@ function ViewSimulations() {
       .order('created_at', { ascending: false })
 
     if (!error && data) {
-      // ── Group by batch_id ──
       const batchMap = {}
       data.forEach(s => {
         const bid = s.batch_id || s.id
@@ -40,6 +45,7 @@ function ViewSimulations() {
           batchMap[bid] = {
             batch_id: bid,
             created_at: s.created_at,
+            expires_at: s.expires_at || null,
             sims: [],
           }
         }
@@ -54,7 +60,6 @@ function ViewSimulations() {
         })
       })
 
-      // ── Sort batches by most recent ──
       const sorted = Object.values(batchMap).sort(
         (a, b) => new Date(b.created_at) - new Date(a.created_at)
       )
@@ -63,7 +68,6 @@ function ViewSimulations() {
     setLoading(false)
   }
 
-  // ── Toggle hide single sim ──
   async function toggleHide(simId) {
     const allSims = batches.flatMap(b => b.sims)
     const sim = allSims.find(s => s.id === simId)
@@ -77,7 +81,6 @@ function ViewSimulations() {
     }
   }
 
-  // ── Toggle hide entire batch ──
   async function toggleHideBatch(batch) {
     const allHidden = batch.sims.every(s => s.hidden)
     const newHidden = !allHidden
@@ -92,11 +95,7 @@ function ViewSimulations() {
     }
   }
 
-  // ── Delete single sim ──
-  function handleDeleteClick(sim) {
-    setDeleteItem(sim)
-    setDeleteModal(true)
-  }
+  function handleDeleteClick(sim) { setDeleteItem(sim); setDeleteModal(true) }
 
   async function confirmDelete() {
     const { error } = await supabase.from('simulations').delete().eq('id', deleteItem.id)
@@ -110,11 +109,7 @@ function ViewSimulations() {
     }
   }
 
-  // ── Delete entire batch ──
-  function handleDeleteBatchClick(batch) {
-    setDeleteBatchItem(batch)
-    setDeleteBatchModal(true)
-  }
+  function handleDeleteBatchClick(batch) { setDeleteBatchItem(batch); setDeleteBatchModal(true) }
 
   async function confirmDeleteBatch() {
     const ids = deleteBatchItem.sims.map(s => s.id)
@@ -126,11 +121,50 @@ function ViewSimulations() {
     }
   }
 
-  function getDifficultyColor(difficulty) {
-    if (difficulty === 'Easy') return 'bg-green-100 text-green-700'
-    if (difficulty === 'Medium') return 'bg-yellow-100 text-yellow-700'
-    if (difficulty === 'Hard') return 'bg-red-100 text-red-700'
-    return 'bg-gray-100 text-gray-600'
+  // ── Open expiry modal ──
+  function handleEditExpiry(batch) {
+    setExpiryBatch(batch)
+    setExpiryDate(
+      batch.expires_at
+        ? new Date(batch.expires_at).toISOString().slice(0, 16)
+        : ''
+    )
+    setExpiryModal(true)
+  }
+
+  // ── Save expiry ──
+  async function confirmEditExpiry() {
+    if (!expiryBatch) return
+    setExpiryLoading(true)
+    const ids = expiryBatch.sims.map(s => s.id)
+    const newExpiry = expiryDate ? new Date(expiryDate).toISOString() : null
+
+    const { error } = await supabase
+      .from('simulations')
+      .update({ expires_at: newExpiry })
+      .in('id', ids)
+
+    if (!error) {
+      setBatches(prev => prev.map(b =>
+        b.batch_id === expiryBatch.batch_id
+          ? { ...b, expires_at: newExpiry }
+          : b
+      ))
+      setExpiryModal(false)
+      setExpiryBatch(null)
+      setExpiryDate('')
+    }
+    setExpiryLoading(false)
+  }
+
+  function isExpired(dateStr) {
+    if (!dateStr) return false
+    return new Date(dateStr) < new Date()
+  }
+
+  function isExpiringSoon(dateStr) {
+    if (!dateStr) return false
+    return new Date(dateStr) < new Date(Date.now() + 86400000 * 2) && !isExpired(dateStr)
   }
 
   function formatDate(dateStr) {
@@ -139,11 +173,24 @@ function ViewSimulations() {
     })
   }
 
+  function formatExpiry(dateStr) {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    })
+  }
+
+  function getDifficultyColor(difficulty) {
+    if (difficulty === 'Easy') return 'bg-green-100 text-green-700'
+    if (difficulty === 'Medium') return 'bg-yellow-100 text-yellow-700'
+    if (difficulty === 'Hard') return 'bg-red-100 text-red-700'
+    return 'bg-gray-100 text-gray-600'
+  }
+
   const totalSims = batches.flatMap(b => b.sims).length
   const visibleSims = batches.flatMap(b => b.sims).filter(s => !s.hidden).length
   const hiddenSims = batches.flatMap(b => b.sims).filter(s => s.hidden).length
 
-  // ── Filter batches ──
   const filteredBatches = batches.filter(batch => {
     const matchesSearch = batch.sims.some(s =>
       s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -247,14 +294,44 @@ function ViewSimulations() {
                 const allHidden = batch.sims.every(s => s.hidden)
                 const someHidden = batch.sims.some(s => s.hidden)
                 const categories = [...new Set(batch.sims.map(s => s.category))]
+                const expired = isExpired(batch.expires_at)
+                const expiringSoon = isExpiringSoon(batch.expires_at)
 
                 return (
-                  <div key={batch.batch_id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <div key={batch.batch_id}
+                    className={`bg-white rounded-2xl border shadow-sm overflow-hidden
+                      ${expired ? 'border-red-100 opacity-70' : 'border-gray-100'}`}>
+
+                    {/* ── Expiry banner ── */}
+                    {batch.expires_at && (
+                      <div className={`flex items-center justify-between px-6 py-2 text-xs font-medium
+                        ${expired
+                          ? 'bg-red-50 border-b border-red-100 text-red-600'
+                          : expiringSoon
+                            ? 'bg-amber-50 border-b border-amber-100 text-amber-600'
+                            : 'bg-gray-50 border-b border-gray-100 text-gray-400'}`}>
+                        <div className="flex items-center gap-1.5">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {expired
+                            ? `Expired on ${formatExpiry(batch.expires_at)}`
+                            : expiringSoon
+                              ? `Expiring soon — ${formatExpiry(batch.expires_at)}`
+                              : `Expires ${formatExpiry(batch.expires_at)}`}
+                        </div>
+                        <button onClick={() => handleEditExpiry(batch)}
+                          className={`text-xs font-semibold underline underline-offset-2 hover:opacity-70 transition
+                            ${expired ? 'text-red-500' : expiringSoon ? 'text-amber-500' : 'text-gray-400'}`}>
+                          Edit
+                        </button>
+                      </div>
+                    )}
 
                     {/* Batch header */}
                     <div className={`flex items-center justify-between px-6 py-4 ${allHidden ? 'opacity-60' : ''}`}>
-
                       <div className="flex items-center gap-4 flex-1 min-w-0">
+
                         {/* Expand toggle */}
                         <button onClick={() => setExpandedBatch(isExpanded ? null : batch.batch_id)}
                           className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center flex-shrink-0 transition">
@@ -284,15 +361,31 @@ function ViewSimulations() {
                             {!allHidden && someHidden && (
                               <span className="bg-yellow-50 text-yellow-600 text-xs font-semibold px-2 py-0.5 rounded-full">Partial</span>
                             )}
+                            {expired && (
+                              <span className="bg-red-100 text-red-500 text-xs font-semibold px-2 py-0.5 rounded-full">Expired</span>
+                            )}
                           </div>
                           <p className="text-gray-400 text-xs">
                             Batch #{batchIndex + 1} · Added {formatDate(batch.created_at)}
+                            {!batch.expires_at && (
+                              <span className="text-gray-300"> · No expiry</span>
+                            )}
                           </p>
                         </div>
                       </div>
 
                       {/* Batch actions */}
                       <div className="flex items-center gap-2 flex-shrink-0">
+
+                        {/* Edit expiry button */}
+                        <button onClick={() => handleEditExpiry(batch)}
+                          className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          Expiry
+                        </button>
+
                         <button onClick={() => toggleHideBatch(batch)}
                           className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition
                             ${allHidden
@@ -315,6 +408,7 @@ function ViewSimulations() {
                             </>
                           )}
                         </button>
+
                         <button onClick={() => handleDeleteBatchClick(batch)}
                           className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -328,7 +422,6 @@ function ViewSimulations() {
                     {/* Expanded simulations */}
                     {isExpanded && (
                       <div className="border-t border-gray-50">
-                        {/* Sub-table header */}
                         <div className="grid grid-cols-12 px-6 py-2.5 bg-gray-50">
                           <p className="col-span-4 text-gray-400 text-xs font-semibold uppercase tracking-wide">Name</p>
                           <p className="col-span-2 text-gray-400 text-xs font-semibold uppercase tracking-wide">Category</p>
@@ -342,8 +435,6 @@ function ViewSimulations() {
                           <div key={sim.id}
                             className={`grid grid-cols-12 items-center px-6 py-3.5 border-t border-gray-50 hover:bg-gray-50 transition
                               ${sim.hidden ? 'opacity-50' : ''}`}>
-
-                            {/* Name */}
                             <div className="col-span-4 flex items-center gap-2">
                               {sim.hidden && (
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -352,44 +443,26 @@ function ViewSimulations() {
                               )}
                               <p className="text-gray-800 font-medium text-sm truncate">{sim.name}</p>
                             </div>
-
-                            {/* Category */}
                             <div className="col-span-2">
-                              <span className="bg-blue-50 text-blue-600 text-xs font-medium px-2 py-0.5 rounded-lg">
-                                {sim.category}
-                              </span>
+                              <span className="bg-blue-50 text-blue-600 text-xs font-medium px-2 py-0.5 rounded-lg">{sim.category}</span>
                             </div>
-
-                            {/* Difficulty */}
                             <div className="col-span-1">
-                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg ${getDifficultyColor(sim.difficulty)}`}>
-                                {sim.difficulty}
-                              </span>
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg ${getDifficultyColor(sim.difficulty)}`}>{sim.difficulty}</span>
                             </div>
-
-                            {/* Type */}
                             <div className="col-span-1">
-                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg
-                                ${sim.type === 'image' ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-600'}`}>
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg ${sim.type === 'image' ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-600'}`}>
                                 {sim.type === 'image' ? 'Image' : 'Text'}
                               </span>
                             </div>
-
-                            {/* Status */}
                             <div className="col-span-1">
-                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full
-                                ${sim.hidden ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-600'}`}>
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${sim.hidden ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-600'}`}>
                                 {sim.hidden ? 'Hidden' : 'Visible'}
                               </span>
                             </div>
-
-                            {/* Actions */}
                             <div className="col-span-3 flex items-center gap-2">
                               <button onClick={() => toggleHide(sim.id)}
                                 className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg transition
-                                  ${sim.hidden
-                                    ? 'bg-green-50 text-green-600 hover:bg-green-100'
-                                    : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'}`}>
+                                  ${sim.hidden ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'}`}>
                                 {sim.hidden ? 'Show' : 'Hide'}
                               </button>
                               <button onClick={() => navigate(`/admin/simulations/edit/${sim.id}`)}
@@ -414,6 +487,82 @@ function ViewSimulations() {
 
         </div>
       </div>
+
+      {/* ── Edit Expiry Modal ── */}
+      {expiryModal && expiryBatch && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm">
+            <div className="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+
+            <h2 className="text-gray-800 text-lg font-bold mb-1 text-center">Edit Expiry Date</h2>
+            <p className="text-gray-400 text-sm text-center mb-6">
+              Set when this batch of {expiryBatch.sims.length} simulation{expiryBatch.sims.length > 1 ? 's' : ''} expires
+            </p>
+
+            <div className="mb-2">
+              <label className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-2 block">
+                Expiry Date & Time
+              </label>
+              <input
+                type="datetime-local"
+                value={expiryDate}
+                onChange={e => setExpiryDate(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
+              />
+            </div>
+
+            <p className="text-gray-400 text-xs mb-6">
+              {expiryDate
+                ? `Will expire on ${formatExpiry(expiryDate)}`
+                : 'Leave empty to remove expiry — simulation stays active indefinitely'}
+            </p>
+
+            {/* Quick presets */}
+            <div className="flex gap-2 mb-6 flex-wrap">
+              {[
+                { label: '+1 Day', days: 1 },
+                { label: '+1 Week', days: 7 },
+                { label: '+1 Month', days: 30 },
+                { label: '+3 Months', days: 90 },
+              ].map(preset => (
+                <button key={preset.label}
+                  onClick={() => {
+                    const d = new Date(Date.now() + 86400000 * preset.days)
+                    setExpiryDate(d.toISOString().slice(0, 16))
+                  }}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition">
+                  {preset.label}
+                </button>
+              ))}
+              <button onClick={() => setExpiryDate('')}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-50 text-red-400 hover:bg-red-100 transition">
+                No Expiry
+              </button>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => { setExpiryModal(false); setExpiryBatch(null); setExpiryDate('') }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
+                Cancel
+              </button>
+              <button onClick={confirmEditExpiry} disabled={expiryLoading}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition flex items-center justify-center gap-2
+                  ${expiryLoading ? 'bg-blue-400 text-white cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
+                {expiryLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete single sim modal */}
       {deleteModal && deleteItem && (
@@ -442,7 +591,7 @@ function ViewSimulations() {
         </div>
       )}
 
-      {/* Delete entire batch modal */}
+      {/* Delete batch modal */}
       {deleteBatchModal && deleteBatchItem && (
         <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center px-4">
           <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm text-center">

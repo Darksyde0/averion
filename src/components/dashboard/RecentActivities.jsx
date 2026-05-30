@@ -7,8 +7,8 @@ function timeAgo(dateStr) {
   const date = new Date(dateStr)
   const diff = Math.floor((now - date) / 1000)
   if (diff < 60) return 'Just now'
-  if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
   if (diff < 172800) return 'Yesterday'
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
@@ -74,7 +74,7 @@ function RecentActivities() {
     // ── 1. User's simulation results ──
     const { data: simResults } = await supabase
       .from('simulation_results')
-      .select('score, completed_at')
+      .select('score, completed_at, batch_id')
       .eq('user_id', user.id)
       .order('completed_at', { ascending: false })
       .limit(3)
@@ -114,28 +114,49 @@ function RecentActivities() {
       count: null,
     }))
 
-    // ── 3. New simulations — grouped into ONE card ──
-    const { data: newSims } = await supabase
+    // ── 3. New simulations — only batches NOT yet completed by user ──
+    const completedBatchIds = new Set(
+      (simResults || []).map(r => r.batch_id).filter(Boolean)
+    )
+
+    const { data: allSims } = await supabase
       .from('simulations')
-      .select('id, scenario_name, created_at, category')
+      .select('id, batch_id, created_at')
       .eq('hidden', false)
       .order('created_at', { ascending: false })
-      .limit(20)
+
+    // Group by batch_id, filter out completed batches
+    const pendingBatches = {}
+    ;(allSims || []).forEach(s => {
+      const bid = s.batch_id || s.id
+      if (!completedBatchIds.has(bid)) {
+        if (!pendingBatches[bid]) {
+          pendingBatches[bid] = { count: 0, created_at: s.created_at }
+        }
+        pendingBatches[bid].count++
+      }
+    })
+
+    const pendingSimCount = Object.values(pendingBatches)
+      .reduce((sum, b) => sum + b.count, 0)
+
+    const latestSimDate = Object.values(pendingBatches)
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0]?.created_at
 
     const simGroupId = 'group-simulations'
-    const simGroupActivity = newSims && newSims.length > 0 ? {
+    const simGroupActivity = pendingSimCount > 0 ? {
       id: simGroupId,
-      title: `${newSims.length} Simulation${newSims.length > 1 ? 's' : ''} Available`,
+      title: `${pendingSimCount} Simulation${pendingSimCount > 1 ? 's' : ''} Pending`,
       subtitle: 'Assigned by your administrator',
-      time: newSims[0].created_at,
+      time: latestSimDate,
       type: 'new_simulation',
       scoreValue: null,
       action: () => navigate('/simulations'),
       isNew: !seen.has(simGroupId),
-      count: newSims.length,
+      count: pendingSimCount,
     } : null
 
-    // ── 4. New modules — grouped into ONE card ──
+    // ── 4. New modules — only uncompleted ones ──
     const { data: newModules } = await supabase
       .from('modules')
       .select('id, name, created_at, category')
@@ -172,10 +193,38 @@ function RecentActivities() {
   const newCount = visible.filter(a => a.isNew && !seenIds.has(a.id)).length
 
   const typeConfig = {
-    simulation_done: { bg: 'bg-blue-100', color: 'text-blue-600', label: 'Simulation', labelBg: 'bg-blue-50 text-blue-600' },
-    module_done:     { bg: 'bg-green-100', color: 'text-green-600', label: 'Completed', labelBg: 'bg-green-50 text-green-600' },
-    new_simulation:  { bg: 'bg-orange-100', color: 'text-orange-500', label: 'New', labelBg: 'bg-orange-50 text-orange-600' },
-    new_module:      { bg: 'bg-purple-100', color: 'text-purple-600', label: 'Pending', labelBg: 'bg-purple-50 text-purple-600' },
+    simulation_done: {
+      bg: 'bg-blue-50',
+      iconBg: 'bg-blue-100',
+      color: 'text-blue-600',
+      label: 'Simulation',
+      labelBg: 'bg-blue-50 text-blue-600',
+      dot: 'bg-blue-400',
+    },
+    module_done: {
+      bg: 'bg-green-50',
+      iconBg: 'bg-green-100',
+      color: 'text-green-600',
+      label: 'Completed',
+      labelBg: 'bg-green-50 text-green-600',
+      dot: 'bg-green-400',
+    },
+    new_simulation: {
+      bg: 'bg-orange-50',
+      iconBg: 'bg-orange-100',
+      color: 'text-orange-500',
+      label: 'New',
+      labelBg: 'bg-orange-50 text-orange-600',
+      dot: 'bg-orange-400',
+    },
+    new_module: {
+      bg: 'bg-purple-50',
+      iconBg: 'bg-purple-100',
+      color: 'text-purple-600',
+      label: 'Pending',
+      labelBg: 'bg-purple-50 text-purple-600',
+      dot: 'bg-purple-400',
+    },
   }
 
   const icons = {
@@ -202,17 +251,17 @@ function RecentActivities() {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm h-full flex flex-col">
+    <div className="bg-white border border-gray-100 rounded-2xl shadow-sm h-full flex flex-col overflow-hidden">
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-gray-50">
         <div>
-          <h2 className="text-gray-800 font-bold">Recent Activities</h2>
+          <h2 className="text-gray-800 text-sm font-bold">Recent Activities</h2>
           <p className="text-gray-400 text-xs mt-0.5">Training actions & new content</p>
         </div>
         <div className="flex items-center gap-1.5">
           {newCount > 0 && (
-            <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+            <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
               {newCount} new
             </span>
           )}
@@ -222,13 +271,13 @@ function RecentActivities() {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col">
+      {/* ── Content ── */}
+      <div className="flex-1 flex flex-col p-4">
         {loading ? (
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col gap-2">
             {[1, 2, 3].map(i => (
               <div key={i} className="animate-pulse flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0" />
+                <div className="w-8 h-8 rounded-xl bg-gray-200 flex-shrink-0" />
                 <div className="flex-1">
                   <div className="h-2.5 bg-gray-200 rounded w-3/4 mb-1.5" />
                   <div className="h-2 bg-gray-200 rounded w-1/2" />
@@ -239,82 +288,86 @@ function RecentActivities() {
 
         ) : visible.length === 0 ? (
           <div className="flex flex-col items-center justify-center flex-1 py-8 gap-2">
-            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <p className="text-gray-500 text-sm font-semibold">No activities</p>
-            <p className="text-gray-400 text-xs text-center">Complete a module or simulation to see your activity</p>
+            <p className="text-gray-500 text-xs font-semibold">No activities yet</p>
+            <p className="text-gray-400 text-xs text-center leading-relaxed">
+              Complete a module or simulation<br />to see your activity here
+            </p>
           </div>
 
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             {visible.map((activity) => {
               const isUnseen = activity.isNew && !seenIds.has(activity.id)
               const cfg = typeConfig[activity.type]
 
               return (
-                <div
-                  key={activity.id}
+                <div key={activity.id}
                   onClick={() => {
                     if (isUnseen) markAsSeen(activity.id)
                     else if (activity.action) activity.action()
                   }}
-                  className={`group flex items-center gap-3 px-3 py-3 rounded-xl border transition relative
+                  className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all duration-200 relative
                     ${isUnseen
-                      ? 'border-blue-200 bg-blue-50 cursor-pointer hover:bg-blue-100'
+                      ? 'border-blue-200 bg-blue-50/80 cursor-pointer hover:bg-blue-100'
                       : activity.action
                         ? 'border-gray-100 hover:bg-gray-50 cursor-pointer'
-                        : 'border-gray-100'
-                    }`}
-                >
-                  {/* Icon */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${cfg.bg} ${cfg.color}`}>
+                        : 'border-gray-100 hover:bg-gray-50/50'
+                    }`}>
+
+                  {/* ── Icon ── */}
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.iconBg} ${cfg.color}`}>
                     {icons[activity.type]}
                   </div>
 
-                  {/* Info */}
+                  {/* ── Info ── */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5">
-                      <p className="text-gray-800 font-semibold text-xs truncate">{activity.title}</p>
+                      <p className="text-gray-800 font-semibold truncate" style={{ fontSize: '12px' }}>
+                        {activity.title}
+                      </p>
                       {isUnseen && (
-                        <span className="flex-shrink-0 bg-red-500 text-white text-xs font-bold px-1 py-0.5 rounded leading-tight" style={{ fontSize: '9px' }}>
+                        <span className="flex-shrink-0 bg-red-500 text-white font-bold px-1 py-0.5 rounded leading-none"
+                          style={{ fontSize: '8px' }}>
                           NEW
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${cfg.labelBg}`} style={{ fontSize: '10px' }}>
-                        {cfg.label}
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
+                      <span className="text-gray-400 truncate" style={{ fontSize: '10px' }}>
+                        {activity.subtitle}
                       </span>
-                      <span className="text-gray-400" style={{ fontSize: '10px' }}>{timeAgo(activity.time)}</span>
+                      <span className="text-gray-200" style={{ fontSize: '10px' }}>·</span>
+                      <span className="text-gray-400 flex-shrink-0" style={{ fontSize: '10px' }}>
+                        {timeAgo(activity.time)}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Right side */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {/* Score */}
+                  {/* ── Right ── */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
                     {activity.scoreValue !== null && (
-                      <p className={`text-sm font-extrabold
+                      <span className={`text-xs font-bold
                         ${activity.scoreValue >= 80 ? 'text-green-500' :
                           activity.scoreValue >= 50 ? 'text-yellow-500' : 'text-red-500'}`}>
                         {activity.scoreValue}%
-                      </p>
+                      </span>
                     )}
 
-                    {/* Count badge for grouped */}
                     {activity.count !== null && (
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.bg} ${cfg.color}`}>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${cfg.iconBg} ${cfg.color}`}>
                         {activity.count}
                       </span>
                     )}
 
-                    {/* X dismiss button */}
-                    <button
-                      onClick={(e) => dismiss(e, activity.id)}
-                      className="w-5 h-5 rounded-full flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition opacity-0 group-hover:opacity-100"
-                    >
+                    {/* X button */}
+                    <button onClick={(e) => dismiss(e, activity.id)}
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition opacity-0 group-hover:opacity-100 flex-shrink-0">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
@@ -326,7 +379,6 @@ function RecentActivities() {
           </div>
         )}
       </div>
-
     </div>
   )
 }

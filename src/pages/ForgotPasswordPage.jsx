@@ -1,119 +1,249 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import Navbar from '../components/Navbar'
-import Footer from '../components/Footer'
+import { supabase } from '../supabaseClient'
 
 function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
-
-  // When submitted, this switches to the success view
   const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    // Switch to success state
+    setLoading(true)
+    setError('')
+
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/change-password`,
+    })
+
+    if (resetError) {
+      setError('Something went wrong. Please try again.')
+      setLoading(false)
+      return
+    }
+
+    setLoading(false)
     setSubmitted(true)
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
-      <Navbar showRegister />
+    <div className="min-h-screen bg-[#020408] flex overflow-hidden">
 
-      <main className="flex-1 flex items-center justify-center px-4 py-24">
+      {/* ── Left panel — branding ── */}
+      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden">
 
-        {/* Dark card */}
-        <div className="bg-[#1a1a1a] rounded-3xl shadow-2xl px-12 py-10 w-full max-w-md">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),transparent)]" />
+        <div className="absolute inset-0 opacity-[0.03]"
+          style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-cyan-600/10 rounded-full blur-3xl" />
 
-          {/* Show form OR success message based on submitted state */}
+        {/* Logo + back */}
+        <div className="relative z-10 flex items-center justify-between">
+          <img src="/images/logo.svg" alt="Averion" className="h-9 w-auto" />
+          <Link to="/" className="inline-flex items-center gap-1.5 text-gray-500 hover:text-white text-xs font-medium transition-colors duration-200 group">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+            Back to Home
+          </Link>
+        </div>
+
+        {/* Center content */}
+        <div className="relative z-10">
+          <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 py-1 mb-6">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+            <span className="text-blue-400 text-xs font-semibold tracking-widest uppercase">Account Recovery</span>
+          </div>
+          <h2 className="text-white text-4xl font-bold leading-tight mb-4"
+            style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: '-0.02em' }}>
+            Forgot your<br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">
+              password?
+            </span>
+          </h2>
+          <p className="text-gray-500 text-sm leading-relaxed max-w-sm">
+            No worries — it happens to everyone. Enter your email and we'll send you a secure link to reset your password.
+          </p>
+
+          {/* Steps */}
+          <div className="flex flex-col gap-4 mt-10">
+            {[
+              { n: '01', title: 'Enter your email address' },
+              { n: '02', title: 'Check your inbox for the link' },
+              { n: '03', title: 'Set your new password' },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-4">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-blue-400 text-xs font-bold">{s.n}</span>
+                </div>
+                <p className="text-gray-400 text-sm">{s.title}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bottom security note */}
+        <div className="relative z-10 bg-white/5 border border-white/10 rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-1">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+            </svg>
+            <p className="text-green-400 text-xs font-semibold">Secure Reset</p>
+          </div>
+          <p className="text-gray-400 text-sm">Reset links expire after 1 hour and can only be used once for your security.</p>
+        </div>
+      </div>
+
+      {/* ── Right panel — form ── */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 relative">
+        <div className="absolute inset-0 bg-[#04080f] lg:bg-transparent" />
+
+        <div className="relative z-10 w-full max-w-md">
+
+          {/* Mobile logo */}
+          <div className="flex justify-center mb-8 lg:hidden">
+            <img src="/images/logo.svg" alt="Averion" className="h-9 w-auto" />
+          </div>
+
+          {/* Back to home — mobile */}
+          <Link to="/" className="inline-flex items-center gap-1.5 text-gray-500 hover:text-white text-xs font-medium transition-colors duration-200 mb-6 group lg:hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+            Back to Home
+          </Link>
+
           {!submitted ? (
 
-            // ── FORM VIEW ──
+            // ── Form view ──
             <>
-              <h1 className="text-white text-3xl font-bold text-center mb-6">
-                Reset Password
-              </h1>
+              <div className="mb-8">
+                <h1 className="text-white text-3xl font-bold mb-1"
+                  style={{ fontFamily: "'Poppins', sans-serif" }}>
+                  Reset Password
+                </h1>
+                <p className="text-gray-500 text-sm">
+                  Enter your email and we'll send you a reset link.
+                </p>
+              </div>
+
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-5 flex items-start gap-2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                  <p className="text-red-400 text-sm">{error}</p>
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-
                 <div>
-                  <label className="text-white text-sm mb-1 block">
-                    Email
+                  <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2 block">
+                    Email Address
                   </label>
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-white text-gray-800 rounded-lg px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-600 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                     required
                   />
                 </div>
 
-                <button
-                  type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base py-3 rounded-lg transition"
-                >
-                  Reset
+                <button type="submit" disabled={loading}
+                  className={`w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2
+                    ${loading
+                      ? 'bg-blue-800 text-blue-300 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      Send Reset Link
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                      </svg>
+                    </>
+                  )}
                 </button>
 
-                <p className="text-gray-400 text-sm text-center">
+                <p className="text-gray-600 text-xs text-center">
                   Remember your password?{' '}
-                  <Link
-                    to="/login"
-                    className="text-blue-400 font-semibold hover:underline"
-                  >
-                    Back to Login
+                  <Link to="/login" className="text-blue-400 hover:text-blue-300 transition font-medium">
+                    Back to Sign In
                   </Link>
                 </p>
-
               </form>
             </>
 
           ) : (
 
-            // ── SUCCESS VIEW ──
-            <div className="flex flex-col items-center justify-center py-6 gap-5">
+            // ── Success view ──
+            <div className="flex flex-col items-center text-center">
 
-              <h1 className="text-white text-3xl font-bold text-center">
-                Reset Password
-              </h1>
-
-              <p className="text-gray-300 text-base text-center">
-                A link has been sent to your email
-              </p>
-
-              {/* Blue mail icon with notification dot */}
-              <div className="relative mt-2">
+              {/* Animated success icon */}
+              <div className="relative mb-8">
+                <div className="w-20 h-20 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                  </svg>
+                </div>
                 {/* Notification dot */}
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full z-10" />
-
-                {/* Mail icon */}
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-20 w-20 text-blue-600"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M1.5 8.67v8.58a3 3 0 003 3h15a3 3 0 003-3V8.67l-8.928 5.493a3 3 0 01-3.144 0L1.5 8.67z" />
-                  <path d="M22.5 6.908V6.75a3 3 0 00-3-3h-15a3 3 0 00-3 3v.158l9.714 5.978a1.5 1.5 0 001.572 0L22.5 6.908z" />
-                </svg>
+                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">1</span>
+                </div>
               </div>
 
-              {/* Back to login */}
-              <Link
-                to="/login"
-                className="text-blue-400 text-sm font-semibold hover:underline mt-2"
-              >
-                Back to Login
+              <h1 className="text-white text-3xl font-bold mb-3"
+                style={{ fontFamily: "'Poppins', sans-serif" }}>
+                Check your inbox
+              </h1>
+              <p className="text-gray-400 text-sm leading-relaxed mb-2">
+                We sent a password reset link to
+              </p>
+              <p className="text-blue-400 font-semibold text-sm mb-8">{email}</p>
+
+              {/* Info box */}
+              <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 mb-8 text-left">
+                <div className="flex flex-col gap-3">
+                  {[
+                    { icon: '📬', text: "Check your spam folder if you don't see it" },
+                    { icon: '⏱', text: 'The link expires in 1 hour' },
+                    { icon: '🔒', text: 'The link can only be used once' },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="text-base">{item.icon}</span>
+                      <p className="text-gray-400 text-xs">{item.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Resend */}
+              <button
+                onClick={() => { setSubmitted(false); setEmail('') }}
+                className="text-gray-500 hover:text-white text-xs font-medium transition-colors duration-200 mb-4">
+                Didn't receive it? Try again
+              </button>
+
+              <Link to="/login"
+                className="inline-flex items-center gap-1.5 text-blue-400 hover:text-blue-300 text-sm font-semibold transition-colors duration-200 group">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                </svg>
+                Back to Sign In
               </Link>
-
             </div>
-
           )}
 
         </div>
-      </main>
-
-      <Footer />
+      </div>
     </div>
   )
 }

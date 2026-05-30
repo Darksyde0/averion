@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminSidebar from '../../components/Admin/AdminSidebar'
+import AdminTopBar from '../../components/Admin/AdminTopBar'
 import { supabase } from '../../supabaseClient'
 import { useProfile } from '../../hooks/useProfile'
 
@@ -10,17 +11,14 @@ function generatePassword() {
   const numbers = '0123456789'
   const special = '!@#$%^&*'
   const all = upper + lower + numbers + special
-
   let password =
     upper[Math.floor(Math.random() * upper.length)] +
     lower[Math.floor(Math.random() * lower.length)] +
     numbers[Math.floor(Math.random() * numbers.length)] +
     special[Math.floor(Math.random() * special.length)]
-
   for (let i = 4; i < 12; i++) {
     password += all[Math.floor(Math.random() * all.length)]
   }
-
   return password.split('').sort(() => Math.random() - 0.5).join('')
 }
 
@@ -41,6 +39,7 @@ function AddUser() {
     username: '',
     department: '',
     jobTitle: '',
+    employeeId: '',
     password: generatePassword(),
   })
 
@@ -64,7 +63,6 @@ function AddUser() {
     setLoading(true)
     setError('')
 
-    // Guard — need admin profile to get organization_id
     if (!profile?.id) {
       setError('Admin profile not loaded. Please try again.')
       setLoading(false)
@@ -72,35 +70,26 @@ function AddUser() {
     }
 
     try {
-      const employeeId = 'EMP-' + Math.floor(1000 + Math.random() * 9000)
       const fullName = `${formData.firstName} ${formData.lastName}`
 
-      // Step 1 — Create auth user
       const { data, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
       })
 
-      if (authError) {
-        setError(authError.message)
-        setLoading(false)
-        return
-      }
+      if (authError) { setError(authError.message); setLoading(false); return }
 
-      // Step 2 — Insert into users table with organization_id = admin's id
-      const { error: profileError } = await supabase
-        .from('users')
-        .insert({
-          id: data.user.id,
-          full_name: fullName,
-          email: formData.email,
-          department: formData.department,
-          job_title: formData.jobTitle,
-          employee_id: employeeId,
-          role: 'user',
-          first_login: true,
-          organization_id: profile.id, // ← links user to this admin
-        })
+      const { error: profileError } = await supabase.from('users').insert({
+        id: data.user.id,
+        full_name: fullName,
+        email: formData.email,
+        department: formData.department,
+        job_title: formData.jobTitle,
+        employee_id: formData.employeeId.trim() || null,
+        role: 'user',
+        first_login: true,
+        organization_id: profile.id,
+      })
 
       if (profileError) {
         setError('User created but profile setup failed: ' + profileError.message)
@@ -125,6 +114,7 @@ function AddUser() {
       username: '',
       department: '',
       jobTitle: '',
+      employeeId: '',
       password: generatePassword(),
     })
     setSubmitted(false)
@@ -137,50 +127,12 @@ function AddUser() {
       <AdminSidebar isOpen={sidebarOpen} />
 
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-48' : 'ml-16'}`}>
+        <AdminTopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
-        {/* Top bar */}
-        <div className="bg-[#0d1117] flex items-center justify-between px-8 py-1">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-white">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 bg-[#1a1a2e] rounded-full pl-1 pr-5 py-1">
-              <div className="w-10 h-10 rounded-full bg-gray-500 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                {profile?.avatar_url ? (
-                  <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-200" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-                  </svg>
-                )}
-              </div>
-              <div className="flex flex-col items-start">
-                <p className="text-white font-bold text-sm leading-tight">
-                  {profile?.full_name || 'Loading...'}
-                </p>
-                <span className="bg-red-600 text-white text-xs font-bold px-3 py-0.5 rounded-full mt-0.5">
-                  ADMIN
-                </span>
-              </div>
-            </div>
-            <button className="relative text-white hover:text-blue-400 transition">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-              </svg>
-              <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-[#0d1117]" />
-            </button>
-          </div>
-        </div>
-
-        {/* Page content */}
         <div className="flex-1 p-8">
-
           {!submitted ? (
 
             <div className="max-w-full">
-
               <h1 className="text-gray-800 text-3xl font-bold mb-1">Add New User</h1>
               <p className="text-gray-500 text-sm mb-8">
                 Create a new user account. A strong password will be generated automatically.
@@ -265,6 +217,20 @@ function AddUser() {
                         placeholder="Enter job title" required
                         className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400" />
                     </div>
+
+                    {/* ── Employee ID — optional ── */}
+                    <div className="col-span-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-gray-700 text-sm font-semibold">Employee ID</label>
+                        <span className="text-gray-400 text-xs bg-gray-100 px-2 py-0.5 rounded-full">Optional</span>
+                      </div>
+                      <input type="text" name="employeeId" value={formData.employeeId} onChange={handleChange}
+                        placeholder="e.g. EMP-1234 — leave blank to skip"
+                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400" />
+                      <p className="text-gray-400 text-xs mt-1.5">
+                        Leave blank to skip — the user's profile will show no Employee ID until one is assigned.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -334,7 +300,7 @@ function AddUser() {
                   </div>
                 </div>
 
-                {/* Action buttons */}
+                {/* Actions */}
                 <div className="flex justify-between pb-8">
                   <button type="button" onClick={() => navigate('/admin/users')}
                     className="px-8 py-3 rounded-xl text-sm font-semibold bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition">
@@ -352,46 +318,38 @@ function AddUser() {
 
           ) : (
 
-            // ── SUCCESS VIEW ──
             <div className="max-w-lg mx-auto mt-20 text-center">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-10">
-
                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                 </div>
-
                 <h2 className="text-gray-800 text-2xl font-bold mb-2">User Created Successfully!</h2>
                 <p className="text-gray-500 text-sm mb-2">
                   <span className="font-semibold text-gray-700">{formData.firstName} {formData.lastName}</span> has been added to Averion.
                 </p>
                 <p className="text-gray-400 text-xs mb-8">
-                  They can now log in using their email and the generated password. They will be prompted to change their password on first login.
+                  They will receive a verification email at <span className="font-semibold text-gray-600">{formData.email}</span>.
+                  They must verify their email before logging in, then change their password on first login.
                 </p>
-
                 <div className="bg-gray-50 rounded-xl p-4 text-left mb-8">
                   <p className="text-gray-700 text-sm font-bold mb-3">Login Credentials</p>
                   <div className="flex flex-col gap-2">
-                    <div className="flex justify-between">
-                      <p className="text-gray-500 text-xs">Email</p>
-                      <p className="text-gray-800 text-xs font-semibold">{formData.email}</p>
-                    </div>
-                    <div className="flex justify-between">
-                      <p className="text-gray-500 text-xs">Username</p>
-                      <p className="text-gray-800 text-xs font-semibold">{formData.username}</p>
-                    </div>
-                    <div className="flex justify-between">
-                      <p className="text-gray-500 text-xs">Password</p>
-                      <p className="text-gray-800 text-xs font-mono font-semibold">{formData.password}</p>
-                    </div>
-                    <div className="flex justify-between">
-                      <p className="text-gray-500 text-xs">Department</p>
-                      <p className="text-gray-800 text-xs font-semibold">{formData.department}</p>
-                    </div>
+                    {[
+                      { label: 'Email', value: formData.email },
+                      { label: 'Username', value: formData.username },
+                      { label: 'Password', value: formData.password, mono: true },
+                      { label: 'Department', value: formData.department },
+                      ...(formData.employeeId ? [{ label: 'Employee ID', value: formData.employeeId }] : []),
+                    ].map((item, i) => (
+                      <div key={i} className="flex justify-between">
+                        <p className="text-gray-500 text-xs">{item.label}</p>
+                        <p className={`text-gray-800 text-xs font-semibold ${item.mono ? 'font-mono' : ''}`}>{item.value}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
-
                 <div className="flex gap-3">
                   <button onClick={handleAddAnother}
                     className="flex-1 py-3 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
@@ -402,10 +360,8 @@ function AddUser() {
                     View All Users
                   </button>
                 </div>
-
               </div>
             </div>
-
           )}
 
         </div>

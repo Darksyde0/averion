@@ -1,9 +1,56 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminSidebar from '../../components/Admin/AdminSidebar'
 import AdminTopBar from '../../components/Admin/AdminTopBar'
 import { useProfile } from '../../hooks/useProfile'
 import { supabase } from '../../supabaseClient'
+
+// ── Reusable Tooltip ──
+function Tooltip({ text }) {
+  const [show, setShow] = useState(false)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const ref = useRef(null)
+
+  function handleMouseEnter() {
+    const rect = ref.current.getBoundingClientRect()
+    setPos({
+      top: rect.top - 8,
+      left: rect.left + rect.width / 2,
+    })
+    setShow(true)
+  }
+
+  return (
+    <div className="relative inline-flex items-center ml-1.5"
+      ref={ref}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setShow(false)}>
+      <div className="w-4 h-4 rounded-full bg-gray-200 hover:bg-blue-100 flex items-center justify-center cursor-default transition">
+        <span className="text-gray-500 hover:text-blue-600 font-bold leading-none transition" style={{ fontSize: '10px' }}>?</span>
+      </div>
+      {show && (
+        <div className="fixed z-[9999] pointer-events-none"
+          style={{ top: pos.top, left: pos.left, transform: 'translate(-50%, -100%)' }}>
+          <div className="bg-gray-900 text-white text-xs rounded-xl px-3 py-2 shadow-xl w-56 leading-relaxed text-center">
+            {text}
+          </div>
+          <div className="w-2 h-2 bg-gray-900 rotate-45 mx-auto -mt-1" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function emptySection(idOffset = 0) {
+  return {
+    id: Date.now() + idOffset,
+    heading: '',
+    body: '',
+    bulletLabel: '',
+    bullets: [''],
+    contentBlocks: [],
+  }
+}
 
 function AddModule() {
   const navigate = useNavigate()
@@ -21,13 +68,7 @@ function AddModule() {
   })
 
   const [lessons, setLessons] = useState([
-    {
-      id: 1,
-      title: '',
-      sections: [
-        { id: 1, heading: '', body: '', bulletLabel: 'It usually comes in the form of:', bullets: [''] }
-      ]
-    }
+    { id: 1, title: '', sections: [emptySection(1)] }
   ])
 
   const [questions, setQuestions] = useState([
@@ -40,11 +81,7 @@ function AddModule() {
 
   // ── Lesson handlers ──
   function addLesson() {
-    setLessons([...lessons, {
-      id: Date.now(),
-      title: '',
-      sections: [{ id: Date.now() + 1, heading: '', body: '', bulletLabel: 'It usually comes in the form of:', bullets: [''] }]
-    }])
+    setLessons([...lessons, { id: Date.now(), title: '', sections: [emptySection()] }])
   }
 
   function deleteLesson(lessonId) {
@@ -60,15 +97,7 @@ function AddModule() {
   function addSection(lessonId) {
     setLessons(lessons.map(l => {
       if (l.id !== lessonId) return l
-      return {
-        ...l,
-        sections: [...l.sections, {
-          id: Date.now(),
-          heading: '', body: '',
-          bulletLabel: 'It usually comes in the form of:',
-          bullets: ['']
-        }]
-      }
+      return { ...l, sections: [...l.sections, emptySection()] }
     }))
   }
 
@@ -124,11 +153,49 @@ function AddModule() {
     }))
   }
 
+  // ── Content block handlers ──
+  function addContentBlock(lessonId, sectionId) {
+    setLessons(lessons.map(l => {
+      if (l.id !== lessonId) return l
+      return {
+        ...l,
+        sections: l.sections.map(s => {
+          if (s.id !== sectionId) return s
+          return { ...s, contentBlocks: [...s.contentBlocks, { id: Date.now(), heading: '', body: '' }] }
+        })
+      }
+    }))
+  }
+
+  function updateContentBlock(lessonId, sectionId, blockId, field, value) {
+    setLessons(lessons.map(l => {
+      if (l.id !== lessonId) return l
+      return {
+        ...l,
+        sections: l.sections.map(s => {
+          if (s.id !== sectionId) return s
+          return { ...s, contentBlocks: s.contentBlocks.map(b => b.id === blockId ? { ...b, [field]: value } : b) }
+        })
+      }
+    }))
+  }
+
+  function deleteContentBlock(lessonId, sectionId, blockId) {
+    setLessons(lessons.map(l => {
+      if (l.id !== lessonId) return l
+      return {
+        ...l,
+        sections: l.sections.map(s => {
+          if (s.id !== sectionId) return s
+          return { ...s, contentBlocks: s.contentBlocks.filter(b => b.id !== blockId) }
+        })
+      }
+    }))
+  }
+
   // ── Quiz handlers ──
   function addQuestion() {
-    setQuestions([...questions, {
-      id: Date.now(), question: '', options: ['', '', '', ''], correctIndex: null, explanation: '',
-    }])
+    setQuestions([...questions, { id: Date.now(), question: '', options: ['', '', '', ''], correctIndex: null, explanation: '' }])
   }
 
   function deleteQuestion(id) {
@@ -200,6 +267,7 @@ function AddModule() {
               body: section.body,
               bullet_label: section.bulletLabel,
               bullets: section.bullets.filter(b => b !== ''),
+              content_blocks: section.contentBlocks,
               order_index: j,
             })
 
@@ -218,7 +286,7 @@ function AddModule() {
             explanation: q.explanation,
           })
 
-        if (quizError) { setError('Failed to save quiz question: ' + quizError.message); setLoading(false); return }
+        if (quizError) { setError('Failed to save quiz: ' + quizError.message); setLoading(false); return }
       }
 
       setSubmitted(true)
@@ -236,13 +304,10 @@ function AddModule() {
       <AdminSidebar isOpen={sidebarOpen} />
 
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-48' : 'ml-16'}`}>
-
         <AdminTopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
         <div className="flex-1 p-8">
-
           {!submitted ? (
-
             <div className="w-full">
 
               <div className="mb-8">
@@ -272,7 +337,10 @@ function AddModule() {
                   <div className="grid grid-cols-2 gap-5">
 
                     <div className="col-span-2">
-                      <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Module Name <span className="text-red-400">*</span></label>
+                      <label className="text-gray-700 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
+                        Module Name <span className="text-red-400 ml-0.5">*</span>
+                        <Tooltip text="The title users will see in their training list. Make it clear and specific." />
+                      </label>
                       <input type="text" name="name" value={moduleData.name} onChange={handleModuleChange}
                         placeholder="e.g. Phishing Detection Fundamentals"
                         className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
@@ -280,7 +348,10 @@ function AddModule() {
                     </div>
 
                     <div className="col-span-2">
-                      <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Brief Description <span className="text-red-400">*</span></label>
+                      <label className="text-gray-700 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
+                        Brief Description <span className="text-red-400 ml-0.5">*</span>
+                        <Tooltip text="A short summary shown on the module card. Minimum 50 characters. Helps users understand what they'll learn before starting." />
+                      </label>
                       <textarea name="description" value={moduleData.description} onChange={handleModuleChange}
                         placeholder="Write a clear description of what this module covers..."
                         rows={4} maxLength={200}
@@ -296,19 +367,15 @@ function AddModule() {
                       </div>
                     </div>
 
-                    {/* ── Category: free text + suggestions ── */}
                     <div>
-                      <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Category <span className="text-red-400">*</span></label>
-                      <input
-                        type="text"
-                        name="category"
-                        value={moduleData.category}
-                        onChange={handleModuleChange}
-                        placeholder="e.g. Phishing Detection"
-                        list="module-category-options"
+                      <label className="text-gray-700 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
+                        Category <span className="text-red-400 ml-0.5">*</span>
+                        <Tooltip text="Groups this module with similar training topics. You can type your own or pick from the suggestions." />
+                      </label>
+                      <input type="text" name="category" value={moduleData.category} onChange={handleModuleChange}
+                        placeholder="e.g. Phishing Detection" list="module-category-options"
                         className="w-full bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
-                        required
-                      />
+                        required />
                       <datalist id="module-category-options">
                         <option value="Phishing Detection" />
                         <option value="Password Security" />
@@ -319,7 +386,10 @@ function AddModule() {
                     </div>
 
                     <div>
-                      <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Estimated Time <span className="text-red-400">*</span></label>
+                      <label className="text-gray-700 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
+                        Estimated Time <span className="text-red-400 ml-0.5">*</span>
+                        <Tooltip text="How long it takes to complete this module in minutes. Shown to users so they can plan their time." />
+                      </label>
                       <div className="relative">
                         <input type="number" name="estimatedTime" value={moduleData.estimatedTime} onChange={handleModuleChange}
                           placeholder="e.g. 30" min="1"
@@ -335,9 +405,10 @@ function AddModule() {
                 {/* ── Lessons ── */}
                 <div className="flex flex-col gap-5">
                   {lessons.map((lesson, lessonIndex) => (
-                    <div key={lesson.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div key={lesson.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm">
 
-                      <div className="flex items-center justify-between px-6 py-3.5 bg-[#0d1117]">
+                      {/* Lesson header */}
+                      <div className="flex items-center justify-between px-6 py-3.5 bg-[#0d1117] rounded-t-2xl">
                         <div className="flex items-center gap-3">
                           <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
                             <span className="text-white text-xs font-bold">{lessonIndex + 1}</span>
@@ -356,9 +427,11 @@ function AddModule() {
                       </div>
 
                       <div className="p-6">
-
                         <div className="mb-5">
-                          <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Lesson Title <span className="text-red-400">*</span></label>
+                          <label className="text-gray-700 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
+                            Lesson Title <span className="text-red-400 ml-0.5">*</span>
+                            <Tooltip text="Each lesson is like a chapter. Break your module into logical steps — e.g. 'Introduction', 'How to Spot It', 'What to Do'." />
+                          </label>
                           <input type="text" value={lesson.title} onChange={(e) => updateLessonTitle(lesson.id, e.target.value)}
                             placeholder="e.g. Introduction to Phishing"
                             className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
@@ -373,9 +446,10 @@ function AddModule() {
 
                         <div className="flex flex-col gap-4">
                           {lesson.sections.map((section, sectionIndex) => (
-                            <div key={section.id} className="border border-gray-100 rounded-2xl overflow-hidden">
+                            <div key={section.id} className="border border-gray-100 rounded-2xl">
 
-                              <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+                              {/* Section header */}
+                              <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-100 rounded-t-2xl">
                                 <div className="flex items-center gap-2">
                                   <div className="w-1 h-4 bg-blue-500 rounded-full" />
                                   <span className="text-gray-600 text-xs font-semibold">Section {sectionIndex + 1}</span>
@@ -390,9 +464,12 @@ function AddModule() {
 
                               <div className="p-4 flex flex-col gap-4">
 
+                                {/* Heading */}
                                 <div>
-                                  <label className="text-gray-600 text-xs font-semibold mb-1.5 block uppercase tracking-wide">
-                                    Heading <span className="text-gray-400 font-normal normal-case">(optional)</span>
+                                  <label className="text-gray-600 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
+                                    Heading
+                                    <span className="text-gray-400 font-normal normal-case ml-1">(optional)</span>
+                                    <Tooltip text="A bold title shown above the body text. Use it to introduce what this section covers — e.g. 'What is Phishing?'" />
                                   </label>
                                   <input type="text" value={section.heading}
                                     onChange={(e) => updateSection(lesson.id, section.id, 'heading', e.target.value)}
@@ -400,8 +477,12 @@ function AddModule() {
                                     className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition" />
                                 </div>
 
+                                {/* Body */}
                                 <div>
-                                  <label className="text-gray-600 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Body Text <span className="text-red-400">*</span></label>
+                                  <label className="text-gray-600 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
+                                    Body Text <span className="text-red-400 ml-0.5">*</span>
+                                    <Tooltip text="The main paragraph users will read. Explain the concept clearly. This appears directly below the heading." />
+                                  </label>
                                   <textarea value={section.body}
                                     onChange={(e) => updateSection(lesson.id, section.id, 'body', e.target.value)}
                                     placeholder="Explain this section in detail..."
@@ -410,9 +491,12 @@ function AddModule() {
                                     required />
                                 </div>
 
+                                {/* Bullet Label */}
                                 <div>
-                                  <label className="text-gray-600 text-xs font-semibold mb-1.5 block uppercase tracking-wide">
-                                    Bullet Label <span className="text-gray-400 font-normal normal-case">(optional)</span>
+                                  <label className="text-gray-600 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
+                                    Bullet Label
+                                    <span className="text-gray-400 font-normal normal-case ml-1">(optional)</span>
+                                    <Tooltip text="The intro line shown above your bullet points — e.g. 'It usually comes in the form of:' or 'Common examples include:'" />
                                   </label>
                                   <input type="text" value={section.bulletLabel}
                                     onChange={(e) => updateSection(lesson.id, section.id, 'bulletLabel', e.target.value)}
@@ -420,9 +504,12 @@ function AddModule() {
                                     className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition" />
                                 </div>
 
+                                {/* Bullets */}
                                 <div>
-                                  <label className="text-gray-600 text-xs font-semibold mb-1.5 block uppercase tracking-wide">
-                                    Bullet Points <span className="text-gray-400 font-normal normal-case">(optional)</span>
+                                  <label className="text-gray-600 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
+                                    Bullet Points
+                                    <span className="text-gray-400 font-normal normal-case ml-1">(optional)</span>
+                                    <Tooltip text="Key takeaways or examples shown as a list. Great for breaking down complex ideas into digestible points." />
                                   </label>
                                   <div className="flex flex-col gap-2">
                                     {section.bullets.map((bullet, bulletIndex) => (
@@ -452,8 +539,58 @@ function AddModule() {
                                   </div>
                                 </div>
 
-                                {/* Live Preview */}
-                                {(section.heading || section.body || section.bullets.some(b => b)) && (
+                                {/* ── Content blocks after bullets ── */}
+                                {section.contentBlocks.map((block, blockIndex) => (
+                                  <div key={block.id} className="border border-blue-100 rounded-xl p-4 bg-blue-50/30 flex flex-col gap-3">
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-1 h-4 bg-blue-400 rounded-full" />
+                                        <span className="text-blue-600 text-xs font-semibold">Continued Block {blockIndex + 1}</span>
+                                      </div>
+                                      <button type="button" onClick={() => deleteContentBlock(lesson.id, section.id, block.id)}
+                                        className="text-red-400 hover:text-red-600 text-xs font-semibold transition">
+                                        Remove
+                                      </button>
+                                    </div>
+
+                                    <div>
+                                      <label className="text-gray-600 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
+                                        Heading
+                                        <span className="text-gray-400 font-normal normal-case ml-1">(optional)</span>
+                                        <Tooltip text="An optional bold title for this continued block — shown after the bullet list in the same section." />
+                                      </label>
+                                      <input type="text" value={block.heading}
+                                        onChange={(e) => updateContentBlock(lesson.id, section.id, block.id, 'heading', e.target.value)}
+                                        placeholder="e.g. Why it matters"
+                                        className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition" />
+                                    </div>
+
+                                    <div>
+                                      <label className="text-gray-600 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
+                                        Body Text <span className="text-red-400 ml-0.5">*</span>
+                                        <Tooltip text="Continues the explanation after the bullet list — stays inside the same section without starting a new one." />
+                                      </label>
+                                      <textarea value={block.body}
+                                        onChange={(e) => updateContentBlock(lesson.id, section.id, block.id, 'body', e.target.value)}
+                                        placeholder="Continue explaining..."
+                                        rows={3}
+                                        className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none transition"
+                                        required />
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {/* Add content block */}
+                                <button type="button" onClick={() => addContentBlock(lesson.id, section.id)}
+                                  className="flex items-center justify-center gap-2 border border-dashed border-blue-200 hover:border-blue-400 hover:bg-blue-50 text-blue-400 hover:text-blue-600 font-semibold text-xs py-2.5 rounded-xl transition">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                  </svg>
+                                  Add heading + text after bullets
+                                </button>
+
+                                {/* Preview */}
+                                {(section.heading || section.body || section.bullets.some(b => b) || section.contentBlocks.some(b => b.body)) && (
                                   <div>
                                     <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2">Preview</p>
                                     <div className="bg-[#1a2744] rounded-xl p-4">
@@ -467,10 +604,12 @@ function AddModule() {
                                         <p className="text-gray-300 text-xs leading-relaxed mb-3 ml-3">{section.body}</p>
                                       )}
                                       {section.bullets.some(b => b) && (
-                                        <div className="ml-3 bg-[#243860] rounded-xl p-3">
-                                          <p className="text-blue-400 text-xs font-bold uppercase tracking-wide mb-2">
-                                            {section.bulletLabel || 'It usually comes in the form of:'}
-                                          </p>
+                                        <div className="ml-3 bg-[#243860] rounded-xl p-3 mb-3">
+                                          {section.bulletLabel && (
+                                            <p className="text-blue-400 text-xs font-bold uppercase tracking-wide mb-2">
+                                              {section.bulletLabel}
+                                            </p>
+                                          )}
                                           <div className="flex flex-col gap-1.5">
                                             {section.bullets.filter(b => b).map((bullet, i) => (
                                               <div key={i} className="flex items-center gap-2">
@@ -481,6 +620,19 @@ function AddModule() {
                                           </div>
                                         </div>
                                       )}
+                                      {section.contentBlocks.filter(b => b.body).map((block, i) => (
+                                        <div key={i} className="ml-3 mt-2">
+                                          {block.heading && (
+                                            <div className="flex items-center gap-2 mb-1.5">
+                                              <div className="w-1 h-3.5 bg-blue-400 rounded-full flex-shrink-0" />
+                                              <p className="text-blue-300 font-bold text-xs">{block.heading}</p>
+                                            </div>
+                                          )}
+                                          {block.body && (
+                                            <p className="text-gray-300 text-xs leading-relaxed ml-3">{block.body}</p>
+                                          )}
+                                        </div>
+                                      ))}
                                     </div>
                                   </div>
                                 )}
@@ -520,6 +672,7 @@ function AddModule() {
                         </svg>
                       </div>
                       Quiz Questions
+                      <Tooltip text="Users answer these after completing all lessons. Their score determines if they pass, average, or are high risk." />
                     </h2>
                     <button type="button" onClick={addQuestion}
                       className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-3.5 py-2 rounded-xl transition">
@@ -550,7 +703,9 @@ function AddModule() {
                         </div>
 
                         <div className="mb-4">
-                          <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Question <span className="text-red-400">*</span></label>
+                          <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">
+                            Question <span className="text-red-400">*</span>
+                          </label>
                           <textarea value={q.question} onChange={(e) => updateQuestion(q.id, 'question', e.target.value)}
                             placeholder="Enter your question here..."
                             rows={2}
@@ -559,9 +714,9 @@ function AddModule() {
                         </div>
 
                         <div className="mb-4">
-                          <label className="text-gray-700 text-xs font-semibold mb-2 block uppercase tracking-wide">
-                            Answer Options <span className="text-red-400">*</span>
-                            <span className="text-gray-400 font-normal ml-1 normal-case text-xs">— click circle to mark correct</span>
+                          <label className="text-gray-700 text-xs font-semibold mb-2 flex items-center uppercase tracking-wide">
+                            Answer Options <span className="text-red-400 ml-0.5">*</span>
+                            <Tooltip text="Add 4 answer options then click the circle next to the correct one to mark it green." />
                           </label>
                           <div className="flex flex-col gap-2.5">
                             {q.options.map((opt, i) => (
@@ -589,14 +744,16 @@ function AddModule() {
                         </div>
 
                         <div>
-                          <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Explanation <span className="text-red-400">*</span></label>
+                          <label className="text-gray-700 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
+                            Explanation <span className="text-red-400 ml-0.5">*</span>
+                            <Tooltip text="Shown to the user after they answer — explains why the correct answer is right. Reinforces the learning." />
+                          </label>
                           <textarea value={q.explanation} onChange={(e) => updateQuestion(q.id, 'explanation', e.target.value)}
                             placeholder="Explain why the correct answer is right..."
                             rows={2}
                             className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none transition"
                             required />
                         </div>
-
                       </div>
                     ))}
                   </div>
@@ -659,7 +816,7 @@ function AddModule() {
                   <button
                     onClick={() => {
                       setModuleData({ name: '', description: '', category: 'Phishing Detection', estimatedTime: '' })
-                      setLessons([{ id: 1, title: '', sections: [{ id: 1, heading: '', body: '', bulletLabel: 'It usually comes in the form of:', bullets: [''] }] }])
+                      setLessons([{ id: 1, title: '', sections: [emptySection(1)] }])
                       setQuestions([{ id: 1, question: '', options: ['', '', '', ''], correctIndex: null, explanation: '' }])
                       setSubmitted(false)
                       setError('')
@@ -674,7 +831,6 @@ function AddModule() {
                 </div>
               </div>
             </div>
-
           )}
         </div>
       </div>

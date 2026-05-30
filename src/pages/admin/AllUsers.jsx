@@ -38,7 +38,6 @@ function AllUsers() {
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError] = useState('')
   const [editSuccess, setEditSuccess] = useState(false)
-
   const [editModal, setEditModal] = useState(false)
   const [editUser, setEditUser] = useState(null)
   const [deleteModal, setDeleteModal] = useState(false)
@@ -58,7 +57,6 @@ function AllUsers() {
 
   async function fetchUsers() {
     setLoading(true)
-
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -86,7 +84,6 @@ function AllUsers() {
         const avgScore = userSims.length > 0
           ? Math.round(userSims.reduce((sum, s) => sum + s.score, 0) / userSims.length)
           : 0
-
         return {
           id: u.id,
           name: u.full_name,
@@ -95,24 +92,19 @@ function AllUsers() {
           avatarUrl: u.avatar_url || null,
           progress: avgScore,
           hasStarted,
+          createdAt: u.created_at,
         }
       })
-
       setUsers(mapped)
     }
     setLoading(false)
   }
 
   function toggleDropdown(e, userId) {
-    if (openDropdown === userId) {
-      setOpenDropdown(null)
-      return
-    }
+    e.stopPropagation()
+    if (openDropdown === userId) { setOpenDropdown(null); return }
     const rect = e.currentTarget.getBoundingClientRect()
-    setDropdownPos({
-      top: rect.bottom + window.scrollY + 4,
-      left: rect.left + window.scrollX - 140,
-    })
+    setDropdownPos({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX - 140 })
     setOpenDropdown(userId)
   }
 
@@ -122,9 +114,7 @@ function AllUsers() {
       const status = getStatus(u.progress, u.hasStarted).label
       return [u.name, u.email, u.department, `${u.progress}%`, status]
     })
-    const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
-      .join('\n')
+    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n')
     const blob = new Blob([csvContent], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -146,28 +136,17 @@ function AllUsers() {
     setEditSaving(true)
     setEditError('')
     setEditSuccess(false)
-
     const { error } = await supabase
       .from('users')
-      .update({
-        full_name: editUser.name,
-        email: editUser.email,
-        department: editUser.department,
-      })
+      .update({ full_name: editUser.name, email: editUser.email, department: editUser.department })
       .eq('id', editUser.id)
-
     setEditSaving(false)
-
     if (error) {
       setEditError('Failed to save changes. Please try again.')
     } else {
       setUsers(users.map(u => u.id === editUser.id ? { ...u, ...editUser } : u))
       setEditSuccess(true)
-      setTimeout(() => {
-        setEditModal(false)
-        setEditUser(null)
-        setEditSuccess(false)
-      }, 1500)
+      setTimeout(() => { setEditModal(false); setEditUser(null); setEditSuccess(false) }, 1500)
     }
   }
 
@@ -178,11 +157,7 @@ function AllUsers() {
   }
 
   async function confirmDelete() {
-    const { error } = await supabase
-      .from('users')
-      .delete()
-      .eq('id', deleteUser.id)
-
+    const { error } = await supabase.from('users').delete().eq('id', deleteUser.id)
     if (!error) {
       setUsers(users.filter(u => u.id !== deleteUser.id))
       setDeleteModal(false)
@@ -206,20 +181,21 @@ function AllUsers() {
     <div className="flex min-h-screen bg-gray-50">
       <AdminSidebar isOpen={sidebarOpen} />
 
-      {/* Portal dropdown — Edit only */}
       {openDropdown && (
-        <div
-          data-dropdown
+        <div data-dropdown
           className="fixed bg-white rounded-xl shadow-2xl z-[9999] overflow-hidden border border-gray-100 w-44"
-          style={{ top: dropdownPos.top, left: dropdownPos.left }}
-        >
+          style={{ top: dropdownPos.top, left: dropdownPos.left }}>
           <button
-            onClick={() => {
-              const user = users.find(u => u.id === openDropdown)
-              if (user) handleEditInfo(user)
-            }}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition text-left"
-          >
+            onClick={() => navigate(`/admin/users/${openDropdown}`)}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition text-left">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            View Profile
+          </button>
+          <button
+            onClick={() => { const user = users.find(u => u.id === openDropdown); if (user) handleEditInfo(user) }}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition text-left">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
             </svg>
@@ -229,12 +205,10 @@ function AllUsers() {
       )}
 
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-48' : 'ml-16'}`}>
-
         <AdminTopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
         <div className="flex-1 p-8">
 
-          {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-gray-900 text-2xl font-bold">All Users</h1>
@@ -260,23 +234,16 @@ function AllUsers() {
             </div>
           </div>
 
-          {/* Search */}
           <div className="relative mb-5">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
             </svg>
-            <input
-              type="text"
-              placeholder="Search by name, email or department..."
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }}
-              className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-5 py-3 text-sm text-gray-700 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-            />
+            <input type="text" placeholder="Search by name, email or department..."
+              value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }}
+              className="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-5 py-3 text-sm text-gray-700 placeholder-gray-400 outline-none focus:ring-2 focus:ring-blue-500 shadow-sm" />
           </div>
 
-          {/* Table */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-
             <div className="px-6 py-3 border-b border-gray-100 grid items-center bg-gray-50"
               style={{ gridTemplateColumns: '2fr 2fr 1.5fr 1fr 1.2fr 40px' }}>
               <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide">Name</p>
@@ -314,19 +281,18 @@ function AllUsers() {
 
                 return (
                   <div key={user.id}
-                    className="px-6 py-4 border-b border-gray-50 hover:bg-gray-50 transition grid items-center"
+                    onClick={() => navigate(`/admin/users/${user.id}`)}
+                    className="px-6 py-4 border-b border-gray-50 hover:bg-blue-50/30 transition grid items-center cursor-pointer group"
                     style={{ gridTemplateColumns: '2fr 2fr 1.5fr 1fr 1.2fr 40px' }}>
 
                     <div className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-white text-xs font-bold
                         ${!user.avatarUrl ? avatarColor : ''}`}>
-                        {user.avatarUrl ? (
-                          <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <span>{initials}</span>
-                        )}
+                        {user.avatarUrl
+                          ? <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                          : <span>{initials}</span>}
                       </div>
-                      <p className="text-gray-800 text-sm font-semibold">{user.name}</p>
+                      <p className="text-gray-800 text-sm font-semibold group-hover:text-blue-600 transition">{user.name}</p>
                     </div>
 
                     <p className="text-gray-500 text-sm truncate pr-4">{user.email}</p>
@@ -344,16 +310,13 @@ function AllUsers() {
                     </span>
 
                     <div data-dropdown>
-                      <button
-                        onClick={(e) => toggleDropdown(e, user.id)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition"
-                      >
+                      <button onClick={(e) => toggleDropdown(e, user.id)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M12 6a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4zm0 8a2 2 0 110-4 2 2 0 010 4z" />
                         </svg>
                       </button>
                     </div>
-
                   </div>
                 )
               })
@@ -365,29 +328,23 @@ function AllUsers() {
                   Showing {(currentPage - 1) * USERS_PER_PAGE + 1}–{Math.min(currentPage * USERS_PER_PAGE, filteredUsers.length)} of {filteredUsers.length}
                 </p>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                    disabled={currentPage === 1}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition
-                      ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'}`}>
+                  <button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'}`}>
                     Previous
                   </button>
                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                     <button key={page} onClick={() => setCurrentPage(page)}
-                      className={`w-7 h-7 rounded-lg text-xs font-semibold transition
-                        ${currentPage === page ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
+                      className={`w-7 h-7 rounded-lg text-xs font-semibold transition ${currentPage === page ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
                       {page}
                     </button>
                   ))}
-                  <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition
-                      ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'}`}>
+                  <button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100'}`}>
                     Next
                   </button>
                 </div>
               </div>
             )}
-
           </div>
         </div>
       </div>
@@ -396,51 +353,33 @@ function AllUsers() {
       {editModal && editUser && (
         <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center px-4">
           <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
-
             <div className="flex items-center gap-4 mb-6">
-              <div className={`w-12 h-12 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-white text-sm font-bold
-                ${!editUser.avatarUrl ? avatarColors[0] : ''}`}>
-                {editUser.avatarUrl ? (
-                  <img src={editUser.avatarUrl} alt={editUser.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span>{getInitials(editUser.name)}</span>
-                )}
+              <div className={`w-12 h-12 rounded-full flex-shrink-0 overflow-hidden flex items-center justify-center text-white text-sm font-bold ${!editUser.avatarUrl ? avatarColors[0] : ''}`}>
+                {editUser.avatarUrl
+                  ? <img src={editUser.avatarUrl} alt={editUser.name} className="w-full h-full object-cover" />
+                  : <span>{getInitials(editUser.name)}</span>}
               </div>
               <div>
                 <h2 className="text-gray-800 text-lg font-bold">Edit User</h2>
                 <p className="text-gray-400 text-sm">{editUser.email}</p>
               </div>
             </div>
-
-            {editError && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
-                <p className="text-red-600 text-sm">✗ {editError}</p>
-              </div>
-            )}
-
-            {editSuccess && (
-              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4">
-                <p className="text-green-600 text-sm font-semibold">✓ Changes saved successfully!</p>
-              </div>
-            )}
-
+            {editError && <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4"><p className="text-red-600 text-sm">✗ {editError}</p></div>}
+            {editSuccess && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4"><p className="text-green-600 text-sm font-semibold">✓ Changes saved successfully!</p></div>}
             <div className="flex flex-col gap-4">
               <div>
                 <label className="text-gray-700 text-sm font-semibold mb-1 block">Full Name</label>
-                <input type="text" value={editUser.name}
-                  onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
+                <input type="text" value={editUser.name} onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="text-gray-700 text-sm font-semibold mb-1 block">Email Address</label>
-                <input type="email" value={editUser.email}
-                  onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
+                <input type="email" value={editUser.email} onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="text-gray-700 text-sm font-semibold mb-1 block">Department</label>
-                <select value={editUser.department}
-                  onChange={(e) => setEditUser({ ...editUser, department: e.target.value })}
+                <select value={editUser.department} onChange={(e) => setEditUser({ ...editUser, department: e.target.value })}
                   className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500">
                   <option>Engineering</option>
                   <option>Human Resources</option>
@@ -452,31 +391,21 @@ function AllUsers() {
                 </select>
               </div>
             </div>
-
-            {/* Danger Zone — Delete button back in panel */}
             <div className="border-t border-gray-100 mt-6 pt-4">
               <p className="text-gray-400 text-xs font-semibold mb-3">Danger Zone</p>
-              <button
-                onClick={() => { setEditModal(false); handleDeleteAccount(editUser) }}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition border border-red-100"
-              >
+              <button onClick={() => { setEditModal(false); handleDeleteAccount(editUser) }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition border border-red-100">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                 </svg>
                 Delete Account
               </button>
             </div>
-
             <div className="flex gap-3 mt-3">
               <button onClick={() => { setEditModal(false); setEditUser(null) }}
-                className="flex-1 py-3 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
-                Cancel
-              </button>
-              <button
-                onClick={handleEditSave}
-                disabled={editSaving}
-                className={`flex-1 py-3 rounded-xl text-sm font-bold transition
-                  ${editSaving ? 'bg-blue-400 text-white cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
+                className="flex-1 py-3 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">Cancel</button>
+              <button onClick={handleEditSave} disabled={editSaving}
+                className={`flex-1 py-3 rounded-xl text-sm font-bold transition ${editSaving ? 'bg-blue-400 text-white cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}>
                 {editSaving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
@@ -499,13 +428,9 @@ function AllUsers() {
             <p className="text-red-400 text-xs mb-6">This action cannot be undone.</p>
             <div className="flex gap-3">
               <button onClick={() => setDeleteModal(false)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
-                Cancel
-              </button>
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">Cancel</button>
               <button onClick={confirmDelete}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-red-600 hover:bg-red-700 text-white transition">
-                Delete
-              </button>
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-red-600 hover:bg-red-700 text-white transition">Delete</button>
             </div>
           </div>
         </div>
