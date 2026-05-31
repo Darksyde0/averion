@@ -77,21 +77,21 @@ function HeroSection() {
   return (
     <section
       aria-labelledby="hero-heading"
-      className="relative w-full min-h-screen overflow-hidden bg-[#020408]"
+      className="relative w-full min-h-screen bg-[#020408]"
     >
-      <canvas ref={canvasRef} aria-hidden="true" className="absolute inset-0 w-full h-full" />
+      <canvas ref={canvasRef} aria-hidden="true" className="absolute inset-0 w-full h-full z-0" />
 
       <div aria-hidden="true"
-        className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(29,78,216,0.25),transparent)]" />
+        className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(29,78,216,0.25),transparent)]" />
 
       <img src="/images/hero-face.png" alt="" aria-hidden="true"
-        className="absolute inset-0 w-full h-full object-cover object-center opacity-30 mix-blend-luminosity" />
+        className="absolute inset-0 w-full h-full object-cover object-center opacity-30 mix-blend-luminosity z-0" />
 
       <div aria-hidden="true"
-        className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#020408] to-transparent" />
+        className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#020408] to-transparent z-0" />
 
       {/* ── Main content ── */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen text-center px-8 pt-24">
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen text-center px-8 pt-24 pb-20">
 
         {/* Badge */}
         <div aria-hidden="true"
@@ -158,12 +158,23 @@ function HeroSection() {
 
       </div>
 
-      {/* Scroll indicator */}
-      <div aria-hidden="true"
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2  z-20">
+      {/* ── Scroll indicator — outside main content div, truly absolute ── */}
+      <div
+        aria-hidden="true"
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2"
+        style={{ animation: 'bounce 1s infinite' }}
+      >
         <div className="w-px h-8 bg-gradient-to-b from-transparent to-blue-500/50" />
         <div className="w-1 h-1 rounded-full bg-blue-500/50" />
       </div>
+
+      {/* Bounce keyframe */}
+      <style>{`
+        @keyframes bounce {
+          0%, 100% { transform: translateX(-50%) translateY(0); }
+          50% { transform: translateX(-50%) translateY(-8px); }
+        }
+      `}</style>
 
     </section>
   )
