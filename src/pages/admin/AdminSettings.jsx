@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
-import AdminSidebar from '../../components/Admin/AdminSidebar'
-import AdminTopBar from '../../components/Admin/AdminTopBar'
+import AdminSidebar from '../../components/admin/AdminSidebar'
+import AdminTopBar from '../../components/admin/AdminTopBar'
 import { useProfile } from '../../hooks/useProfile'
 import { supabase } from '../../supabaseClient'
 

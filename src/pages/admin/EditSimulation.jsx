@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import AdminSidebar from '../../components/Admin/AdminSidebar'
-import AdminTopBar from '../../components/Admin/AdminTopBar'
+import AdminSidebar from '../../components/admin/AdminSidebar'
+import AdminTopBar from '../../components/admin/AdminTopBar'
 import { supabase } from '../../supabaseClient'
 
 function EditSimulation() {
