@@ -1,21 +1,25 @@
+import { useTranslation } from '../hooks/useTranslation'
+
 function BubbleSection() {
+  const { t } = useTranslation()
+
   const steps = [
     {
       number: '01',
-      title: 'Recognize Risks',
-      desc: 'Learn to identify phishing attempts, social engineering, and suspicious behavior before they cause harm.',
+      title: t('bubble.step1Title'),
+      desc: t('bubble.step1Desc'),
       size: 'small',
     },
     {
       number: '02',
-      title: 'Avoid Mistakes',
-      desc: 'Understand the most common human errors that lead to breaches and how to avoid them.',
+      title: t('bubble.step2Title'),
+      desc: t('bubble.step2Desc'),
       size: 'medium',
     },
     {
       number: '03',
-      title: 'Make Smart Decisions',
-      desc: 'Build lasting security habits that protect you and your organization every single day.',
+      title: t('bubble.step3Title'),
+      desc: t('bubble.step3Desc'),
       size: 'large',
     },
   ]
@@ -27,19 +31,20 @@ function BubbleSection() {
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-7xl mx-auto relative">
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
 
           {/* Left */}
           <div>
-            <p className="text-blue-500 text-xs font-semibold tracking-widest uppercase mb-3">How It Works</p>
+            <p className="text-blue-500 text-xs font-semibold tracking-widest uppercase mb-3">
+              {t('bubble.badge')}
+            </p>
             <h2 className="text-white text-4xl md:text-5xl font-bold leading-tight mb-6"
               style={{ fontFamily: "'Syne', sans-serif", letterSpacing: '-0.02em' }}>
-              Reduce risk<br />
-              <span className="text-gray-500">where it starts.</span>
+              {t('bubble.heading1')}<br />
+              <span className="text-gray-500">{t('bubble.heading2')}</span>
             </h2>
             <p className="text-gray-500 text-sm leading-relaxed mb-12 max-w-md">
-              Averion's three-step framework turns your employees from your biggest vulnerability into your strongest line of defense.
+              {t('bubble.subtext')}
             </p>
 
             {/* Steps */}
@@ -73,10 +78,10 @@ function BubbleSection() {
             <div className="absolute bottom-8 left-8 z-20 bg-black/80 backdrop-blur-md border border-white/10 rounded-2xl p-5 max-w-[220px]">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                <p className="text-green-400 text-xs font-semibold">Active Protection</p>
+                <p className="text-green-400 text-xs font-semibold">{t('bubble.activeProtection')}</p>
               </div>
               <p className="text-white text-2xl font-bold">94%</p>
-              <p className="text-gray-400 text-xs mt-0.5">Threat detection improvement</p>
+              <p className="text-gray-400 text-xs mt-0.5">{t('bubble.statLabel')}</p>
             </div>
           </div>
 

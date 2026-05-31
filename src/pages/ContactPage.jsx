@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
+import { useTranslation } from '../hooks/useTranslation'
 
 function ContactPage() {
+  const { t } = useTranslation()
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -102,19 +104,17 @@ function ContactPage() {
         <div className="relative z-10 max-w-3xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-1.5 mb-8">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-            <span className="text-blue-400 text-xs font-semibold tracking-widest uppercase">Get In Touch</span>
+            <span className="text-blue-400 text-xs font-semibold tracking-widest uppercase">
+              {t('contact.badge')}
+            </span>
           </div>
           <h1 className="text-white text-5xl md:text-6xl font-bold leading-tight mb-5"
             style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: '-0.02em' }}>
-            We'd love to<br />
+            {t('contact.heading')}<br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">
-              hear from you.
+              {t('contact.subtext')}
             </span>
           </h1>
-          <p className="text-gray-400 text-lg leading-relaxed">
-            Have a question, feedback, or want to learn more about Averion?
-            Send us a message and we'll get back to you shortly.
-          </p>
         </div>
       </section>
 
@@ -130,8 +130,7 @@ function ContactPage() {
               <p className="text-white text-sm font-semibold mb-5">Contact Information</p>
               <div className="flex flex-col gap-4">
                 {contactInfo.map((info, i) => (
-                  <a key={i} href={info.href}
-                    className="flex items-center gap-4 group">
+                  <a key={i} href={info.href} className="flex items-center gap-4 group">
                     <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0 group-hover:bg-blue-500/20 transition-colors duration-200">
                       {info.icon}
                     </div>
@@ -157,7 +156,7 @@ function ContactPage() {
               </div>
             </div>
 
-            {/* ── Form not yet active ── */}
+            {/* Form not yet active */}
             <div className="bg-gradient-to-br from-red-600/10 to-red-900/10 border border-red-500/20 rounded-2xl p-6">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
@@ -175,27 +174,25 @@ function ContactPage() {
 
               {!submitted ? (
                 <>
-                  <h2 className="text-white font-bold text-lg mb-6">Send us a message</h2>
+                  <h2 className="text-white font-bold text-lg mb-6">{t('contact.send')}</h2>
                   <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       <div>
                         <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2 block">
-                          Full Name <span className="text-red-400">*</span>
+                          {t('contact.name')} <span className="text-red-400">*</span>
                         </label>
                         <input type="text" name="fullName" value={formData.fullName}
-                          onChange={handleChange}
-                          placeholder="John Doe"
+                          onChange={handleChange} placeholder="John Doe"
                           className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-600 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                           required />
                       </div>
                       <div>
                         <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2 block">
-                          Email <span className="text-red-400">*</span>
+                          {t('contact.email')} <span className="text-red-400">*</span>
                         </label>
                         <input type="email" name="email" value={formData.email}
-                          onChange={handleChange}
-                          placeholder="john@company.com"
+                          onChange={handleChange} placeholder="john@company.com"
                           className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-600 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                           required />
                       </div>
@@ -203,21 +200,20 @@ function ContactPage() {
 
                     <div>
                       <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2 block">
-                        Company <span className="text-gray-600 font-normal normal-case">(Optional)</span>
+                        {t('contact.subject')}
+                        <span className="text-gray-600 font-normal normal-case ml-1">({t('common.optional')})</span>
                       </label>
                       <input type="text" name="company" value={formData.company}
-                        onChange={handleChange}
-                        placeholder="Your company name"
+                        onChange={handleChange} placeholder="Your company name"
                         className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-600 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
                     </div>
 
                     <div>
                       <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2 block">
-                        Message <span className="text-red-400">*</span>
+                        {t('contact.message')} <span className="text-red-400">*</span>
                       </label>
                       <textarea name="message" value={formData.message}
-                        onChange={handleChange}
-                        placeholder="Tell us how we can help..."
+                        onChange={handleChange} placeholder="Tell us how we can help..."
                         rows={6}
                         className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-600 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition"
                         required />
@@ -235,11 +231,11 @@ function ContactPage() {
                         {loading ? (
                           <>
                             <div className="w-4 h-4 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
-                            Sending...
+                            {t('contact.sending')}
                           </>
                         ) : (
                           <>
-                            Send Message
+                            {t('contact.send')}
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
                             </svg>
@@ -257,13 +253,12 @@ function ContactPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                     </svg>
                   </div>
-                  <h3 className="text-white text-xl font-bold mb-2">Message Sent!</h3>
-                  <p className="text-gray-400 text-sm mb-8 max-w-xs">
-                    Thanks for reaching out. We'll get back to you within 24 hours.
-                  </p>
-                  <button onClick={() => { setSubmitted(false); setFormData({ fullName: '', email: '', company: '', message: '' }) }}
+                  <h3 className="text-white text-xl font-bold mb-2">{t('contact.successTitle')}</h3>
+                  <p className="text-gray-400 text-sm mb-8 max-w-xs">{t('contact.successText')}</p>
+                  <button
+                    onClick={() => { setSubmitted(false); setFormData({ fullName: '', email: '', company: '', message: '' }) }}
                     className="text-blue-400 hover:text-blue-300 text-sm font-semibold transition-colors duration-200">
-                    Send another message →
+                    {t('contact.send')} →
                   </button>
                 </div>
               )}

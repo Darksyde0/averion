@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import { useTranslation } from '../hooks/useTranslation'
 
 function RegisterPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [step, setStep] = useState(1)
@@ -37,11 +39,11 @@ function RegisterPage() {
     setError('')
 
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match.')
+      setError(t('register.passwordMismatch'))
       return
     }
     if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters.')
+      setError(t('register.passwordTooShort'))
       return
     }
 
@@ -117,7 +119,7 @@ function RegisterPage() {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
             </svg>
-            Back to Home
+            {t('common.back')}
           </Link>
         </div>
 
@@ -179,14 +181,14 @@ function RegisterPage() {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
             </svg>
-            Back to Home
+            {t('common.back')}
           </Link>
 
           <div className="mb-8">
             <h1 className="text-white text-3xl font-bold mb-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
-              Create Admin Account
+              {t('register.title')}
             </h1>
-            <p className="text-gray-500 text-sm">Register as an Averion administrator</p>
+            <p className="text-gray-500 text-sm">{t('register.subtext')}</p>
           </div>
 
           {/* Step indicator */}
@@ -203,7 +205,7 @@ function RegisterPage() {
                 </div>
                 <div className="flex-1">
                   <p className={`text-xs font-semibold ${step >= s ? 'text-white' : 'text-gray-600'}`}>
-                    {s === 1 ? 'Basic Info' : 'Security'}
+                    {s === 1 ? t('register.step1') : t('register.step2')}
                   </p>
                 </div>
                 {s === 1 && <div className={`w-8 h-px ${step >= 2 ? 'bg-blue-600' : 'bg-white/10'} flex-shrink-0`} />}
@@ -225,26 +227,26 @@ function RegisterPage() {
           {step === 1 && (
             <form onSubmit={handleNextStep} className="flex flex-col gap-5">
               <div>
-                <label className={labelClass}>Full Name</label>
+                <label className={labelClass}>{t('register.fullName')}</label>
                 <input type="text" name="fullName" value={formData.fullName}
                   onChange={handleChange} placeholder="John Doe" required className={inputClass} />
               </div>
 
               <div>
-                <label className={labelClass}>Email Address</label>
+                <label className={labelClass}>{t('register.email')}</label>
                 <input type="email" name="email" value={formData.email}
                   onChange={handleChange} placeholder="you@company.com" required className={inputClass} />
               </div>
 
               <div>
-                <label className={labelClass}>Company Name</label>
+                <label className={labelClass}>{t('register.companyName')}</label>
                 <input type="text" name="companyName" value={formData.companyName}
                   onChange={handleChange} placeholder="e.g. Acme Corporation" required className={inputClass} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>Department</label>
+                  <label className={labelClass}>{t('register.department')}</label>
                   <select name="department" value={formData.department} onChange={handleChange} required
                     className="w-full bg-white border border-white/10 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition [&>option]:bg-white [&>option]:text-gray-800">
                     <option value="">Select</option>
@@ -254,29 +256,25 @@ function RegisterPage() {
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>Job Title</label>
+                  <label className={labelClass}>{t('register.jobTitle')}</label>
                   <input type="text" name="jobTitle" value={formData.jobTitle}
                     onChange={handleChange} placeholder="IT Manager" required className={inputClass} />
                 </div>
               </div>
 
-              {/* ── Employee ID — optional ── */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className={labelClass} style={{ marginBottom: 0 }}>Employee ID</label>
-                  <span className="text-gray-600 text-xs">Optional</span>
+                  <label className={labelClass} style={{ marginBottom: 0 }}>{t('register.employeeId')}</label>
+                  <span className="text-gray-600 text-xs">{t('common.optional')}</span>
                 </div>
                 <input type="text" name="employeeId" value={formData.employeeId}
-                  onChange={handleChange} placeholder="e.g. EMP-1234"
-                  className={inputClass} />
-                <p className="text-gray-600 text-xs mt-1.5">
-                  Leave blank if not applicable — you can add this later in Settings.
-                </p>
+                  onChange={handleChange} placeholder="e.g. EMP-1234" className={inputClass} />
+                <p className="text-gray-600 text-xs mt-1.5">{t('register.employeeIdHint')}</p>
               </div>
 
               <button type="submit"
                 className="w-full py-3.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all duration-200 flex items-center justify-center gap-2 mt-1">
-                Continue
+                {t('register.continue')}
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                 </svg>
@@ -288,7 +286,7 @@ function RegisterPage() {
           {step === 2 && (
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               <div>
-                <label className={labelClass}>Password</label>
+                <label className={labelClass}>{t('register.password')}</label>
                 <div className="relative">
                   <input type={showPassword ? 'text' : 'password'} name="password"
                     value={formData.password} onChange={handleChange}
@@ -309,16 +307,16 @@ function RegisterPage() {
                       ))}
                     </div>
                     <p className="text-gray-600 text-xs">
-                      {formData.password.length < 4 ? 'Too short' :
-                       formData.password.length < 6 ? 'Weak' :
-                       formData.password.length < 8 ? 'Fair' : 'Strong'}
+                      {formData.password.length < 4 ? t('changePassword.tooShort') :
+                       formData.password.length < 6 ? t('changePassword.weak') :
+                       formData.password.length < 8 ? t('changePassword.fair') : t('changePassword.strong')}
                     </p>
                   </div>
                 )}
               </div>
 
               <div>
-                <label className={labelClass}>Confirm Password</label>
+                <label className={labelClass}>{t('register.confirmPassword')}</label>
                 <div className="relative">
                   <input type={showConfirm ? 'text' : 'password'} name="confirmPassword"
                     value={formData.confirmPassword} onChange={handleChange}
@@ -344,14 +342,16 @@ function RegisterPage() {
 
               {/* Account summary */}
               <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-3">Account Summary</p>
+                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-3">
+                  {t('register.accountSummary')}
+                </p>
                 <div className="flex flex-col gap-2">
                   {[
-                    { label: 'Name', value: formData.fullName },
-                    { label: 'Email', value: formData.email },
-                    { label: 'Company', value: formData.companyName },
-                    { label: 'Role', value: 'Administrator' },
-                    ...(formData.employeeId ? [{ label: 'Employee ID', value: formData.employeeId }] : []),
+                    { label: t('register.fullName'),    value: formData.fullName },
+                    { label: t('register.email'),       value: formData.email },
+                    { label: t('register.companyName'), value: formData.companyName },
+                    { label: 'Role',                    value: t('register.role') },
+                    ...(formData.employeeId ? [{ label: t('register.employeeId'), value: formData.employeeId }] : []),
                   ].map((item, i) => (
                     <div key={i} className="flex items-center justify-between">
                       <p className="text-gray-600 text-xs">{item.label}</p>
@@ -364,7 +364,7 @@ function RegisterPage() {
               <div className="flex gap-3">
                 <button type="button" onClick={() => setStep(1)}
                   className="flex-1 py-3.5 rounded-xl text-sm font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-all duration-200">
-                  Back
+                  {t('common.back')}
                 </button>
                 <button type="submit" disabled={loading}
                   className={`flex-1 py-3.5 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2
@@ -372,17 +372,19 @@ function RegisterPage() {
                   {loading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
-                      Creating...
+                      {t('register.creating')}
                     </>
-                  ) : 'Create Account'}
+                  ) : t('register.createAccount')}
                 </button>
               </div>
             </form>
           )}
 
           <p className="text-gray-600 text-xs text-center mt-6">
-            Already have an account?{' '}
-            <Link to="/login" className="text-blue-400 hover:text-blue-300 transition font-medium">Sign in</Link>
+            {t('register.alreadyHaveAccount')}{' '}
+            <Link to="/login" className="text-blue-400 hover:text-blue-300 transition font-medium">
+              {t('login.signIn')}
+            </Link>
           </p>
 
         </div>

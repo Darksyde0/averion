@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
+import { useTranslation } from '../hooks/useTranslation'
 
 function LoginPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [role, setRole] = useState('user')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -21,28 +23,27 @@ function LoginPage() {
 
       if (authError) {
         if (authError.message.includes('Email not confirmed')) {
-          setError('Please verify your email address before logging in. Check your inbox.')
+          setError(t('login.emailNotConfirmed'))
         } else {
-          setError('Invalid email or password. Please try again.')
+          setError(t('login.invalidCredentials'))
         }
         setLoading(false)
         return
       }
 
-      // ── Small delay to let session propagate to RLS ──
       await new Promise(resolve => setTimeout(resolve, 500))
 
       const { data: profile, error: profileError } = await supabase
         .from('users').select('*').eq('id', data.user.id).single()
 
       if (profileError || !profile) {
-        setError('Account not found. Please contact your administrator.')
+        setError(t('login.accountNotFound'))
         setLoading(false)
         return
       }
 
       if (profile.role !== role) {
-        setError(`This account is not registered as ${role === 'admin' ? 'an Admin' : 'a User'}.`)
+        setError(`${t('login.wrongRole')} ${role === 'admin' ? 'an Admin' : 'a User'}.`)
         await supabase.auth.signOut()
         setLoading(false)
         return
@@ -60,7 +61,7 @@ function LoginPage() {
   return (
     <div className="min-h-screen bg-[#020408] flex overflow-hidden">
 
-      {/* ── Left panel — branding ── */}
+      {/* ── Left panel ── */}
       <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden">
 
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),transparent)]" />
@@ -76,7 +77,7 @@ function LoginPage() {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
             </svg>
-            Back to Home
+            {t('common.back')}
           </Link>
         </div>
 
@@ -99,9 +100,9 @@ function LoginPage() {
 
           <div className="flex flex-col gap-3 mt-8">
             {[
-              'Real-world phishing simulations',
-              'Adaptive training modules',
-              'Live risk analytics dashboard',
+              t('hero.stat1Label'),
+              t('hero.stat2Label'),
+              t('hero.stat3Label'),
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-3">
                 <div className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
@@ -127,7 +128,7 @@ function LoginPage() {
         </div>
       </div>
 
-      {/* ── Right panel — form ── */}
+      {/* ── Right panel ── */}
       <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 relative">
         <div className="absolute inset-0 bg-[#04080f] lg:bg-transparent" />
 
@@ -143,24 +144,24 @@ function LoginPage() {
             <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
             </svg>
-            Back to Home
+            {t('common.back')}
           </Link>
 
           <div className="mb-8">
             <h1 className="text-white text-3xl font-bold mb-1"
               style={{ fontFamily: "'Poppins', sans-serif" }}>
-              Welcome back
+              {t('login.welcome')}
             </h1>
-            <p className="text-gray-500 text-sm">Sign in to your Averion account</p>
+            <p className="text-gray-500 text-sm">{t('login.subtext')}</p>
           </div>
 
           {/* Role switcher */}
           <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 mb-6">
             {['user', 'admin'].map(r => (
               <button key={r} onClick={() => setRole(r)}
-                className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 capitalize
+                className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200
                   ${role === r ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-white'}`}>
-                {r === 'admin' ? 'Administrator' : 'User'}
+                {r === 'admin' ? t('login.adminTab') : t('login.userTab')}
               </button>
             ))}
           </div>
@@ -179,7 +180,7 @@ function LoginPage() {
 
             <div>
               <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2 block">
-                Email Address
+                {t('login.email')}
               </label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder="you@company.com"
@@ -189,9 +190,11 @@ function LoginPage() {
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide">Password</label>
+                <label className="text-gray-400 text-xs font-semibold uppercase tracking-wide">
+                  {t('login.password')}
+                </label>
                 <Link to="/forgot-password" className="text-blue-400 text-xs hover:text-blue-300 transition">
-                  Forgot password?
+                  {t('login.forgotPassword')}
                 </Link>
               </div>
               <div className="relative">
@@ -222,17 +225,17 @@ function LoginPage() {
               {loading ? (
                 <>
                   <div className="w-4 h-4 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
-                  Signing in...
+                  {t('login.signingIn')}
                 </>
-              ) : 'Sign In'}
+              ) : t('login.signIn')}
             </button>
 
           </form>
 
           <p className="text-gray-600 text-xs text-center mt-6">
-            Admin?{' '}
+            {t('login.noAccount')}{' '}
             <Link to="/register" className="text-blue-400 hover:text-blue-300 transition font-medium">
-              Create an account
+              {t('login.createAccount')}
             </Link>
           </p>
 
