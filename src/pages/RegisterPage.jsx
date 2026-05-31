@@ -53,12 +53,22 @@ function RegisterPage() {
       const { data, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            company_name: formData.companyName,
+            department: formData.department,
+            job_title: formData.jobTitle,
+            employee_id: formData.employeeId.trim() || null,
+            role: 'admin',
+          }
+        }
       })
 
       if (authError) { setError(authError.message); setLoading(false); return }
 
-      // ── Wait for Supabase session to fully propagate before inserting ──
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // ── Wait for session to fully propagate ──
+      await new Promise(resolve => setTimeout(resolve, 1500))
 
       const { error: profileError } = await supabase.from('users').insert({
         id: data.user.id,
@@ -74,7 +84,8 @@ function RegisterPage() {
       })
 
       if (profileError) {
-        setError('Account created but profile setup failed. Please contact support.')
+        console.error('Profile error:', profileError)
+        setError(`Profile setup failed: ${profileError.message}`)
         setLoading(false)
         return
       }
