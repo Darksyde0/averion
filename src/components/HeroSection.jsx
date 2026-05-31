@@ -142,7 +142,7 @@ function HeroSection() {
         </div>
 
         {/* Stats */}
-        <div className="flex items-center gap-8 mt-16 pt-8 border-t border-white/5"
+        <div className="flex items-center gap-8 mt-16 pt-8 border-t border-white/5 mb-16"
           role="list" aria-label="Platform highlights">
           {stats.map((stat, i) => (
             <div key={i} className="text-center" role="listitem">
