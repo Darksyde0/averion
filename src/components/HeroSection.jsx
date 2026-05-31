@@ -84,8 +84,8 @@ function HeroSection() {
       <div aria-hidden="true"
         className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(29,78,216,0.25),transparent)]" />
 
-      <img src="/images/hero-face.svg" alt="averion face" aria-hidden="true"
-  className="absolute inset-0 w-full h-full object-cover object-center opacity-30 mix-blend-luminosity z-0" />
+      <img src="/images/hero-face.svg" alt="" aria-hidden="true"
+  className="absolute inset-0 w-full h-full object-contain object-right opacity-30 mix-blend-luminosity z-0" />
 
       <div aria-hidden="true"
         className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#020408] to-transparent z-0" />
