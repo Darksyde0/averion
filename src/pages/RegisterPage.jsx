@@ -57,6 +57,9 @@ function RegisterPage() {
 
       if (authError) { setError(authError.message); setLoading(false); return }
 
+      // ── Wait for Supabase session to fully propagate before inserting ──
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
       const { error: profileError } = await supabase.from('users').insert({
         id: data.user.id,
         full_name: formData.fullName,
