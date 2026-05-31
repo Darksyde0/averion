@@ -160,7 +160,7 @@ function HeroSection() {
 
       {/* Scroll indicator */}
       <div aria-hidden="true"
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 animate-bounce">
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2  z-20">
         <div className="w-px h-8 bg-gradient-to-b from-transparent to-blue-500/50" />
         <div className="w-1 h-1 rounded-full bg-blue-500/50" />
       </div>
