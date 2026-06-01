@@ -9,6 +9,7 @@ function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [step, setStep] = useState(1)
+  const [registered, setRegistered] = useState(false)
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -90,7 +91,9 @@ function RegisterPage() {
         return
       }
 
-      navigate('/admin/dashboard')
+      // ── Show email verification screen ──
+      setRegistered(true)
+      setLoading(false)
 
     } catch (err) {
       setError('Something went wrong. Please try again.')
@@ -113,6 +116,70 @@ function RegisterPage() {
 
   const inputClass = "w-full bg-white/5 border border-white/10 text-white placeholder-gray-600 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
   const labelClass = "text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2 block"
+
+  // ── Email verification success screen ──
+  if (registered) {
+    return (
+      <div className="min-h-screen bg-[#020408] flex items-center justify-center px-6">
+        <div className="text-center max-w-md">
+
+          {/* Icon */}
+          <div className="relative mb-8 flex justify-center">
+            <div className="w-20 h-20 bg-blue-500/10 border border-blue-500/20 rounded-2xl flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+              </svg>
+            </div>
+            <div className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center" style={{ right: 'calc(50% - 52px)' }}>
+              <span className="text-white text-xs font-bold">1</span>
+            </div>
+          </div>
+
+          {/* Logo */}
+          <img src="/images/logo.svg" alt="Averion" className="h-8 w-auto mx-auto mb-8" />
+
+          <h1 className="text-white text-3xl font-bold mb-3" style={{ fontFamily: "'Poppins', sans-serif" }}>
+            Check your inbox
+          </h1>
+          <p className="text-gray-400 text-sm leading-relaxed mb-2">
+            We sent a verification link to
+          </p>
+          <p className="text-blue-400 font-semibold text-sm mb-8">{formData.email}</p>
+
+          {/* Info box */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-5 mb-8 text-left">
+            <div className="flex flex-col gap-3">
+              {[
+                { icon: '📬', text: "Check your spam folder if you don't see it" },
+                { icon: '🔗', text: 'Click the link in the email to activate your account' },
+                { icon: '⏱', text: 'The link expires in 24 hours' },
+                { icon: '🔒', text: 'The link can only be used once' },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="text-base">{item.icon}</span>
+                  <p className="text-gray-400 text-xs">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col items-center gap-4">
+            <Link to="/login"
+              className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-8 py-3 rounded-xl transition-all duration-200">
+              Back to Sign In
+            </Link>
+            <button
+              onClick={() => { setRegistered(false); setStep(1); setFormData({ fullName: '', email: '', companyName: '', department: '', jobTitle: '', employeeId: '', password: '', confirmPassword: '' }) }}
+              className="text-gray-500 hover:text-white text-xs font-medium transition-colors duration-200">
+              Register a different account
+            </button>
+          </div>
+
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#020408] flex overflow-hidden">
