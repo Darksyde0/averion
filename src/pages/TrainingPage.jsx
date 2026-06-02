@@ -78,11 +78,23 @@ function TrainingPage() {
     setLoading(true)
 
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoading(false); return }
 
+    // ── Get user's organization_id ──
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!userProfile?.organization_id) { setLoading(false); return }
+
+    // ── Only fetch modules from user's organisation ──
     const { data, error } = await supabase
       .from('modules')
       .select('*')
       .eq('hidden', false)
+      .eq('organization_id', userProfile.organization_id)
       .order('created_at', { ascending: false })
 
     if (!error && data) {
@@ -91,20 +103,17 @@ function TrainingPage() {
       let completedIds = []
       let inProgressIds = []
 
-      if (user) {
-        // ── Fix: select quiz_completed not completed ──
-        const { data: progress } = await supabase
-          .from('module_progress')
-          .select('module_id, quiz_completed')
-          .eq('user_id', user.id)
+      const { data: progress } = await supabase
+        .from('module_progress')
+        .select('module_id, quiz_completed')
+        .eq('user_id', user.id)
 
-        completedIds = (progress || []).filter(p => p.quiz_completed === true).map(p => p.module_id)
-        inProgressIds = (progress || []).filter(p => p.quiz_completed === false).map(p => p.module_id)
+      completedIds = (progress || []).filter(p => p.quiz_completed === true).map(p => p.module_id)
+      inProgressIds = (progress || []).filter(p => p.quiz_completed === false).map(p => p.module_id)
 
-        setCompletedCount(completedIds.length)
-        setInProgressCount(inProgressIds.length)
-        setTotalPoints(completedIds.length * 100)
-      }
+      setCompletedCount(completedIds.length)
+      setInProgressCount(inProgressIds.length)
+      setTotalPoints(completedIds.length * 100)
 
       const mapped = data.map(m => ({
         id: m.id,
