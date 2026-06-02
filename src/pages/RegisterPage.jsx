@@ -68,7 +68,7 @@ function RegisterPage() {
 
       if (authError) {
         if (authError.message.toLowerCase().includes('rate limit') ||
-            authError.message.toLowerCase().includes('email')) {
+          authError.message.toLowerCase().includes('email')) {
           setError('Too many attempts. Please wait a few minutes and try again, or use a different email address.')
         } else {
           setError(authError.message)
@@ -95,6 +95,16 @@ function RegisterPage() {
 
       if (profileError) {
         console.error('Profile error:', profileError)
+
+        // ── Handle duplicate email ──
+        if (profileError.message.includes('duplicate key') || profileError.message.includes('users_email_key')) {
+          // Clean up the auth user that was created
+          await supabase.auth.signOut()
+          setError('An account with this email already exists. Please sign in instead.')
+          setLoading(false)
+          return
+        }
+
         setError(`Profile setup failed: ${profileError.message}`)
         setLoading(false)
         return
@@ -303,8 +313,8 @@ function RegisterPage() {
                   ${step >= s ? 'bg-blue-600 text-white' : 'bg-white/5 border border-white/10 text-gray-500'}`}>
                   {step > s
                     ? <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                      </svg>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
                     : s}
                 </div>
                 <div className="flex-1">
@@ -412,8 +422,8 @@ function RegisterPage() {
                     </div>
                     <p className="text-gray-600 text-xs">
                       {formData.password.length < 4 ? t('changePassword.tooShort') :
-                       formData.password.length < 6 ? t('changePassword.weak') :
-                       formData.password.length < 8 ? t('changePassword.fair') : t('changePassword.strong')}
+                        formData.password.length < 6 ? t('changePassword.weak') :
+                          formData.password.length < 8 ? t('changePassword.fair') : t('changePassword.strong')}
                     </p>
                   </div>
                 )}
@@ -451,10 +461,10 @@ function RegisterPage() {
                 </p>
                 <div className="flex flex-col gap-2">
                   {[
-                    { label: t('register.fullName'),    value: formData.fullName },
-                    { label: t('register.email'),       value: formData.email },
+                    { label: t('register.fullName'), value: formData.fullName },
+                    { label: t('register.email'), value: formData.email },
                     { label: t('register.companyName'), value: formData.companyName },
-                    { label: 'Role',                    value: t('register.role') },
+                    { label: 'Role', value: t('register.role') },
                     ...(formData.employeeId ? [{ label: t('register.employeeId'), value: formData.employeeId }] : []),
                   ].map((item, i) => (
                     <div key={i} className="flex items-center justify-between">
