@@ -61,12 +61,15 @@ function ModulePage() {
 
     // ── Check if quiz already completed ──
     if (user) {
-      const { data: existingProgress } = await supabase
+      const { data: existingProgress, error: progressError } = await supabase
         .from('module_progress')
         .select('quiz_completed, score')
         .eq('user_id', user.id)
         .eq('module_id', id)
-        .single()
+        .maybeSingle()
+
+      console.log('existingProgress:', existingProgress)
+      console.log('progressError:', progressError)
 
       if (existingProgress?.quiz_completed === true) {
         setAlreadyCompleted(true)
