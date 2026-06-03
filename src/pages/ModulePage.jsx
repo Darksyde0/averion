@@ -66,7 +66,7 @@ function ModulePage() {
         .select('quiz_completed, score')
         .eq('user_id', user.id)
         .eq('module_id', id)
-        .maybeSingle()
+        .maybeSingle() // fix: check existing progress
 
       console.log('existingProgress:', existingProgress)
       console.log('progressError:', progressError)
