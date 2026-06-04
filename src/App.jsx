@@ -25,6 +25,7 @@ import AboutPage from './pages/AboutPage'
 import EditModule from './pages/admin/EditModule'
 import UserProfile from './pages/admin/UserProfile'
 import CookieDeclaration from './pages/CookieDeclaration'
+import TermsAndConditions from './pages/TermsAndConditions'
 
 
 function App() {
@@ -57,6 +58,7 @@ function App() {
         <Route path="/about" element={<AboutPage />} />
         <Route path="/admin/training/edit/:id" element={<EditModule />} />
         <Route path="/cookies" element={<CookieDeclaration />} />
+        <Route path="/terms" element={<TermsAndConditions />} />
       </Routes>
     </Router>
   )

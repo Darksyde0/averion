@@ -35,10 +35,10 @@ function Footer() {
             <p className="text-white text-xs font-semibold uppercase tracking-widest mb-4">Product</p>
             <div className="flex flex-col gap-3">
               {[
-                { label: t('nav.home'),    path: '/' },
-                { label: t('nav.about'),   path: '/about' },
+                { label: t('nav.home'), path: '/' },
+                { label: t('nav.about'), path: '/about' },
                 { label: t('nav.contact'), path: '/contact' },
-                { label: t('nav.signIn'),  path: '/login' },
+                { label: t('nav.signIn'), path: '/login' },
               ].map(item => (
                 <Link key={item.label} to={item.path}
                   className="text-gray-500 hover:text-white text-sm transition-colors duration-200">
@@ -57,8 +57,12 @@ function Footer() {
                   className="text-gray-500 hover:text-white text-sm transition-colors duration-200">
                   {item}
                 </a>
+
               ))}
             </div>
+            <a href="/terms" className="text-gray-400 hover:text-white text-sm transition">
+              Terms & Conditions
+            </a>
           </div>
 
         </div>
