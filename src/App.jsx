@@ -24,6 +24,8 @@ import ViewModules from './pages/admin/ViewModules'
 import AboutPage from './pages/AboutPage'
 import EditModule from './pages/admin/EditModule'
 import UserProfile from './pages/admin/UserProfile'
+import CookieDeclaration from './pages/CookieDeclaration'
+
 
 function App() {
   return (
@@ -54,6 +56,7 @@ function App() {
         <Route path="/admin/training" element={<ViewModules />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/admin/training/edit/:id" element={<EditModule />} />
+        <Route path="/cookies" element={<CookieDeclaration />} />
       </Routes>
     </Router>
   )
