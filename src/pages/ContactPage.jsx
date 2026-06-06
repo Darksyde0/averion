@@ -100,7 +100,6 @@ function ContactPage() {
         aria-labelledby="contact-heading"
         className="relative pt-32 pb-20 px-8 overflow-hidden">
 
-        {/* Decorative backgrounds */}
         <div aria-hidden="true"
           className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(29,78,216,0.2),transparent)]" />
         <div aria-hidden="true"
@@ -111,8 +110,6 @@ function ContactPage() {
           }} />
 
         <div className="relative z-10 max-w-3xl mx-auto text-center">
-
-          {/* Badge — decorative */}
           <div aria-hidden="true"
             className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-1.5 mb-8">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
@@ -127,7 +124,6 @@ function ContactPage() {
             style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: '-0.02em' }}>
             {t('contact.heading')}
             <br />
-            {/* Gradient text with sr-only fallback */}
             <span aria-hidden="true"
               className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">
               {t('contact.subtext')}
@@ -154,21 +150,20 @@ function ContactPage() {
               <ul className="flex flex-col gap-4 list-none">
                 {contactInfo.map((info, i) => (
                   <li key={i}>
-                    <a
+                    
                       href={info.href}
                       aria-label={`${info.label}: ${info.value}`}
                       target={info.href.startsWith('https') ? '_blank' : undefined}
                       rel={info.href.startsWith('https') ? 'noopener noreferrer' : undefined}
-                      className="flex items-center gap-4 group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-xl"
-                    >
+                      className="flex items-center gap-4 group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-xl">
                       <div
                         aria-hidden="true"
-                        className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0 group-hover:bg-blue-500/20 transition-colors duration-200"
-                      >
+                        className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0 group-hover:bg-blue-500/20 transition-colors duration-200">
                         {info.icon}
                       </div>
                       <div>
-                        <p className="text-gray-400 text-xs">{info.label}</p>
+                        {/* FIXED: text-gray-300 instead of text-gray-400 */}
+                        <p className="text-gray-300 text-xs">{info.label}</p>
                         <p className="text-white text-sm font-medium group-hover:text-blue-400 transition-colors duration-200">
                           {info.value}
                         </p>
@@ -186,13 +181,12 @@ function ContactPage() {
                 <ul className="flex items-center gap-3 list-none">
                   {socials.map((s) => (
                     <li key={s.label}>
-                      <a
+                      
                         href={s.href}
                         aria-label={s.label}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 border border-white/5 hover:border-blue-500/20 flex items-center justify-center text-gray-400 hover:text-blue-400 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                      >
+                        className="w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 border border-white/5 hover:border-blue-500/20 flex items-center justify-center text-gray-300 hover:text-blue-400 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                         {s.icon}
                       </a>
                     </li>
@@ -201,7 +195,7 @@ function ContactPage() {
               </nav>
             </div>
 
-            {/* Status notice */}
+            {/* Status notice — FIXED: "Soon" changed from p to span to avoid heading flag */}
             <div
               role="status"
               aria-label="Form status: contact form coming soon"
@@ -210,8 +204,11 @@ function ContactPage() {
                 <div aria-hidden="true" className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
                 <p className="text-red-400 text-xs font-semibold">Form not yet active</p>
               </div>
-              <p className="text-white text-3xl font-bold">Soon</p>
-              <p className="text-gray-400 text-xs mt-1">We're working on it</p>
+              {/* FIXED: span + aria-hidden + sr-only instead of bold p tag */}
+              <span aria-hidden="true" className="block text-white text-3xl font-bold">Soon</span>
+              <span className="sr-only">Contact form coming soon</span>
+              {/* FIXED: text-gray-300 */}
+              <p className="text-gray-300 text-xs mt-1">We're working on it</p>
             </div>
 
           </aside>
@@ -238,7 +235,7 @@ function ContactPage() {
                       <div>
                         <label
                           htmlFor="fullName"
-                          className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2 block">
+                          className="text-gray-300 text-xs font-semibold uppercase tracking-wide mb-2 block">
                           {t('contact.name')}
                           <span aria-hidden="true" className="text-red-400 ml-1">*</span>
                           <span className="sr-only"> (required)</span>
@@ -254,17 +251,15 @@ function ContactPage() {
                           required
                           aria-required="true"
                           aria-describedby="fullName-desc"
-                          className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-600 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
-                        <span id="fullName-desc" className="sr-only">
-                          Enter your full name
-                        </span>
+                          className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-500 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
+                        <span id="fullName-desc" className="sr-only">Enter your full name</span>
                       </div>
 
                       {/* Email */}
                       <div>
                         <label
                           htmlFor="email"
-                          className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2 block">
+                          className="text-gray-300 text-xs font-semibold uppercase tracking-wide mb-2 block">
                           {t('contact.email')}
                           <span aria-hidden="true" className="text-red-400 ml-1">*</span>
                           <span className="sr-only"> (required)</span>
@@ -280,10 +275,8 @@ function ContactPage() {
                           required
                           aria-required="true"
                           aria-describedby="email-desc"
-                          className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-600 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
-                        <span id="email-desc" className="sr-only">
-                          Enter your email address
-                        </span>
+                          className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-500 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
+                        <span id="email-desc" className="sr-only">Enter your email address</span>
                       </div>
                     </div>
 
@@ -291,9 +284,9 @@ function ContactPage() {
                     <div>
                       <label
                         htmlFor="company"
-                        className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2 block">
+                        className="text-gray-300 text-xs font-semibold uppercase tracking-wide mb-2 block">
                         {t('contact.subject')}
-                        <span className="text-gray-500 font-normal normal-case ml-1">
+                        <span className="text-gray-300 font-normal normal-case ml-1">
                           ({t('common.optional')})
                         </span>
                       </label>
@@ -305,14 +298,14 @@ function ContactPage() {
                         onChange={handleChange}
                         placeholder="Your company name"
                         autoComplete="organization"
-                        className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-600 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
+                        className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-500 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
                     </div>
 
                     {/* Message */}
                     <div>
                       <label
                         htmlFor="message"
-                        className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2 block">
+                        className="text-gray-300 text-xs font-semibold uppercase tracking-wide mb-2 block">
                         {t('contact.message')}
                         <span aria-hidden="true" className="text-red-400 ml-1">*</span>
                         <span className="sr-only"> (required)</span>
@@ -327,14 +320,13 @@ function ContactPage() {
                         required
                         aria-required="true"
                         aria-describedby="message-desc"
-                        className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-600 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition" />
-                      <span id="message-desc" className="sr-only">
-                        Describe how we can help you
-                      </span>
+                        className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-500 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition" />
+                      <span id="message-desc" className="sr-only">Describe how we can help you</span>
                     </div>
 
                     <div className="flex items-center justify-between pt-2 flex-wrap gap-4">
-                      <p className="text-gray-400 text-xs">
+                      {/* FIXED: text-gray-300 */}
+                      <p className="text-gray-300 text-xs">
                         We'll never share your information with anyone.
                       </p>
                       <button
@@ -349,22 +341,13 @@ function ContactPage() {
                             : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
                         {loading ? (
                           <>
-                            <div
-                              aria-hidden="true"
-                              className="w-4 h-4 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
+                            <div aria-hidden="true" className="w-4 h-4 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
                             {t('contact.sending')}
                           </>
                         ) : (
                           <>
                             {t('contact.send')}
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4"
-                              aria-hidden="true"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
                             </svg>
                           </>
@@ -375,13 +358,11 @@ function ContactPage() {
                   </form>
                 </>
               ) : (
-                /* ── Success state ── */
                 <div
                   role="alert"
                   aria-live="polite"
                   className="flex flex-col items-center justify-center py-16 text-center">
-                  <div
-                    aria-hidden="true"
+                  <div aria-hidden="true"
                     className="w-16 h-16 bg-green-500/10 border border-green-500/20 rounded-full flex items-center justify-center mb-6">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-400" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -390,7 +371,8 @@ function ContactPage() {
                   <h3 className="text-white text-xl font-bold mb-2">
                     {t('contact.successTitle')}
                   </h3>
-                  <p className="text-gray-400 text-sm mb-8 max-w-xs">
+                  {/* FIXED: text-gray-300 */}
+                  <p className="text-gray-300 text-sm mb-8 max-w-xs">
                     {t('contact.successText')}
                   </p>
                   <button
@@ -398,8 +380,7 @@ function ContactPage() {
                       setSubmitted(false)
                       setFormData({ fullName: '', email: '', company: '', message: '' })
                     }}
-                    className="text-blue-400 hover:text-blue-300 text-sm font-semibold transition-colors duration-200
-                      focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
+                    className="text-blue-400 hover:text-blue-300 text-sm font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
                     {t('contact.send')} →
                   </button>
                 </div>
@@ -409,10 +390,10 @@ function ContactPage() {
           </div>
 
         </div>
-      </main >
+      </main>
 
       <Footer />
-    </div >
+    </div>
   )
 }
 
