@@ -139,7 +139,7 @@ function HeroSection() {
         <div className="flex flex-col sm:flex-row gap-4 items-center">
           <Link to="/register"
             className="group relative bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-8 py-3.5 rounded-xl transition-all duration-200 tracking-wide overflow-hidden
-              focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#020408]"
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Get started with Averion for free">
             <span className="relative z-10">{t('hero.cta')}</span>
             <div aria-hidden="true"
@@ -148,7 +148,7 @@ function HeroSection() {
 
           <Link to="/about"
             className="flex items-center gap-2 text-gray-300 hover:text-white text-sm font-medium transition-colors duration-200 group rounded
-              focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#020408]"
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Learn how Averion works">
             {t('hero.ctaSecondary')}
             <svg xmlns="http://www.w3.org/2000/svg"

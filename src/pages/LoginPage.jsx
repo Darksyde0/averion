@@ -149,7 +149,7 @@ function LoginPage() {
           {/* Back to home — mobile */}
           <Link to="/"
             className="inline-flex items-center gap-1.5 text-gray-400 hover:text-white text-xs font-medium transition-colors duration-200 mb-6 group lg:hidden
-              focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#04080f] rounded-sm">
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform duration-200" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
             </svg>
@@ -177,7 +177,7 @@ function LoginPage() {
                 aria-pressed={role === r}
                 aria-label={r === 'admin' ? 'Sign in as Administrator' : 'Sign in as User'}
                 className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#020408]
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
                   ${role === r ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}>
                 {r === 'admin' ? t('login.adminTab') : t('login.userTab')}
               </button>
@@ -237,7 +237,7 @@ function LoginPage() {
                 <Link
                   to="/forgot-password"
                   className="text-blue-400 text-xs hover:text-blue-300 transition
-                    focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#020408] rounded-sm">
+                    focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
                   {t('login.forgotPassword')}
                 </Link>
               </div>
@@ -305,7 +305,7 @@ function LoginPage() {
             <Link
               to="/register"
               className="text-blue-400 hover:text-blue-300 transition font-medium
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#04080f] rounded-sm">
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
               {t('login.createAccount')}
             </Link>
           </p>
