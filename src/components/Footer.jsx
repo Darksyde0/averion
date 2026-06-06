@@ -44,7 +44,7 @@ function Footer() {
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
 
-          {/* ── Brand ── */}
+          {/* Brand */}
           <div className="md:col-span-2">
             <Link to="/" aria-label="Averion — go to homepage">
               <img src="/images/logo.svg" alt="Averion logo" className="h-8 w-auto mb-4" />
@@ -52,18 +52,11 @@ function Footer() {
             <p className="text-gray-400 text-sm leading-relaxed max-w-xs">
               {t('footer.tagline')}
             </p>
-
-            {/* Social links */}
             <nav aria-label="Social and contact links">
               <ul className="flex items-center gap-3 mt-6 list-none">
                 {socialLinks.map((social) => (
                   <li key={social.label}>
-                    
-                      href={social.path}
-                      aria-label={social.label}
-                      target={social.path.startsWith('http') ? '_blank' : undefined}
-                      rel={social.path.startsWith('http') ? 'noopener noreferrer' : undefined}
-                      className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black">
+                    <a href={social.path} aria-label={social.label} target={social.path.startsWith('http') ? '_blank' : undefined} rel={social.path.startsWith('http') ? 'noopener noreferrer' : undefined} className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                       {social.icon}
                     </a>
                   </li>
@@ -72,17 +65,13 @@ function Footer() {
             </nav>
           </div>
 
-          {/* ── Product links ── */}
+          {/* Product links */}
           <nav aria-label="Product navigation">
-            <h2 className="text-white text-xs font-semibold uppercase tracking-widest mb-4">
-              Product
-            </h2>
+            <h2 className="text-white text-xs font-semibold uppercase tracking-widest mb-4">Product</h2>
             <ul className="flex flex-col gap-3 list-none">
               {productLinks.map(item => (
                 <li key={item.label}>
-                  <Link
-                    to={item.path}
-                    className="text-gray-400 hover:text-white text-sm transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded-sm">
+                  <Link to={item.path} className="text-gray-400 hover:text-white text-sm transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
                     {item.label}
                   </Link>
                 </li>
@@ -90,17 +79,13 @@ function Footer() {
             </ul>
           </nav>
 
-          {/* ── Legal links ── */}
+          {/* Legal links */}
           <nav aria-label="Legal navigation">
-            <h2 className="text-white text-xs font-semibold uppercase tracking-widest mb-4">
-              Legal
-            </h2>
+            <h2 className="text-white text-xs font-semibold uppercase tracking-widest mb-4">Legal</h2>
             <ul className="flex flex-col gap-3 list-none">
               {legalLinks.map(item => (
                 <li key={item.label}>
-                  <Link
-                    to={item.path}
-                    className="text-gray-400 hover:text-white text-sm transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded-sm">
+                  <Link to={item.path} className="text-gray-400 hover:text-white text-sm transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
                     {item.label}
                   </Link>
                 </li>
@@ -110,15 +95,10 @@ function Footer() {
 
         </div>
 
-        {/* ── Bottom bar ── */}
+        {/* Bottom bar */}
         <div className="pt-8 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-gray-400 text-xs">
-            © 2026 Averion. {t('footer.rights')}
-          </p>
-          <div
-            role="status"
-            aria-label="System status: all systems operational"
-            className="flex items-center gap-1.5">
+          <p className="text-gray-400 text-xs">© 2026 Averion. {t('footer.rights')}</p>
+          <div role="status" aria-label="System status: all systems operational" className="flex items-center gap-1.5">
             <div aria-hidden="true" className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
             <p className="text-gray-400 text-xs">All systems operational</p>
           </div>
