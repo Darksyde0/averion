@@ -159,8 +159,7 @@ function ContactPage() {
                       aria-label={`${info.label}: ${info.value}`}
                       target={info.href.startsWith('https') ? '_blank' : undefined}
                       rel={info.href.startsWith('https') ? 'noopener noreferrer' : undefined}
-                      className="flex items-center gap-4 group
-                        focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-xl">
+                      className="flex items-center gap-4 group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-xl"
                       <div
                         aria-hidden="true"
                         className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0 group-hover:bg-blue-500/20 transition-colors duration-200">
