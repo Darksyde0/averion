@@ -71,10 +71,10 @@ function FeatureSection() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-20">
           <div className="max-w-2xl">
-            {/* Badge — decorative, screen readers skip */}
+            {/* Badge — decorative */}
             <p
               aria-hidden="true"
-              className="text-blue-500 text-xs font-semibold tracking-widest uppercase mb-3">
+              className="text-blue-400 text-xs font-semibold tracking-widest uppercase mb-3">
               {t('features.badge')}
             </p>
             <h2
@@ -83,8 +83,8 @@ function FeatureSection() {
               style={{ fontFamily: "'Syne', sans-serif", letterSpacing: '-0.02em' }}>
               {t('features.heading')}
               <br />
-              {/* ── Muted subtext part of heading — needs readable contrast ── */}
-              <span className="text-gray-400">{t('features.subtext')}</span>
+              {/* FIXED: text-gray-300 passes contrast on #020408 */}
+              <span className="text-gray-300">{t('features.subtext')}</span>
             </h2>
           </div>
         </div>
@@ -98,7 +98,7 @@ function FeatureSection() {
               key={i}
               className="bg-[#020408] hover:bg-blue-950/20 p-8 transition-colors duration-300 group">
 
-              {/* Icon container — aria-hidden since title describes the feature */}
+              {/* Icon — decorative */}
               <div
                 aria-hidden="true"
                 className="w-11 h-11 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-5 group-hover:bg-blue-500/20 transition-colors duration-300">
@@ -108,7 +108,8 @@ function FeatureSection() {
               <h3 className="text-white font-bold text-base mb-2">
                 {feature.title}
               </h3>
-              <p className="text-gray-400 text-sm leading-relaxed">
+              {/* FIXED: text-gray-300 instead of text-gray-400 */}
+              <p className="text-gray-300 text-sm leading-relaxed">
                 {feature.desc}
               </p>
             </li>
