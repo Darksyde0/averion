@@ -10,6 +10,7 @@ function RegisterPage() {
   const [error, setError] = useState('')
   const [step, setStep] = useState(1)
   const [registered, setRegistered] = useState(false)
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -38,6 +39,11 @@ function RegisterPage() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError('')
+
+    if (!agreedToTerms) {
+      setError('You must agree to the Terms & Conditions and Privacy Policy to create an account.')
+      return
+    }
 
     if (formData.password !== formData.confirmPassword) {
       setError(t('register.passwordMismatch'))
@@ -77,7 +83,6 @@ function RegisterPage() {
         return
       }
 
-      // ── Wait for session to fully propagate ──
       await new Promise(resolve => setTimeout(resolve, 1500))
 
       const { error: profileError } = await supabase.from('users').insert({
@@ -95,22 +100,17 @@ function RegisterPage() {
 
       if (profileError) {
         console.error('Profile error:', profileError)
-
-        // ── Handle duplicate email ──
         if (profileError.message.includes('duplicate key') || profileError.message.includes('users_email_key')) {
-          // Clean up the auth user that was created
           await supabase.auth.signOut()
           setError('An account with this email already exists. Please sign in instead.')
           setLoading(false)
           return
         }
-
         setError(`Profile setup failed: ${profileError.message}`)
         setLoading(false)
         return
       }
 
-      // ── Show email verification screen ──
       setRegistered(true)
       setLoading(false)
 
@@ -146,11 +146,8 @@ function RegisterPage() {
           style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
 
         <div className="relative z-10 text-center max-w-md w-full">
-
-          {/* Logo */}
           <img src="/images/logo.svg" alt="Averion" className="h-9 w-auto mx-auto mb-10" />
 
-          {/* Success icon */}
           <div className="flex justify-center mb-6">
             <div className="w-20 h-20 bg-green-500/10 border border-green-500/20 rounded-full flex items-center justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -159,16 +156,14 @@ function RegisterPage() {
             </div>
           </div>
 
-          {/* Heading */}
           <h1 className="text-white text-3xl font-bold mb-3" style={{ fontFamily: "'Poppins', sans-serif" }}>
             Registration Successful!
           </h1>
-          <p className="text-gray-400 text-sm leading-relaxed mb-2">
+          <p className="text-gray-300 text-sm leading-relaxed mb-2">
             Your account has been created. We sent a verification link to:
           </p>
           <p className="text-blue-400 font-semibold text-sm mb-8">{formData.email}</p>
 
-          {/* Next steps */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8 text-left">
             <p className="text-white text-xs font-semibold uppercase tracking-widest mb-4">Next Steps</p>
             <div className="flex flex-col gap-4">
@@ -181,18 +176,16 @@ function RegisterPage() {
                   <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
                     <span className="text-blue-400 text-xs font-bold">{item.step}</span>
                   </div>
-                  <p className="text-gray-400 text-sm">{item.text}</p>
+                  <p className="text-gray-300 text-sm">{item.text}</p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Spam note */}
-          <p className="text-gray-600 text-xs mb-8">
+          <p className="text-gray-500 text-xs mb-8">
             Don't see the email? Check your spam or junk folder.
           </p>
 
-          {/* Actions */}
           <div className="flex flex-col items-center gap-4">
             <Link to="/login"
               className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-8 py-3.5 rounded-xl transition-all duration-200 text-center">
@@ -202,13 +195,13 @@ function RegisterPage() {
               onClick={() => {
                 setRegistered(false)
                 setStep(1)
+                setAgreedToTerms(false)
                 setFormData({ fullName: '', email: '', companyName: '', department: '', jobTitle: '', employeeId: '', password: '', confirmPassword: '' })
               }}
               className="text-gray-500 hover:text-white text-xs font-medium transition-colors duration-200">
               Register a different account
             </button>
           </div>
-
         </div>
       </div>
     )
@@ -218,7 +211,7 @@ function RegisterPage() {
     <div className="min-h-screen bg-[#020408] flex overflow-hidden">
 
       {/* ── Left panel ── */}
-      <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden">
+      <div aria-hidden="true" className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden">
 
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),transparent)]" />
         <div className="absolute inset-0 opacity-[0.03]"
@@ -226,7 +219,6 @@ function RegisterPage() {
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-cyan-600/10 rounded-full blur-3xl" />
 
-        {/* Logo + back */}
         <div className="relative z-10 flex items-center justify-between">
           <img src="/images/logo.svg" alt="Averion" className="h-9 w-auto" />
           <Link to="/" className="inline-flex items-center gap-1.5 text-gray-500 hover:text-white text-xs font-medium transition-colors duration-200 group">
@@ -249,7 +241,7 @@ function RegisterPage() {
               entire organization.
             </span>
           </h2>
-          <p className="text-gray-500 text-sm leading-relaxed max-w-sm">
+          <p className="text-gray-300 text-sm leading-relaxed max-w-sm">
             Set up your admin account to start training your team, running simulations, and tracking security awareness.
           </p>
 
@@ -264,34 +256,32 @@ function RegisterPage() {
                 <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
                   <span className="text-blue-400 text-xs font-bold">{s.n}</span>
                 </div>
-                <p className="text-gray-400 text-sm">{s.title}</p>
+                <p className="text-gray-300 text-sm">{s.title}</p>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Beta note */}
         <div className="relative z-10 bg-white/5 border border-white/10 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse" />
             <p className="text-yellow-400 text-xs font-semibold">Beta Version</p>
           </div>
-          <p className="text-gray-400 text-sm">Averion is currently in beta. Features may change as we continue building and improving the platform.</p>
+          <p className="text-gray-300 text-sm">Averion is currently in beta. Features may change as we continue building and improving the platform.</p>
         </div>
       </div>
 
       {/* ── Right panel ── */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 relative">
-        <div className="absolute inset-0 bg-[#04080f] lg:bg-transparent" />
+      <main id="main-content" className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 relative">
+        <div aria-hidden="true" className="absolute inset-0 bg-[#04080f] lg:bg-transparent" />
 
         <div className="relative z-10 w-full max-w-md">
 
-          {/* Mobile logo */}
           <div className="flex justify-center mb-8 lg:hidden">
             <img src="/images/logo.svg" alt="Averion" className="h-9 w-auto" />
           </div>
 
-          <Link to="/" className="inline-flex items-center gap-1.5 text-gray-500 hover:text-white text-xs font-medium transition-colors duration-200 mb-6 group lg:hidden">
+          <Link to="/" className="inline-flex items-center gap-1.5 text-gray-300 hover:text-white text-xs font-medium transition-colors duration-200 mb-6 group lg:hidden">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
             </svg>
@@ -302,7 +292,7 @@ function RegisterPage() {
             <h1 className="text-white text-3xl font-bold mb-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
               {t('register.title')}
             </h1>
-            <p className="text-gray-500 text-sm">{t('register.subtext')}</p>
+            <p className="text-gray-300 text-sm">{t('register.subtext')}</p>
           </div>
 
           {/* Step indicator */}
@@ -329,7 +319,7 @@ function RegisterPage() {
 
           {/* Error */}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-5 flex items-start gap-2.5">
+            <div role="alert" className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-5 flex items-start gap-2.5">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
               </svg>
@@ -379,11 +369,11 @@ function RegisterPage() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className={labelClass} style={{ marginBottom: 0 }}>{t('register.employeeId')}</label>
-                  <span className="text-gray-600 text-xs">{t('common.optional')}</span>
+                  <span className="text-gray-500 text-xs">{t('common.optional')}</span>
                 </div>
                 <input type="text" name="employeeId" value={formData.employeeId}
                   onChange={handleChange} placeholder="e.g. EMP-1234" className={inputClass} />
-                <p className="text-gray-600 text-xs mt-1.5">{t('register.employeeIdHint')}</p>
+                <p className="text-gray-500 text-xs mt-1.5">{t('register.employeeIdHint')}</p>
               </div>
 
               <button type="submit"
@@ -406,7 +396,7 @@ function RegisterPage() {
                     value={formData.password} onChange={handleChange}
                     placeholder="Min. 8 characters" required className={inputClass} />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition">
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition">
                     {showPassword ? eyeOff : eyeOpen}
                   </button>
                 </div>
@@ -420,7 +410,7 @@ function RegisterPage() {
                             : 'bg-white/10'}`} />
                       ))}
                     </div>
-                    <p className="text-gray-600 text-xs">
+                    <p className="text-gray-400 text-xs">
                       {formData.password.length < 4 ? t('changePassword.tooShort') :
                         formData.password.length < 6 ? t('changePassword.weak') :
                           formData.password.length < 8 ? t('changePassword.fair') : t('changePassword.strong')}
@@ -441,7 +431,7 @@ function RegisterPage() {
                         ? 'border-green-500/50 focus:ring-green-500'
                         : ''}`} />
                   <button type="button" onClick={() => setShowConfirm(!showConfirm)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition">
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition">
                     {showConfirm ? eyeOff : eyeOpen}
                   </button>
                   {formData.confirmPassword && formData.confirmPassword === formData.password && (
@@ -456,7 +446,7 @@ function RegisterPage() {
 
               {/* Account summary */}
               <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-3">
+                <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-3">
                   {t('register.accountSummary')}
                 </p>
                 <div className="flex flex-col gap-2">
@@ -468,16 +458,56 @@ function RegisterPage() {
                     ...(formData.employeeId ? [{ label: t('register.employeeId'), value: formData.employeeId }] : []),
                   ].map((item, i) => (
                     <div key={i} className="flex items-center justify-between">
-                      <p className="text-gray-600 text-xs">{item.label}</p>
+                      <p className="text-gray-400 text-xs">{item.label}</p>
                       <p className="text-gray-300 text-xs font-medium truncate max-w-[180px]">{item.value}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
+              {/* ── T&C Checkbox ── */}
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <div className="relative flex-shrink-0 mt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={agreedToTerms}
+                      onChange={e => setAgreedToTerms(e.target.checked)}
+                      className="sr-only peer"
+                      required
+                      aria-required="true"
+                      aria-describedby="terms-desc"
+                    />
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200
+                      ${agreedToTerms
+                        ? 'bg-blue-600 border-blue-600'
+                        : 'bg-transparent border-white/30 group-hover:border-blue-500'}`}>
+                      {agreedToTerms && (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                  <span id="terms-desc" className="text-gray-300 text-xs leading-relaxed">
+                    I have read and agree to the{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors">
+                      Terms & Conditions
+                    </a>
+                    {' '}and{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 underline underline-offset-2 transition-colors">
+                      Privacy Policy
+                    </a>
+                    . I understand that Averion will process my data in accordance with these policies.
+                  </span>
+                </label>
+              </div>
+
               <div className="flex gap-3">
                 <button type="button" onClick={() => setStep(1)}
-                  className="flex-1 py-3.5 rounded-xl text-sm font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-all duration-200">
+                  className="flex-1 py-3.5 rounded-xl text-sm font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all duration-200">
                   {t('common.back')}
                 </button>
                 <button type="submit" disabled={loading}
@@ -494,7 +524,7 @@ function RegisterPage() {
             </form>
           )}
 
-          <p className="text-gray-600 text-xs text-center mt-6">
+          <p className="text-gray-400 text-xs text-center mt-6">
             {t('register.alreadyHaveAccount')}{' '}
             <Link to="/login" className="text-blue-400 hover:text-blue-300 transition font-medium">
               {t('login.signIn')}
@@ -502,7 +532,7 @@ function RegisterPage() {
           </p>
 
         </div>
-      </div>
+      </main>
     </div>
   )
 }
