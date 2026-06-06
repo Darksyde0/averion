@@ -164,16 +164,15 @@ function HeroSection() {
           aria-label="Platform highlights">
           {stats.map((stat, i) => (
             <div key={i} className="text-center" role="listitem">
-              {/* Use aria-hidden on visual + sr-only for combined read */}
-              <p
+              <span
                 aria-hidden="true"
-                className="text-white text-2xl font-bold"
+                className="block text-white text-2xl font-bold"
                 style={{ fontFamily: "'Poppins', sans-serif" }}>
                 {stat.value}
-              </p>
-              <p className="text-gray-300 text-xs mt-0.5" aria-hidden="true">
+              </span>
+              <span className="block text-gray-300 text-xs mt-0.5" aria-hidden="true">
                 {stat.label}
-              </p>
+              </span>
               <span className="sr-only">{stat.value} — {stat.label}</span>
             </div>
           ))}
