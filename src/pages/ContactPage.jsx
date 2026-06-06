@@ -342,7 +342,7 @@ function ContactPage() {
                         aria-disabled={loading}
                         aria-label={loading ? 'Sending your message, please wait' : 'Send message'}
                         className={`flex items-center gap-2 font-semibold text-sm px-6 py-3 rounded-xl transition-all duration-200
-                          focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-600
+                          focus:outline-none focus-visible:ring-2 focus-visible:ring-white
                           ${loading
                             ? 'bg-blue-800 text-blue-300 cursor-not-allowed'
                             : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
