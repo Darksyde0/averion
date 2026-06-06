@@ -43,8 +43,8 @@ function Navbar({ showRegister = false }) {
   }, [])
 
   const navLinks = [
-    { key: 'home',    label: t('nav.home'),    path: '/' },
-    { key: 'about',   label: t('nav.about'),   path: '/about' },
+    { key: 'home', label: t('nav.home'), path: '/' },
+    { key: 'about', label: t('nav.about'), path: '/about' },
     { key: 'contact', label: t('nav.contact'), path: '/contact' },
   ]
 
@@ -61,9 +61,9 @@ function Navbar({ showRegister = false }) {
       <nav
         aria-label="Main navigation"
         className={`fixed top-0 left-0 w-full z-50 transition-all duration-500
-          ${scrolled
+  ${scrolled
             ? 'bg-black/90 backdrop-blur-md border-b border-white/5 py-3'
-            : 'bg-transparent py-5'}`}>
+            : 'bg-black/60 backdrop-blur-sm py-5'}`}>
         <div className="max-w-7xl mx-auto px-8 flex items-center justify-between">
 
           {/* Logo */}
