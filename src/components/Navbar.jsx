@@ -70,7 +70,7 @@ function Navbar({ showRegister = false }) {
 
           {/* Logo */}
           <Link to="/" aria-label="Averion — go to homepage"
-            className="flex items-center gap-2.5 group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded-lg">
+            className="flex items-center gap-2.5 group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg">
             <img src="/images/logo.svg" alt="Averion logo" className="h-8 w-auto" />
           </Link>
 
@@ -80,7 +80,7 @@ function Navbar({ showRegister = false }) {
               <Link key={item.key} to={item.path}
                 role="listitem"
                 className="text-gray-400 hover:text-white text-sm font-medium tracking-wide transition-colors duration-200 relative group
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded-sm">
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
                 {item.label}
                 <span aria-hidden="true"
                   className="absolute -bottom-0.5 left-0 w-0 h-px bg-blue-500 group-hover:w-full transition-all duration-300" />
@@ -99,7 +99,7 @@ function Navbar({ showRegister = false }) {
                 aria-haspopup="listbox"
                 aria-label={`Select language, current language is ${currentLangLabel}`}
                 className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors duration-200
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded-sm">
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <circle cx="12" cy="12" r="10" stroke="currentColor" />
                   <path stroke="currentColor" d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2z" />
@@ -139,13 +139,13 @@ function Navbar({ showRegister = false }) {
             {showRegister ? (
               <Link to="/register"
                 className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-all duration-200 tracking-wide
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-600">
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
                 {t('nav.getStarted')}
               </Link>
             ) : (
               <Link to="/login"
                 className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-5 py-2 rounded-lg transition-all duration-200 tracking-wide
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-600">
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
                 {t('nav.signIn')}
               </Link>
             )}
@@ -158,7 +158,7 @@ function Navbar({ showRegister = false }) {
             aria-controls="mobile-menu"
             aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
             className="md:hidden text-gray-400 hover:text-white transition-colors
-              focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded-sm p-1">
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm p-1">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               {mobileOpen
                 ? <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -179,7 +179,7 @@ function Navbar({ showRegister = false }) {
             <Link key={item.key} to={item.path}
               onClick={() => setMobileOpen(false)}
               className="text-gray-400 hover:text-white text-sm font-medium transition-colors
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black rounded-sm">
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
               {item.label}
             </Link>
           ))}
@@ -195,7 +195,7 @@ function Navbar({ showRegister = false }) {
                 aria-pressed={lang === l.code}
                 aria-label={`Switch to ${l.label}`}
                 className={`text-xs font-bold uppercase px-3 py-1.5 rounded-lg transition
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
                   ${lang === l.code ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white bg-white/5'}`}>
                 {l.code}
               </button>
@@ -207,14 +207,14 @@ function Navbar({ showRegister = false }) {
               <Link to="/register"
                 onClick={() => setMobileOpen(false)}
                 className="block bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition text-center
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-600">
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
                 {t('nav.getStarted')}
               </Link>
             ) : (
               <Link to="/login"
                 onClick={() => setMobileOpen(false)}
                 className="block bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition text-center
-                  focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-600">
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-white">
                 {t('nav.signIn')}
               </Link>
             )}

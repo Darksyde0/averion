@@ -288,7 +288,7 @@ function LoginPage() {
               aria-disabled={loading}
               aria-label={loading ? 'Signing in, please wait' : 'Sign in to your account'}
               className={`w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2
-                focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-600
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-white
                 ${loading ? 'bg-blue-800 text-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
               {loading ? (
                 <>
