@@ -134,7 +134,7 @@ function RegisterPage() {
   )
 
   const inputClass = "w-full bg-white/5 border border-white/10 text-white placeholder-gray-600 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-  const labelClass = "text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2 block"
+  const labelClass = "text-gray-300 text-xs font-semibold uppercase tracking-wide mb-2 block"
 
   // ── Registration success screen ──
   if (registered) {
@@ -331,28 +331,33 @@ function RegisterPage() {
           {step === 1 && (
             <form onSubmit={handleNextStep} className="flex flex-col gap-5">
               <div>
-                <label className={labelClass}>{t('register.fullName')}</label>
-                <input type="text" name="fullName" value={formData.fullName}
+                <label htmlFor="reg-fullName" className={labelClass}>{t('register.fullName')}</label>
+                <input
+                  type="text" id="reg-fullName" name="fullName" value={formData.fullName}
                   onChange={handleChange} placeholder="John Doe" required className={inputClass} />
               </div>
 
               <div>
-                <label className={labelClass}>{t('register.email')}</label>
-                <input type="email" name="email" value={formData.email}
+                <label htmlFor="reg-email" className={labelClass}>{t('register.email')}</label>
+                <input
+                  type="email" id="reg-email" name="email" value={formData.email}
                   onChange={handleChange} placeholder="you@company.com" required className={inputClass} />
               </div>
 
               <div>
-                <label className={labelClass}>{t('register.companyName')}</label>
-                <input type="text" name="companyName" value={formData.companyName}
+                <label htmlFor="reg-companyName" className={labelClass}>{t('register.companyName')}</label>
+                <input
+                  type="text" id="reg-companyName" name="companyName" value={formData.companyName}
                   onChange={handleChange} placeholder="e.g. Acme Corporation" required className={inputClass} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>{t('register.department')}</label>
-                  <select name="department" value={formData.department} onChange={handleChange} required
-                    className="w-full bg-white border border-white/10 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition [&>option]:bg-white [&>option]:text-gray-800">
+                  <label htmlFor="reg-department" className={labelClass}>{t('register.department')}</label>
+                  <select
+                    id="reg-department" name="department" value={formData.department}
+                    onChange={handleChange} required
+                    className="w-full bg-white border border-white/10 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
                     <option value="">Select</option>
                     {['Engineering', 'Human Resources', 'Finance', 'Marketing', 'Operations', 'Sales', 'Management', 'IT'].map(d => (
                       <option key={d}>{d}</option>
@@ -360,20 +365,24 @@ function RegisterPage() {
                   </select>
                 </div>
                 <div>
-                  <label className={labelClass}>{t('register.jobTitle')}</label>
-                  <input type="text" name="jobTitle" value={formData.jobTitle}
+                  <label htmlFor="reg-jobTitle" className={labelClass}>{t('register.jobTitle')}</label>
+                  <input
+                    type="text" id="reg-jobTitle" name="jobTitle" value={formData.jobTitle}
                     onChange={handleChange} placeholder="IT Manager" required className={inputClass} />
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className={labelClass} style={{ marginBottom: 0 }}>{t('register.employeeId')}</label>
-                  <span className="text-gray-500 text-xs">{t('common.optional')}</span>
+                  <label htmlFor="reg-employeeId" className={labelClass} style={{ marginBottom: 0 }}>
+                    {t('register.employeeId')}
+                  </label>
+                  <span className="text-gray-300 text-xs">{t('common.optional')}</span>
                 </div>
-                <input type="text" name="employeeId" value={formData.employeeId}
+                <input
+                  type="text" id="reg-employeeId" name="employeeId" value={formData.employeeId}
                   onChange={handleChange} placeholder="e.g. EMP-1234" className={inputClass} />
-                <p className="text-gray-500 text-xs mt-1.5">{t('register.employeeIdHint')}</p>
+                <p className="text-gray-300 text-xs mt-1.5">{t('register.employeeIdHint')}</p>
               </div>
 
               <button type="submit"
@@ -390,7 +399,7 @@ function RegisterPage() {
           {step === 2 && (
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               <div>
-                <label className={labelClass}>{t('register.password')}</label>
+                <label htmlFor="reg-password" className={labelClass}>{t('register.password')}</label>
                 <div className="relative">
                   <input type={showPassword ? 'text' : 'password'} name="password"
                     value={formData.password} onChange={handleChange}
