@@ -105,8 +105,9 @@ function HeroSection() {
         id="main-content"
         className="relative z-10 flex flex-col items-center justify-center min-h-screen text-center px-8 pt-24 pb-20">
 
-        {/* Badge — decorative, screen readers skip */}
-        <div aria-hidden="true"
+        {/* Badge — fully decorative, hidden from all AT */}
+        <div
+          aria-hidden="true"
           className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-4 py-1.5 mb-8">
           <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
           <span className="text-blue-400 text-xs font-semibold tracking-widest uppercase">
@@ -120,26 +121,23 @@ function HeroSection() {
           className="text-white text-5xl md:text-7xl font-bold leading-tight mb-6 max-w-4xl"
           style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: '-0.02em' }}>
           {t('hero.heading1')}{' '}
-          {/* ── Gradient text needs plain text equivalent for screen readers ── */}
           <span
             className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400"
             aria-hidden="true">
             {t('hero.heading2')}
           </span>
-          {/* Screen reader only plain text version */}
           <span className="sr-only">{t('hero.heading2')}</span>
         </h1>
 
-        {/* Subtext */}
-        <p className="text-gray-300 text-lg md:text-xl leading-relaxed mb-10 max-w-2xl">
+        {/* Subtext — improved contrast: text-gray-200 instead of text-gray-300 */}
+        <p className="text-gray-200 text-lg md:text-xl leading-relaxed mb-10 max-w-2xl">
           {t('hero.subtext')}
         </p>
 
         {/* CTAs */}
         <div className="flex flex-col sm:flex-row gap-4 items-center">
           <Link to="/register"
-            className="group relative bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-8 py-3.5 rounded-xl transition-all duration-200 tracking-wide overflow-hidden
-              focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="group relative bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-8 py-3.5 rounded-xl transition-all duration-200 tracking-wide overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Get started with Averion for free">
             <span className="relative z-10">{t('hero.cta')}</span>
             <div aria-hidden="true"
@@ -147,8 +145,7 @@ function HeroSection() {
           </Link>
 
           <Link to="/about"
-            className="flex items-center gap-2 text-gray-300 hover:text-white text-sm font-medium transition-colors duration-200 group rounded
-              focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="flex items-center gap-2 text-gray-200 hover:text-white text-sm font-medium transition-colors duration-200 group rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             aria-label="Learn how Averion works">
             {t('hero.ctaSecondary')}
             <svg xmlns="http://www.w3.org/2000/svg"
@@ -160,23 +157,23 @@ function HeroSection() {
           </Link>
         </div>
 
-        {/* Stats */}
+        {/* Stats — fixed: use <p> not bold text that looks like headings */}
         <div
           className="flex items-center gap-8 mt-16 pt-8 border-t border-white/5 mb-16"
           role="list"
           aria-label="Platform highlights">
           {stats.map((stat, i) => (
             <div key={i} className="text-center" role="listitem">
+              {/* Use aria-hidden on visual + sr-only for combined read */}
               <p
+                aria-hidden="true"
                 className="text-white text-2xl font-bold"
                 style={{ fontFamily: "'Poppins', sans-serif" }}>
                 {stat.value}
               </p>
-              {/* ── Visible label beneath the stat value ── */}
-              <p className="text-gray-400 text-xs mt-0.5" aria-hidden="true">
+              <p className="text-gray-300 text-xs mt-0.5" aria-hidden="true">
                 {stat.label}
               </p>
-              {/* ── Screen reader gets full combined description ── */}
               <span className="sr-only">{stat.value} — {stat.label}</span>
             </div>
           ))}
@@ -184,10 +181,10 @@ function HeroSection() {
 
       </div>
 
-      {/* ── Scroll indicator — decorative ── */}
+      {/* ── Scroll indicator — fully decorative, no interactive elements ── */}
       <div
         aria-hidden="true"
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2"
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2 pointer-events-none"
         style={{ animation: 'bounce 1s infinite' }}>
         <div className="w-px h-8 bg-gradient-to-b from-transparent to-blue-500/50" />
         <div className="w-1 h-1 rounded-full bg-blue-500/50" />
