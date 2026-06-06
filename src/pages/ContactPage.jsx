@@ -154,15 +154,17 @@ function ContactPage() {
               <ul className="flex flex-col gap-4 list-none">
                 {contactInfo.map((info, i) => (
                   <li key={i}>
-                    
+                    <a
                       href={info.href}
                       aria-label={`${info.label}: ${info.value}`}
                       target={info.href.startsWith('https') ? '_blank' : undefined}
                       rel={info.href.startsWith('https') ? 'noopener noreferrer' : undefined}
                       className="flex items-center gap-4 group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-xl"
+                    >
                       <div
                         aria-hidden="true"
-                        className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0 group-hover:bg-blue-500/20 transition-colors duration-200">
+                        className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 flex-shrink-0 group-hover:bg-blue-500/20 transition-colors duration-200"
+                      >
                         {info.icon}
                       </div>
                       <div>
@@ -184,13 +186,13 @@ function ContactPage() {
                 <ul className="flex items-center gap-3 list-none">
                   {socials.map((s) => (
                     <li key={s.label}>
-                      
+                      <a
                         href={s.href}
                         aria-label={s.label}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 border border-white/5 hover:border-blue-500/20 flex items-center justify-center text-gray-400 hover:text-blue-400 transition-all duration-200
-                          focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                        className="w-9 h-9 rounded-xl bg-white/5 hover:bg-blue-500/20 border border-white/5 hover:border-blue-500/20 flex items-center justify-center text-gray-400 hover:text-blue-400 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      >
                         {s.icon}
                       </a>
                     </li>
@@ -407,10 +409,10 @@ function ContactPage() {
           </div>
 
         </div>
-      </main>
+      </main >
 
       <Footer />
-    </div>
+    </div >
   )
 }
 
