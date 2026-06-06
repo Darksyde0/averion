@@ -1,4 +1,7 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { supabase } from './supabaseClient'
+
 import HomePage from './pages/HomePage'
 import ContactPage from './pages/ContactPage'
 import LoginPage from './pages/LoginPage'
@@ -27,38 +30,90 @@ import UserProfile from './pages/admin/UserProfile'
 import CookieDeclaration from './pages/CookieDeclaration'
 import TermsAndConditions from './pages/TermsAndConditions'
 
+// ── Protected Route ──
+function ProtectedRoute({ children, adminOnly = false }) {
+  const [session, setSession] = useState(undefined)
+  const [role, setRole] = useState(null)
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      if (session) {
+        supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single()
+          .then(({ data }) => setRole(data?.role || null))
+      }
+    })
+  }, [])
+
+  // ── Still loading ──
+  if (session === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  // ── Not logged in ──
+  if (!session) return <Navigate to="/login" replace />
+
+  // ── Logged in but not admin trying to access admin route ──
+  if (adminOnly && role && role !== 'admin') return <Navigate to="/dashboard" replace />
+
+  // ── Still fetching role for admin routes ──
+  if (adminOnly && !role) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  return children
+}
 
 function App() {
   return (
     <Router>
       <Routes>
+
+        {/* ── Public routes ── */}
         <Route path="/" element={<HomePage />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/dashboard" element={<UserDashboard />} />
-        <Route path="/simulations" element={<SimulationPage />} />
-        <Route path="/simulation-results" element={<SimulationResults />} />
-        <Route path="/training" element={<TrainingPage />} />
-        <Route path="/training/:id" element={<ModulePage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/users" element={<AllUsers />} />
-        <Route path="/admin/users/add" element={<AddUser />} />
-        <Route path="/admin/users/:id" element={<UserProfile />} />
-        <Route path="/admin/simulations/add" element={<AddSimulation />} />
-        <Route path="/admin/simulations" element={<ViewSimulations />} />
-        <Route path="/admin/simulations/edit/:id" element={<EditSimulation />} />
-        <Route path="/admin/settings" element={<AdminSettings />} />
-        <Route path="/change-password" element={<ChangePasswordPage />} />
-        <Route path="/achievements" element={<AchievementsPage />} />
-        <Route path="/admin/training/add" element={<AddModule />} />
-        <Route path="/admin/training" element={<ViewModules />} />
         <Route path="/about" element={<AboutPage />} />
-        <Route path="/admin/training/edit/:id" element={<EditModule />} />
         <Route path="/cookies" element={<CookieDeclaration />} />
         <Route path="/terms" element={<TermsAndConditions />} />
+        <Route path="/change-password" element={<ChangePasswordPage />} />
+
+        {/* ── User protected routes ── */}
+        <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
+        <Route path="/simulations" element={<ProtectedRoute><SimulationPage /></ProtectedRoute>} />
+        <Route path="/simulation-results" element={<ProtectedRoute><SimulationResults /></ProtectedRoute>} />
+        <Route path="/training" element={<ProtectedRoute><TrainingPage /></ProtectedRoute>} />
+        <Route path="/training/:id" element={<ProtectedRoute><ModulePage /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+        <Route path="/achievements" element={<ProtectedRoute><AchievementsPage /></ProtectedRoute>} />
+
+        {/* ── Admin protected routes ── */}
+        <Route path="/admin/dashboard" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/admin/users" element={<ProtectedRoute adminOnly><AllUsers /></ProtectedRoute>} />
+        <Route path="/admin/users/add" element={<ProtectedRoute adminOnly><AddUser /></ProtectedRoute>} />
+        <Route path="/admin/users/:id" element={<ProtectedRoute adminOnly><UserProfile /></ProtectedRoute>} />
+        <Route path="/admin/simulations" element={<ProtectedRoute adminOnly><ViewSimulations /></ProtectedRoute>} />
+        <Route path="/admin/simulations/add" element={<ProtectedRoute adminOnly><AddSimulation /></ProtectedRoute>} />
+        <Route path="/admin/simulations/edit/:id" element={<ProtectedRoute adminOnly><EditSimulation /></ProtectedRoute>} />
+        <Route path="/admin/settings" element={<ProtectedRoute adminOnly><AdminSettings /></ProtectedRoute>} />
+        <Route path="/admin/training" element={<ProtectedRoute adminOnly><ViewModules /></ProtectedRoute>} />
+        <Route path="/admin/training/add" element={<ProtectedRoute adminOnly><AddModule /></ProtectedRoute>} />
+        <Route path="/admin/training/edit/:id" element={<ProtectedRoute adminOnly><EditModule /></ProtectedRoute>} />
+
       </Routes>
     </Router>
   )
