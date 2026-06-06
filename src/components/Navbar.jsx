@@ -43,6 +43,7 @@ function Navbar({ showRegister = false }) {
   }, [])
 
   const navLinks = [
+  { key: 'home',    label: t('nav.home'),    path: '/' },
   { key: 'about',   label: t('nav.about'),   path: '/about' },
   { key: 'contact', label: t('nav.contact'), path: '/contact' },
 ]
