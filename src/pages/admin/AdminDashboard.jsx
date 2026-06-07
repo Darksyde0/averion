@@ -124,11 +124,11 @@ function AdminDashboard() {
         userModuleMap[id] = { completedModules: new Set(), startedModules: new Set() }
       })
 
-      ;(progress || []).forEach(p => {
-        if (!userModuleMap[p.user_id]) return
-        if (p.quiz_completed === true) userModuleMap[p.user_id].completedModules.add(p.module_id)
-        else userModuleMap[p.user_id].startedModules.add(p.module_id)
-      })
+        ; (progress || []).forEach(p => {
+          if (!userModuleMap[p.user_id]) return
+          if (p.quiz_completed === true) userModuleMap[p.user_id].completedModules.add(p.module_id)
+          else userModuleMap[p.user_id].startedModules.add(p.module_id)
+        })
 
       userIds.forEach(id => {
         const completed = userModuleMap[id].completedModules.size
@@ -342,7 +342,9 @@ function AdminDashboard() {
         <div className="flex-1 p-8">
 
           <div className="mb-7">
-            <h1 className="text-gray-900 text-2xl font-bold">Dashboard</h1>
+            <h1 className="text-gray-900 text-2xl font-bold">
+              Welcome, {profile?.full_name?.split(' ')[0] || 'Admin'} 👋
+            </h1>
             <p className="text-gray-400 text-sm mt-0.5">Organization-wide security training overview</p>
           </div>
 
