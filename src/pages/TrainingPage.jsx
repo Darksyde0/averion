@@ -249,7 +249,7 @@ function TrainingPage() {
                     )}
                   </div>
 
-                  {/* Content */}
+                  {/* Contents */}
                   <div className="flex-1">
                     <p className="text-white text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">
                       {mod.category}
