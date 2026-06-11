@@ -44,33 +44,28 @@ const defaultIcon = (
   </svg>
 )
 
-// ── 12 distinct vibrant gradients ──
 const colorPalette = [
-  ['#1d4ed8', '#7c3aed'],   // blue → purple
-  ['#be123c', '#f97316'],   // red → orange
-  ['#065f46', '#0891b2'],   // emerald → cyan
-  ['#c2410c', '#fbbf24'],   // orange → yellow
-  ['#6d28d9', '#db2777'],   // purple → pink
-  ['#0e7490', '#10b981'],   // teal → green
-  ['#1e40af', '#0891b2'],   // navy → teal
-  ['#86198f', '#c2410c'],   // fuchsia → orange
-  ['#166534', '#0f766e'],   // dark green → teal
-  ['#4338ca', '#be185d'],   // indigo → pink
-  ['#9a3412', '#b45309'],   // brown → amber
-  ['#0c4a6e', '#6d28d9'],   // dark blue → violet
+  ['#1d4ed8', '#7c3aed'],
+  ['#be123c', '#f97316'],
+  ['#065f46', '#0891b2'],
+  ['#c2410c', '#fbbf24'],
+  ['#6d28d9', '#db2777'],
+  ['#0e7490', '#10b981'],
+  ['#1e40af', '#0891b2'],
+  ['#86198f', '#c2410c'],
+  ['#166534', '#0f766e'],
+  ['#4338ca', '#be185d'],
+  ['#9a3412', '#b45309'],
+  ['#0c4a6e', '#6d28d9'],
 ]
 
-// ── FIXED: better hash using all UUID segments ──
 function getModuleColor(id, index) {
-  // Use the array index as primary differentiator
-  // Fall back to hash for consistency on reload
   const str = String(id)
   let hash = 0
   for (let i = 0; i < str.length; i++) {
     hash = ((hash << 5) - hash) + str.charCodeAt(i)
     hash |= 0
   }
-  // Mix index into hash to prevent adjacent duplicates
   const combined = Math.abs(hash) + (index * 137)
   return colorPalette[combined % colorPalette.length]
 }
@@ -126,7 +121,6 @@ function TrainingPage() {
       setInProgressCount(inProgressIds.length)
       setTotalPoints(completedIds.length * 100)
 
-      // ── FIXED: pass index to getModuleColor ──
       const mapped = data.map((m, index) => ({
         id: m.id,
         title: m.name,
@@ -228,77 +222,52 @@ function TrainingPage() {
               {filteredModules.map((mod) => (
                 <div
                   key={mod.id}
-                  className="relative rounded-2xl p-6 flex flex-col justify-between min-h-[240px] shadow-xl overflow-hidden cursor-pointer group transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl"
+                  className="rounded-2xl p-6 flex flex-col justify-between min-h-[240px] shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
                   style={{ background: `linear-gradient(135deg, ${mod.color[0]}, ${mod.color[1]})` }}
                 >
 
-                  {/* ── Glassy orb decorations ── */}
-                  <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full opacity-20"
-                    style={{ background: 'rgba(255,255,255,0.3)', filter: 'blur(16px)' }} />
-                  <div className="absolute -bottom-8 -left-8 w-40 h-40 rounded-full opacity-10"
-                    style={{ background: 'rgba(255,255,255,0.4)', filter: 'blur(20px)' }} />
-
-                  {/* ── Glassy inner highlight stripe ── */}
-                  <div className="absolute top-0 left-0 right-0 h-px bg-white opacity-30" />
-                  <div className="absolute top-0 left-0 w-full h-1/2 rounded-t-2xl"
-                    style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.12), transparent)' }} />
-
-                  {/* ── Content ── */}
-                  <div className="relative z-10">
-                    <div className="flex items-start justify-between mb-4">
-
-                      {/* Icon — glassy pill */}
-                      <div className="p-2.5 rounded-xl"
-                        style={{
-                          background: 'rgba(255,255,255,0.2)',
-                          backdropFilter: 'blur(8px)',
-                          border: '1px solid rgba(255,255,255,0.3)',
-                        }}>
-                        {mod.icon}
-                      </div>
-
-                      {/* Status badge */}
-                      {mod.status === 'new' && (
-                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg"
-                          style={{ background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)' }}>
-                          NEW
-                        </span>
-                      )}
-                      {mod.status === 'in-progress' && (
-                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg"
-                          style={{ background: 'rgba(251,146,60,0.7)', backdropFilter: 'blur(8px)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}>
-                          IN PROGRESS
-                        </span>
-                      )}
-                      {mod.status === 'completed' && (
-                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg"
-                          style={{ background: 'rgba(34,197,94,0.7)', backdropFilter: 'blur(8px)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)' }}>
-                          COMPLETED
-                        </span>
-                      )}
+                  {/* Top row */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="p-2 rounded-xl bg-white bg-opacity-20">
+                      {mod.icon}
                     </div>
 
-                    <p className="text-white text-xs font-semibold uppercase tracking-widest mb-1"
-                      style={{ opacity: 0.75 }}>
+                    {mod.status === 'new' && (
+                      <span className="bg-white bg-opacity-25 text-white text-xs font-bold px-2.5 py-1 rounded-lg border border-white border-opacity-30">
+                        NEW
+                      </span>
+                    )}
+                    {mod.status === 'in-progress' && (
+                      <span className="bg-orange-400 text-white text-xs font-bold px-2.5 py-1 rounded-lg">
+                        IN PROGRESS
+                      </span>
+                    )}
+                    {mod.status === 'completed' && (
+                      <span className="bg-green-400 text-white text-xs font-bold px-2.5 py-1 rounded-lg">
+                        COMPLETED
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1">
+                    <p className="text-white text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">
                       {mod.category}
                     </p>
                     <h2 className="text-white text-lg font-bold mb-2 leading-snug">{mod.title}</h2>
-                    <p className="text-white text-xs leading-relaxed line-clamp-2"
-                      style={{ opacity: 0.8 }}>
+                    <p className="text-white text-xs leading-relaxed opacity-80 line-clamp-2">
                       {mod.description}
                     </p>
                   </div>
 
-                  {/* ── Footer ── */}
-                  <div className="relative z-10 mt-4 flex items-center justify-between">
-                    <span className="text-white text-xs" style={{ opacity: 0.7 }}>
-                      ⏱ {mod.estimatedTime} mins
-                    </span>
+                  {/* Footer */}
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="text-white text-xs opacity-70">⏱ {mod.estimatedTime} mins</span>
 
                     {mod.status === 'completed' ? (
                       <button
                         disabled
-                        className="text-xs font-bold px-4 py-2 rounded-xl cursor-default transition"
+                        className="text-xs font-bold px-4 py-2 rounded-xl cursor-default"
                         style={{
                           background: 'rgba(255,255,255,0.2)',
                           backdropFilter: 'blur(8px)',
@@ -310,11 +279,11 @@ function TrainingPage() {
                     ) : (
                       <button
                         onClick={() => navigate(`/training/${mod.id}`)}
-                        className="text-xs font-bold px-4 py-2 rounded-xl transition hover:scale-105"
+                        className="text-xs font-bold px-4 py-2 rounded-xl transition-all duration-200 hover:scale-105"
                         style={{
-                          background: 'rgba(255,255,255,0.25)',
+                          background: 'rgba(255,255,255,0.2)',
                           backdropFilter: 'blur(8px)',
-                          border: '1px solid rgba(255,255,255,0.4)',
+                          border: '1px solid rgba(255,255,255,0.35)',
                           color: '#fff',
                         }}>
                         {mod.status === 'in-progress' ? 'Continue →' : 'Start →'}
