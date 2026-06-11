@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import {
   ComposedChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -12,39 +13,57 @@ import {
 import { supabase } from '../../supabaseClient'
 
 function CustomTooltip({ active, payload, label }) {
-  if (active && payload && payload.length) {
-    const validPayload = payload.find(p => p.value !== null && p.value !== undefined)
-    if (!validPayload) return null
+  if (!active || !payload || !payload.length) return null
 
-    const score = validPayload.value
-    const type = validPayload.payload?.type
-    const riskLabel = score >= 80 ? 'Pass' : score >= 50 ? 'Average' : 'High Risk'
-    const riskColor = score >= 80 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444'
+  const simEntry = payload.find(p => p.dataKey === 'simScore' && p.value != null)
+  const modEntry = payload.find(p => p.dataKey === 'moduleScore' && p.value != null)
 
-    return (
-      <div style={{
-        backgroundColor: '#fff',
-        border: '1px solid #e5e7eb',
-        borderRadius: '14px',
-        padding: '10px 14px',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-        minWidth: '140px',
-      }}>
-        <p style={{ color: '#9ca3af', fontSize: '10px', marginBottom: '4px' }}>{label}</p>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px', marginBottom: '4px' }}>
-          <p style={{ color: '#111827', fontSize: '22px', fontWeight: '800', lineHeight: 1 }}>{score}</p>
-          <p style={{ color: '#9ca3af', fontSize: '12px', fontWeight: '600' }}>%</p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: riskColor }} />
-          <p style={{ color: riskColor, fontSize: '11px', fontWeight: '700' }}>{riskLabel}</p>
-          <span style={{ color: '#e5e7eb', fontSize: '11px' }}>·</span>
-          <p style={{ color: '#9ca3af', fontSize: '11px' }}>{type === 'simulation' ? 'Simulation' : 'Module'}</p>
-        </div>
+  if (!simEntry && !modEntry) return null
+
+  return (
+    <div style={{
+      backgroundColor: '#0f172a',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: '14px',
+      padding: '12px 16px',
+      boxShadow: '0 16px 40px rgba(0,0,0,0.3)',
+      minWidth: '160px',
+    }}>
+      <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '11px', marginBottom: '10px', fontWeight: 600 }}>
+        {label}
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {simEntry && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#3b82f6' }} />
+              <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: '12px' }}>Simulation</span>
+            </div>
+            <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>{simEntry.value}%</span>
+          </div>
+        )}
+        {modEntry && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#8b5cf6' }} />
+              <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: '12px' }}>Module</span>
+            </div>
+            <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>{modEntry.value}%</span>
+          </div>
+        )}
       </div>
-    )
-  }
-  return null
+    </div>
+  )
+}
+
+function CustomDot({ cx, cy, value, stroke }) {
+  if (value == null) return null
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={8} fill={stroke} fillOpacity={0.12} />
+      <circle cx={cx} cy={cy} r={4} fill="#fff" stroke={stroke} strokeWidth={2.5} />
+    </g>
+  )
 }
 
 function PerformanceChart() {
@@ -78,9 +97,7 @@ function PerformanceChart() {
       .order('completed_at', { ascending: true })
 
     function formatLabel(dateStr) {
-      return new Date(dateStr).toLocaleDateString('en-US', {
-        month: 'short', day: 'numeric'
-      })
+      return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     }
 
     const simPoints = (simResults || []).map(r => ({
@@ -120,18 +137,15 @@ function PerformanceChart() {
     if (allData.length === 0) return []
     const now = new Date()
     if (view === '7D') {
-      const c = new Date(now)
-      c.setDate(c.getDate() - 7)
+      const c = new Date(now); c.setDate(c.getDate() - 7)
       return allData.filter(d => new Date(d.rawDate) >= c)
     }
     if (view === '30D') {
-      const c = new Date(now)
-      c.setDate(c.getDate() - 30)
+      const c = new Date(now); c.setDate(c.getDate() - 30)
       return allData.filter(d => new Date(d.rawDate) >= c)
     }
     if (view === '3M') {
-      const c = new Date(now)
-      c.setMonth(c.getMonth() - 3)
+      const c = new Date(now); c.setMonth(c.getMonth() - 3)
       return allData.filter(d => new Date(d.rawDate) >= c)
     }
     return allData
@@ -144,11 +158,11 @@ function PerformanceChart() {
   return (
     <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden mb-6">
 
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="px-6 pt-6 pb-5 border-b border-gray-50">
         <div className="flex items-start justify-between mb-5">
           <div>
-            <h2 className="text-gray-900 text-base font-bold">Performance Over Time</h2>
+            <h2 className="text-gray-900 text-base font-bold">Average Performance</h2>
             <p className="text-gray-400 text-xs mt-0.5">Simulation & training scores per attempt</p>
           </div>
           <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
@@ -162,59 +176,32 @@ function PerformanceChart() {
           </div>
         </div>
 
-        {/* ── Stats ── */}
+        {/* Stats row */}
         {!loading && allData.length > 0 && (
           <div className="flex items-center gap-5 flex-wrap">
-            <div>
-              <p className="text-gray-400 text-xs mb-0.5">Avg Score</p>
-              <div className="flex items-baseline gap-0.5">
-                <p className="text-gray-900 text-xl font-extrabold">{stats.avg}</p>
-                <p className="text-gray-400 text-xs font-semibold">%</p>
+            {[
+              { label: 'Overall Avg', value: stats.avg, suffix: '%', color: 'text-gray-900' },
+              { label: 'Best Score', value: stats.best, suffix: '%', color: 'text-gray-900' },
+              { label: 'Latest', value: stats.latest, suffix: '%', color: 'text-gray-900' },
+              {
+                label: 'Improvement',
+                value: `${stats.improvement >= 0 ? '+' : ''}${stats.improvement}`,
+                suffix: '%',
+                color: stats.improvement >= 0 ? 'text-green-500' : 'text-red-500',
+              },
+              { label: 'Pass Rate', value: stats.passRate, suffix: '%', color: 'text-gray-900' },
+            ].map((s, i, arr) => (
+              <div key={i} className="flex items-center gap-5">
+                <div>
+                  <p className="text-gray-400 text-xs mb-0.5">{s.label}</p>
+                  <div className="flex items-baseline gap-0.5">
+                    <p className={`text-xl font-extrabold ${s.color}`}>{s.value}</p>
+                    <p className={`text-xs font-semibold ${s.color === 'text-gray-900' ? 'text-gray-400' : s.color}`}>{s.suffix}</p>
+                  </div>
+                </div>
+                {i < arr.length - 1 && <div className="w-px h-7 bg-gray-100" />}
               </div>
-            </div>
-
-            <div className="w-px h-7 bg-gray-100" />
-
-            <div>
-              <p className="text-gray-400 text-xs mb-0.5">Best Score</p>
-              <div className="flex items-baseline gap-0.5">
-                <p className="text-gray-900 text-xl font-extrabold">{stats.best}</p>
-                <p className="text-gray-400 text-xs font-semibold">%</p>
-              </div>
-            </div>
-
-            <div className="w-px h-7 bg-gray-100" />
-
-            <div>
-              <p className="text-gray-400 text-xs mb-0.5">Latest</p>
-              <div className="flex items-baseline gap-0.5">
-                <p className="text-gray-900 text-xl font-extrabold">{stats.latest}</p>
-                <p className="text-gray-400 text-xs font-semibold">%</p>
-              </div>
-            </div>
-
-            <div className="w-px h-7 bg-gray-100" />
-
-            <div>
-              <p className="text-gray-400 text-xs mb-0.5">Improvement</p>
-              <div className="flex items-baseline gap-0.5">
-                <p className={`text-xl font-extrabold ${stats.improvement >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  {stats.improvement >= 0 ? '+' : ''}{stats.improvement}
-                </p>
-                <p className={`text-xs font-semibold ${stats.improvement >= 0 ? 'text-green-400' : 'text-red-400'}`}>%</p>
-              </div>
-            </div>
-
-            <div className="w-px h-7 bg-gray-100" />
-
-            <div>
-              <p className="text-gray-400 text-xs mb-0.5">Pass Rate</p>
-              <div className="flex items-baseline gap-0.5">
-                <p className="text-gray-900 text-xl font-extrabold">{stats.passRate}</p>
-                <p className="text-gray-400 text-xs font-semibold">%</p>
-              </div>
-            </div>
-
+            ))}
             <div className="ml-auto">
               <span className={`text-xs font-bold px-3 py-1.5 rounded-full
                 ${stats.avg >= 80 ? 'bg-green-100 text-green-700' :
@@ -227,8 +214,8 @@ function PerformanceChart() {
         )}
       </div>
 
-      {/* ── Chart ── */}
-      <div className="px-2 pt-4 pb-3">
+      {/* Chart */}
+      <div className="px-2 pt-6 pb-4">
         {loading ? (
           <div className="flex items-center justify-center h-56">
             <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -247,11 +234,11 @@ function PerformanceChart() {
 
         ) : (
           <>
-            <ResponsiveContainer width="100%" height={240}>
+            <ResponsiveContainer width="100%" height={260}>
               <ComposedChart data={data} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="simGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.12} />
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.18} />
                     <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="modGrad" x1="0" y1="0" x2="0" y2="1">
@@ -260,93 +247,117 @@ function PerformanceChart() {
                   </linearGradient>
                 </defs>
 
-                <CartesianGrid strokeDasharray="4 4" stroke="#f3f4f6" vertical={false} />
+                <CartesianGrid
+                  strokeDasharray="0"
+                  stroke="#f3f4f6"
+                  vertical={false}
+                  horizontal={true}
+                />
 
-                <XAxis dataKey="label"
-                  tick={{ fontSize: 10, fill: '#9ca3af' }}
-                  axisLine={false} tickLine={false} dy={8} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 11, fill: '#9ca3af', fontWeight: 500 }}
+                  axisLine={false}
+                  tickLine={false}
+                  dy={10}
+                />
 
-                <YAxis domain={[0, 100]}
-                  tick={{ fontSize: 10, fill: '#9ca3af' }}
-                  axisLine={false} tickLine={false}
-                  tickFormatter={v => `${v}%`} />
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fontSize: 11, fill: '#9ca3af' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={v => `${v}%`}
+                  ticks={[0, 25, 50, 75, 100]}
+                />
 
-                <Tooltip content={<CustomTooltip />}
-                  cursor={{ stroke: '#e5e7eb', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                <Tooltip
+                  content={<CustomTooltip />}
+                  cursor={{
+                    stroke: '#e5e7eb',
+                    strokeWidth: 1,
+                    strokeDasharray: '4 4',
+                  }}
+                />
 
-                {/* ── Reference lines ── */}
                 <ReferenceLine y={80} stroke="#22c55e" strokeDasharray="4 3"
-                  strokeWidth={1} strokeOpacity={0.6}
+                  strokeWidth={1} strokeOpacity={0.5}
                   label={{ value: 'Pass', position: 'right', fill: '#22c55e', fontSize: 9, fontWeight: 700 }} />
                 <ReferenceLine y={50} stroke="#f59e0b" strokeDasharray="4 3"
-                  strokeWidth={1} strokeOpacity={0.6}
+                  strokeWidth={1} strokeOpacity={0.5}
                   label={{ value: 'Avg', position: 'right', fill: '#f59e0b', fontSize: 9, fontWeight: 700 }} />
 
-                {/* ── Simulation line ── */}
+                {/* Simulation — filled area + line */}
                 {hasSimData && (
-                  <Line
+                  <Area
                     type="monotone"
                     dataKey="simScore"
                     name="Simulation"
                     stroke="#3b82f6"
                     strokeWidth={2.5}
-                    dot={(props) => {
-                      const { cx, cy, payload } = props
-                      if (payload.simScore === null || payload.simScore === undefined) return null
-                      const color = payload.simScore >= 80 ? '#22c55e' :
-                        payload.simScore >= 50 ? '#f59e0b' : '#ef4444'
-                      return (
-                        <circle key={`sim-${cx}-${cy}`}
-                          cx={cx} cy={cy} r={5}
-                          fill={color} stroke="#fff" strokeWidth={2.5} />
-                      )
-                    }}
-                    activeDot={{ fill: '#3b82f6', stroke: '#fff', strokeWidth: 3, r: 7 }}
+                    fill="url(#simGrad)"
                     connectNulls={false}
+                    dot={(props) => (
+                      <CustomDot key={`sim-dot-${props.index}`} {...props} stroke="#3b82f6" value={props.payload.simScore} />
+                    )}
+                    activeDot={{
+                      r: 6,
+                      fill: '#3b82f6',
+                      stroke: '#fff',
+                      strokeWidth: 3,
+                    }}
                   />
                 )}
 
-                {/* ── Module line ── */}
+                {/* Module — line only, no fill */}
                 {hasModuleData && (
                   <Line
                     type="monotone"
                     dataKey="moduleScore"
                     name="Module"
                     stroke="#8b5cf6"
-                    strokeWidth={2.5}
-                    strokeDasharray="5 3"
-                    dot={(props) => {
-                      const { cx, cy, payload } = props
-                      if (payload.moduleScore === null || payload.moduleScore === undefined) return null
-                      const color = payload.moduleScore >= 80 ? '#22c55e' :
-                        payload.moduleScore >= 50 ? '#f59e0b' : '#ef4444'
-                      return (
-                        <circle key={`mod-${cx}-${cy}`}
-                          cx={cx} cy={cy} r={5}
-                          fill={color} stroke="#fff" strokeWidth={2.5} />
-                      )
-                    }}
-                    activeDot={{ fill: '#8b5cf6', stroke: '#fff', strokeWidth: 3, r: 7 }}
+                    strokeWidth={2}
+                    strokeDasharray="6 3"
+                    fill="none"
                     connectNulls={false}
+                    dot={(props) => (
+                      <CustomDot key={`mod-dot-${props.index}`} {...props} stroke="#8b5cf6" value={props.payload.moduleScore} />
+                    )}
+                    activeDot={{
+                      r: 6,
+                      fill: '#8b5cf6',
+                      stroke: '#fff',
+                      strokeWidth: 3,
+                    }}
                   />
                 )}
 
               </ComposedChart>
             </ResponsiveContainer>
 
-            {/* ── Legend ── */}
-            <div className="flex items-center justify-between px-4 pt-2 flex-wrap gap-3">
-              <div className="flex items-center gap-5">
+            {/* Legend */}
+            <div className="flex items-center justify-between px-4 pt-3 flex-wrap gap-3">
+              <div className="flex items-center gap-6">
                 {hasSimData && (
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-5 h-0.5 bg-blue-500 rounded-full" />
-                    <p className="text-gray-400 text-xs">Simulation</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-blue-500" />
+                      <div className="w-4 h-px bg-blue-500" />
+                      <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    </div>
+                    <p className="text-gray-500 text-xs font-medium">Simulation</p>
                   </div>
                 )}
                 {hasModuleData && (
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-5 h-px border-t-2 border-dashed border-purple-500" />
-                    <p className="text-gray-400 text-xs">Module</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-0.5">
+                      <div className="w-1 h-px bg-purple-500" />
+                      <div className="w-1 h-px bg-transparent" />
+                      <div className="w-1 h-px bg-purple-500" />
+                      <div className="w-1 h-px bg-transparent" />
+                      <div className="w-1 h-px bg-purple-500" />
+                    </div>
+                    <p className="text-gray-500 text-xs font-medium">Module Quiz</p>
                   </div>
                 )}
               </div>
