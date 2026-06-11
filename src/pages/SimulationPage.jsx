@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/dashboard/Sidebar'
 import { supabase } from '../supabaseClient'
-import { useProfile } from '../hooks/useProfile'
 import TopBar from '../components/dashboard/TopBar'
 
 // ── Countdown ──
@@ -61,13 +60,14 @@ function Countdown({ expiresAt }) {
 function SimulationPage() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const profile = useProfile()
 
   const [batches, setBatches] = useState([])
   const [activeBatch, setActiveBatch] = useState(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [userAnswers, setUserAnswers] = useState({})
   const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [userId, setUserId] = useState(null)
   const [completedBatchIds, setCompletedBatchIds] = useState(new Set())
   const [batchScores, setBatchScores] = useState({})
@@ -77,77 +77,105 @@ function SimulationPage() {
   async function fetchData() {
     setLoading(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
-    setUserId(user.id)
-
-    // ── Get user's organization_id ──
-    const { data: userProfile } = await supabase
-      .from('users')
-      .select('organization_id')
-      .eq('id', user.id)
-      .single()
-
-    if (!userProfile?.organization_id) { setLoading(false); return }
-
-    const now = new Date().toISOString()
-
-    // ── Only fetch simulations from user's organisation ──
-    const { data: sims } = await supabase
-      .from('simulations')
-      .select('*')
-      .eq('hidden', false)
-      .eq('organization_id', userProfile.organization_id)
-      .or(`expires_at.is.null,expires_at.gt.${now}`)
-      .order('created_at', { ascending: true })
-
-    if (!sims || sims.length === 0) { setLoading(false); return }
-
-    const batchMap = {}
-    sims.forEach(s => {
-      const bid = s.batch_id || s.id
-      if (!batchMap[bid]) {
-        batchMap[bid] = {
-          batch_id: bid,
-          created_at: s.created_at,
-          expires_at: s.expires_at || null,
-          sims: []
-        }
+    try {
+      // ── Step 1: auth guard ──
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        navigate('/login')
+        return
       }
-      batchMap[bid].sims.push({
-        id: s.id, type: s.type, title: s.scenario_name,
-        category: s.category, difficulty: s.difficulty,
-        imageUrl: s.image_url || '', question: s.question,
-        options: s.options, correctIndex: s.correct_index,
-        explanation: s.explanation, batch_id: bid,
+      setUserId(user.id)
+
+      // ── Step 2: get org ──
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single()
+
+      if (profileError || !userProfile?.organization_id) {
+        setLoading(false)
+        return
+      }
+
+      const now = new Date().toISOString()
+
+      // ── Step 3: fetch simulations for this org only ──
+      const { data: sims, error: simsError } = await supabase
+        .from('simulations')
+        .select('*')
+        .eq('hidden', false)
+        .eq('organization_id', userProfile.organization_id)
+        .or(`expires_at.is.null,expires_at.gt.${now}`)
+        .order('created_at', { ascending: true })
+
+      if (simsError) {
+        console.error('Simulations error:', simsError)
+        setLoading(false)
+        return
+      }
+
+      if (!sims || sims.length === 0) {
+        setLoading(false)
+        return
+      }
+
+      // ── Step 4: group into batches ──
+      const batchMap = {}
+      sims.forEach(s => {
+        const bid = s.batch_id || s.id
+        if (!batchMap[bid]) {
+          batchMap[bid] = {
+            batch_id: bid,
+            created_at: s.created_at,
+            expires_at: s.expires_at || null,
+            sims: []
+          }
+        }
+        batchMap[bid].sims.push({
+          id: s.id, type: s.type, title: s.scenario_name,
+          category: s.category, difficulty: s.difficulty,
+          imageUrl: s.image_url || '', question: s.question,
+          options: s.options, correctIndex: s.correct_index,
+          explanation: s.explanation, batch_id: bid,
+        })
       })
-    })
 
-    const batchList = Object.values(batchMap).sort(
-      (a, b) => new Date(a.created_at) - new Date(b.created_at)
-    )
-    setBatches(batchList)
+      const batchList = Object.values(batchMap).sort(
+        (a, b) => new Date(a.created_at) - new Date(b.created_at)
+      )
+      setBatches(batchList)
 
-    const { data: results } = await supabase
-      .from('simulation_results')
-      .select('batch_id, score, completed_at')
-      .eq('user_id', user.id)
+      // ── Step 5: fetch completed results ──
+      const { data: results, error: resultsError } = await supabase
+        .from('simulation_results')
+        .select('batch_id, score, completed_at')
+        .eq('user_id', user.id)
 
-    if (results && results.length > 0) {
-      const done = new Set(results.map(r => r.batch_id).filter(Boolean))
-      const scores = {}
-      results.forEach(r => { if (r.batch_id) scores[r.batch_id] = r.score })
-      setCompletedBatchIds(done)
-      setBatchScores(scores)
+      if (resultsError) {
+        console.error('Results error:', resultsError)
+      }
+
+      if (results && results.length > 0) {
+        const done = new Set(results.map(r => r.batch_id).filter(Boolean))
+        const scores = {}
+        results.forEach(r => { if (r.batch_id) scores[r.batch_id] = r.score })
+        setCompletedBatchIds(done)
+        setBatchScores(scores)
+      }
+
+    } catch (err) {
+      console.error('Unexpected error in fetchData:', err)
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   function handleStartBatch(batch) {
     setActiveBatch(batch)
     setCurrentIndex(0)
     setUserAnswers({})
+    setSubmitError('')
   }
 
   function handleSelectOption(index) {
@@ -157,29 +185,50 @@ function SimulationPage() {
   function handleNext() { setCurrentIndex(currentIndex + 1) }
 
   async function handleSubmit() {
-    const sims = activeBatch.sims
-    const score = sims.reduce((total, sim, index) => {
-      return userAnswers[index] === sim.correctIndex ? total + 1 : total
-    }, 0)
-    const percentage = Math.round((score / sims.length) * 100)
+    if (submitting) return // ── prevent double submit ──
+    setSubmitting(true)
+    setSubmitError('')
 
-    if (userId) {
-      await supabase.from('simulation_results').insert({
-        user_id: userId,
-        simulation_id: sims[0]?.id,
-        batch_id: activeBatch.batch_id,
-        score: percentage,
-        total: sims.length,
-        answers: userAnswers,
+    try {
+      const sims = activeBatch.sims
+      const score = sims.reduce((total, sim, index) => {
+        return userAnswers[index] === sim.correctIndex ? total + 1 : total
+      }, 0)
+      const percentage = Math.round((score / sims.length) * 100)
+
+      // ── Insert result ──
+      const { error: insertError } = await supabase
+        .from('simulation_results')
+        .insert({
+          user_id: userId,
+          simulation_id: sims[0]?.id,
+          batch_id: activeBatch.batch_id,
+          score: percentage,
+          total: sims.length,
+          answers: userAnswers,
+          completed_at: new Date().toISOString(),
+        })
+
+      if (insertError) {
+        console.error('Submit error:', insertError)
+        setSubmitError('Failed to save your results. Please try again.')
+        setSubmitting(false)
+        return
+      }
+
+      // ── Update local state ──
+      setCompletedBatchIds(prev => new Set([...prev, activeBatch.batch_id]))
+      setBatchScores(prev => ({ ...prev, [activeBatch.batch_id]: percentage }))
+
+      navigate('/simulation-results', {
+        state: { simulations: sims, userAnswers, score, total: sims.length },
       })
+
+    } catch (err) {
+      console.error('Unexpected submit error:', err)
+      setSubmitError('Something went wrong. Please try again.')
+      setSubmitting(false)
     }
-
-    setCompletedBatchIds(prev => new Set([...prev, activeBatch.batch_id]))
-    setBatchScores(prev => ({ ...prev, [activeBatch.batch_id]: percentage }))
-
-    navigate('/simulation-results', {
-      state: { simulations: sims, userAnswers, score, total: sims.length },
-    })
   }
 
   const optionLabels = ['A', 'B', 'C', 'D']
@@ -234,6 +283,14 @@ function SimulationPage() {
               <h1 className="text-gray-900 text-2xl font-bold">Security Simulation</h1>
               <p className="text-gray-400 text-sm mt-0.5">Answer each scenario carefully — this can only be taken once</p>
             </div>
+
+            {/* Submit error */}
+            {submitError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
+                <p className="text-red-600 text-sm">{submitError}</p>
+              </div>
+            )}
+
             <div className="flex gap-6 items-start">
               <div className="flex-1 min-w-0">
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
@@ -321,13 +378,24 @@ function SimulationPage() {
                         </svg>
                       </button>
                     ) : (
-                      <button onClick={handleSubmit} disabled={!hasSelected}
+                      <button
+                        onClick={handleSubmit}
+                        disabled={!hasSelected || submitting}
                         className={`flex items-center gap-2 font-semibold px-6 py-2 rounded-xl transition text-sm
-                          ${hasSelected ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
-                        Submit
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                        </svg>
+                          ${hasSelected && !submitting ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}`}>
+                        {submitting ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            Submit
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                          </>
+                        )}
                       </button>
                     )}
                   </div>
@@ -423,7 +491,6 @@ function SimulationPage() {
 
         <div className="flex-1 p-6 lg:p-8">
 
-          {/* Header */}
           <div className="mb-8">
             <h1 className="text-gray-900 text-xl font-bold">Simulations</h1>
             <p className="text-gray-400 text-sm mt-1">
@@ -433,7 +500,6 @@ function SimulationPage() {
             </p>
           </div>
 
-          {/* Stats */}
           {batches.length > 0 && (
             <div className="grid grid-cols-3 gap-4 mb-8">
               {[
@@ -450,7 +516,6 @@ function SimulationPage() {
             </div>
           )}
 
-          {/* Empty */}
           {batches.length === 0 ? (
             <div className="bg-white border border-gray-100 rounded-2xl shadow-sm px-6 py-16 text-center">
               <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
@@ -461,11 +526,9 @@ function SimulationPage() {
               <p className="text-gray-500 text-sm font-medium">No simulations assigned yet</p>
               <p className="text-gray-400 text-xs mt-1">Check back later</p>
             </div>
-
           ) : (
             <div className="flex flex-col gap-8">
 
-              {/* Pending */}
               {pendingBatches.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-orange-400 uppercase tracking-widest mb-3">Pending</p>
@@ -511,7 +574,6 @@ function SimulationPage() {
                 </div>
               )}
 
-              {/* Completed */}
               {doneBatches.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-green-500 uppercase tracking-widest mb-3">Completed</p>
@@ -541,7 +603,6 @@ function SimulationPage() {
                 </div>
               )}
 
-              {/* All done */}
               {pendingBatches.length === 0 && doneBatches.length > 0 && (
                 <p className="text-gray-400 text-xs text-center pt-2">
                   You're all caught up — new simulations will appear here when assigned.

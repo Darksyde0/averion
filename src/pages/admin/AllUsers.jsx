@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminSidebar from '../../components/admin/AdminSidebar'
 import AdminTopBar from '../../components/admin/AdminTopBar'
@@ -42,6 +42,16 @@ function AllUsers() {
   const [editUser, setEditUser] = useState(null)
   const [deleteModal, setDeleteModal] = useState(false)
   const [deleteUser, setDeleteUser] = useState(null)
+  const [deleteError, setDeleteError] = useState('')
+
+  // ── Auth guard ──
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) navigate('/login')
+    }
+    checkAuth()
+  }, [])
 
   useEffect(() => {
     function handleClick(e) {
@@ -56,20 +66,35 @@ function AllUsers() {
   }, [profile])
 
   async function fetchUsers() {
+    if (!profile?.id) return
     setLoading(true)
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('role', 'user')
-      .eq('organization_id', profile.id)
-      .order('created_at', { ascending: false })
 
-    if (!error && data) {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'user')
+        .eq('organization_id', profile.id)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('fetchUsers error:', error)
+        setLoading(false)
+        return
+      }
+
+      if (!data || data.length === 0) {
+        setUsers([])
+        setLoading(false)
+        return
+      }
+
       const userIds = data.map(u => u.id)
 
+      // ── FIXED: quiz_completed not completed ──
       const { data: progressData } = await supabase
         .from('module_progress')
-        .select('user_id, completed')
+        .select('user_id, quiz_completed')
         .in('user_id', userIds)
 
       const { data: simData } = await supabase
@@ -95,9 +120,14 @@ function AllUsers() {
           createdAt: u.created_at,
         }
       })
+
       setUsers(mapped)
+
+    } catch (err) {
+      console.error('Unexpected error in fetchUsers:', err)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   function toggleDropdown(e, userId) {
@@ -114,7 +144,7 @@ function AllUsers() {
       const status = getStatus(u.progress, u.hasStarted).label
       return [u.name, u.email, u.department, `${u.progress}%`, status]
     })
-    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n')
+    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell ?? ''}"`).join(',')).join('\n')
     const blob = new Blob([csvContent], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -133,35 +163,68 @@ function AllUsers() {
   }
 
   async function handleEditSave() {
+    if (!editUser?.id) return
     setEditSaving(true)
     setEditError('')
     setEditSuccess(false)
-    const { error } = await supabase
-      .from('users')
-      .update({ full_name: editUser.name, email: editUser.email, department: editUser.department })
-      .eq('id', editUser.id)
-    setEditSaving(false)
-    if (error) {
-      setEditError('Failed to save changes. Please try again.')
-    } else {
-      setUsers(users.map(u => u.id === editUser.id ? { ...u, ...editUser } : u))
+
+    try {
+      // ── Note: email intentionally excluded from update ──
+      // Changing email requires supabase.auth.admin.updateUserById
+      const { error } = await supabase
+        .from('users')
+        .update({
+          full_name: editUser.name,
+          department: editUser.department,
+        })
+        .eq('id', editUser.id)
+
+      if (error) {
+        setEditError('Failed to save changes. Please try again.')
+        return
+      }
+
+      setUsers(users.map(u => u.id === editUser.id ? { ...u, name: editUser.name, department: editUser.department } : u))
       setEditSuccess(true)
       setTimeout(() => { setEditModal(false); setEditUser(null); setEditSuccess(false) }, 1500)
+
+    } catch (err) {
+      console.error('Edit save error:', err)
+      setEditError('Something went wrong. Please try again.')
+    } finally {
+      setEditSaving(false)
     }
   }
 
   function handleDeleteAccount(user) {
     setDeleteUser(user)
     setDeleteModal(true)
+    setDeleteError('')
     setOpenDropdown(null)
   }
 
   async function confirmDelete() {
-    const { error } = await supabase.from('users').delete().eq('id', deleteUser.id)
-    if (!error) {
+    if (!deleteUser?.id) return
+    setDeleteError('')
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', deleteUser.id)
+
+      if (error) {
+        setDeleteError('Failed to delete user. Please try again.')
+        return
+      }
+
       setUsers(users.filter(u => u.id !== deleteUser.id))
       setDeleteModal(false)
       setDeleteUser(null)
+
+    } catch (err) {
+      console.error('Delete error:', err)
+      setDeleteError('Something went wrong. Please try again.')
     }
   }
 
@@ -189,7 +252,8 @@ function AllUsers() {
             onClick={() => navigate(`/admin/users/${openDropdown}`)}
             className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition text-left">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             View Profile
           </button>
@@ -349,7 +413,7 @@ function AllUsers() {
         </div>
       </div>
 
-      {/* ── EDIT MODAL ── */}
+      {/* EDIT MODAL */}
       {editModal && editUser && (
         <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center px-4">
           <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
@@ -364,8 +428,16 @@ function AllUsers() {
                 <p className="text-gray-400 text-sm">{editUser.email}</p>
               </div>
             </div>
-            {editError && <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4"><p className="text-red-600 text-sm">✗ {editError}</p></div>}
-            {editSuccess && <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4"><p className="text-green-600 text-sm font-semibold">✓ Changes saved successfully!</p></div>}
+            {editError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
+                <p className="text-red-600 text-sm">✗ {editError}</p>
+              </div>
+            )}
+            {editSuccess && (
+              <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4">
+                <p className="text-green-600 text-sm font-semibold">✓ Changes saved successfully!</p>
+              </div>
+            )}
             <div className="flex flex-col gap-4">
               <div>
                 <label className="text-gray-700 text-sm font-semibold mb-1 block">Full Name</label>
@@ -374,8 +446,10 @@ function AllUsers() {
               </div>
               <div>
                 <label className="text-gray-700 text-sm font-semibold mb-1 block">Email Address</label>
-                <input type="email" value={editUser.email} onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                {/* ── Email read-only — changing requires auth.admin.updateUserById ── */}
+                <input type="email" value={editUser.email} disabled
+                  className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-400 cursor-not-allowed" />
+                <p className="text-gray-400 text-xs mt-1">Email cannot be changed here</p>
               </div>
               <div>
                 <label className="text-gray-700 text-sm font-semibold mb-1 block">Department</label>
@@ -413,7 +487,7 @@ function AllUsers() {
         </div>
       )}
 
-      {/* ── DELETE MODAL ── */}
+      {/* DELETE MODAL */}
       {deleteModal && deleteUser && (
         <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center px-4">
           <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm text-center">
@@ -425,9 +499,14 @@ function AllUsers() {
             <h2 className="text-gray-800 text-lg font-bold mb-1">Delete Account</h2>
             <p className="text-gray-500 text-sm mb-1">You are about to delete</p>
             <p className="text-gray-800 font-bold mb-1">{deleteUser.name}</p>
-            <p className="text-red-400 text-xs mb-6">This action cannot be undone.</p>
+            <p className="text-red-400 text-xs mb-4">This action cannot be undone.</p>
+            {deleteError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
+                <p className="text-red-600 text-sm">{deleteError}</p>
+              </div>
+            )}
             <div className="flex gap-3">
-              <button onClick={() => setDeleteModal(false)}
+              <button onClick={() => { setDeleteModal(false); setDeleteUser(null); setDeleteError('') }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">Cancel</button>
               <button onClick={confirmDelete}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold bg-red-600 hover:bg-red-700 text-white transition">Delete</button>

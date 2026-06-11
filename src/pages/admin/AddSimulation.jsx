@@ -46,14 +46,15 @@ Rules:
 - attackTechnique should be specific and accurate to the scenario`
 }
 
-async function callAI(prompt) {
+async function callAI(prompt, accessToken) {
   const response = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-simulations`,
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        // ── Use session token instead of anon key ──
+        'Authorization': `Bearer ${accessToken}`,
       },
       body: JSON.stringify({ prompt }),
     }
@@ -105,6 +106,7 @@ function AddSimulation() {
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [regenError, setRegenError] = useState('')
   const [imagePreview, setImagePreview] = useState(null)
   const [imageFile, setImageFile] = useState(null)
   const [correctOption, setCorrectOption] = useState(null)
@@ -131,6 +133,15 @@ function AddSimulation() {
     explanation: '',
   })
 
+  // ── Auth guard ──
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) navigate('/login')
+    }
+    checkAuth()
+  }, [])
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [aiMessages])
@@ -152,38 +163,64 @@ function AddSimulation() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (correctOption === null) { alert('Please select the correct answer.'); return }
+
+    // ── Inline error instead of alert ──
+    if (correctOption === null) {
+      setError('Please select the correct answer before saving.')
+      return
+    }
     if (!profile?.id) return
-    setLoading(true); setError('')
+
+    setLoading(true)
+    setError('')
+
     try {
       let imageUrl = null
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop()
         const fileName = `${Date.now()}.${fileExt}`
-        const { error: uploadError } = await supabase.storage.from('simulation-images').upload(fileName, imageFile)
-        if (uploadError) { setError('Failed to upload image: ' + uploadError.message); setLoading(false); return }
-        const { data: urlData } = supabase.storage.from('simulation-images').getPublicUrl(fileName)
+        const { error: uploadError } = await supabase.storage
+          .from('simulation-images')
+          .upload(fileName, imageFile)
+        if (uploadError) {
+          setError('Failed to upload image: ' + uploadError.message)
+          setLoading(false)
+          return
+        }
+        const { data: urlData } = supabase.storage
+          .from('simulation-images')
+          .getPublicUrl(fileName)
         imageUrl = urlData.publicUrl
       }
+
       const batchId = generateBatchId()
+
       const { error: simError } = await supabase.from('simulations').insert({
-        scenario_name: formData.scenarioName,
-        question: formData.question,
-        category: formData.category,
+        scenario_name: formData.scenarioName.trim(),
+        question: formData.question.trim(),
+        category: formData.category.trim(),
         difficulty: formData.difficulty,
         type: imageFile ? 'image' : 'text',
         image_url: imageUrl,
         options: formData.options,
         correct_index: correctOption,
-        explanation: formData.explanation,
+        explanation: formData.explanation.trim(),
         hidden: false,
         organization_id: profile.id,
         batch_id: batchId,
         expires_at: expiryDate ? new Date(expiryDate).toISOString() : null,
       })
-      if (simError) { setError('Failed to save simulation: ' + simError.message); setLoading(false); return }
+
+      if (simError) {
+        setError('Failed to save simulation: ' + simError.message)
+        setLoading(false)
+        return
+      }
+
       setSubmitted(true)
+
     } catch (err) {
+      console.error('handleSubmit error:', err)
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
@@ -193,13 +230,21 @@ function AddSimulation() {
   async function handleAiSend() {
     if (!aiInput.trim() || aiLoading) return
     const userMessage = aiInput.trim()
-    setAiInput(''); setAiLoading(true)
+
+    // ── Get session token ──
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    setAiInput('')
+    setAiLoading(true)
     setAiMessages(prev => [...prev, { role: 'user', text: userMessage }])
     setAiMessages(prev => [...prev, { role: 'ai', text: 'Generating...', loading: true }])
+
     try {
-      const parsed = await callAI(generateSimulationsPrompt(userMessage))
+      const parsed = await callAI(generateSimulationsPrompt(userMessage), session.access_token)
       const sims = (Array.isArray(parsed) ? parsed : [parsed]).map(shuffleSim)
-      setGeneratedSims(sims); setShowGenerated(true)
+      setGeneratedSims(sims)
+      setShowGenerated(true)
       setAiMessages(prev => prev.filter(m => !m.loading))
       setAiMessages(prev => [...prev, {
         role: 'ai',
@@ -207,9 +252,13 @@ function AddSimulation() {
       }])
     } catch (err) {
       setAiMessages(prev => prev.filter(m => !m.loading))
-      setAiMessages(prev => [...prev, { role: 'ai', text: `Error: ${err.message || 'Something went wrong.'}` }])
+      setAiMessages(prev => [...prev, {
+        role: 'ai',
+        text: `Error: ${err.message || 'Something went wrong.'}`
+      }])
+    } finally {
+      setAiLoading(false)
     }
-    setAiLoading(false)
   }
 
   function handleDeleteGenerated(index) {
@@ -231,22 +280,40 @@ function AddSimulation() {
   }
 
   async function handleRegenerateOne(index) {
-    const sim = generatedSims[index]; setAiLoading(true)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+
+    const sim = generatedSims[index]
+    setRegenError('')
+    setAiLoading(true)
+
     try {
-      const prompt = generateSimulationsPrompt(`1 ${sim.category} simulation, completely different from: "${sim.scenarioName}". Use a different perspective, character, company, and attack method.`)
-      const parsed = await callAI(prompt)
+      const prompt = generateSimulationsPrompt(
+        `1 ${sim.category} simulation, completely different from: "${sim.scenarioName}". Use a different perspective, character, company, and attack method.`
+      )
+      const parsed = await callAI(prompt, session.access_token)
       const raw = Array.isArray(parsed) ? parsed[0] : parsed
       const newSim = shuffleSim(raw)
       setGeneratedSims(prev => prev.map((s, i) => i === index ? newSim : s))
     } catch (err) {
-      alert('Failed to regenerate: ' + (err.message || 'Please try again.'))
+      setRegenError('Failed to regenerate: ' + (err.message || 'Please try again.'))
+    } finally {
+      setAiLoading(false)
     }
-    setAiLoading(false)
   }
 
   async function handleSaveAll() {
     if (!profile?.id) return
-    setLoading(true); setError('')
+
+    // ── Guard against empty array ──
+    if (generatedSims.length === 0) {
+      setError('No simulations to save.')
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
     try {
       const batchId = generateBatchId()
       const rows = generatedSims.map(sim => ({
@@ -264,11 +331,27 @@ function AddSimulation() {
         batch_id: batchId,
         expires_at: expiryDate ? new Date(expiryDate).toISOString() : null,
       }))
+
       const { error: simError } = await supabase.from('simulations').insert(rows)
-      if (simError) { setError('Failed to save simulations: ' + simError.message); setLoading(false); return }
-      setGeneratedSims([]); setShowGenerated(false)
-      alert(`${rows.length} simulations saved successfully!`)
+
+      if (simError) {
+        setError('Failed to save simulations: ' + simError.message)
+        return
+      }
+
+      setGeneratedSims([])
+      setShowGenerated(false)
+      setError('')
+
+      // ── Inline success instead of alert ──
+      setAiMessages(prev => [...prev, {
+        role: 'ai',
+        text: `✓ ${rows.length} simulation${rows.length > 1 ? 's' : ''} saved successfully to your organisation.`
+      }])
+      setAiPanelOpen(true)
+
     } catch (err) {
+      console.error('handleSaveAll error:', err)
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
@@ -302,7 +385,7 @@ function AddSimulation() {
             {!submitted ? (
               <div className="w-full">
 
-                {/* ── Header ── */}
+                {/* Header */}
                 <div className="flex items-center justify-between mb-8">
                   <div>
                     <h1 className="text-gray-900 text-2xl font-bold">Add Simulation</h1>
@@ -330,6 +413,12 @@ function AddSimulation() {
                   </div>
                 )}
 
+                {regenError && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-2xl px-5 py-4 mb-6">
+                    <p className="text-orange-600 text-sm">{regenError}</p>
+                  </div>
+                )}
+
                 {imagePreview && (
                   <div className="mb-6 bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
                     <img src={imagePreview} alt="Uploaded scenario" className="w-full max-h-64 object-contain p-6" />
@@ -348,7 +437,8 @@ function AddSimulation() {
                     <label className="text-gray-500 text-xs font-semibold uppercase tracking-widest mb-3 block">
                       Scenario Name <span className="text-red-400">*</span>
                     </label>
-                    <input type="text" name="scenarioName" value={formData.scenarioName} onChange={handleChange}
+                    <input type="text" name="scenarioName" value={formData.scenarioName}
+                      onChange={handleChange}
                       placeholder="e.g. Phishing Email from IT Department"
                       className="w-full bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 rounded-xl px-4 py-3.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
                       required />
@@ -494,7 +584,7 @@ function AddSimulation() {
 
                 </form>
 
-                {/* ── Generated Simulations ── */}
+                {/* Generated Simulations */}
                 {showGenerated && generatedSims.length > 0 && (
                   <div className="pb-10">
                     <div className="flex items-center justify-between mb-5">
@@ -543,9 +633,12 @@ function AddSimulation() {
                               {sim.threatLevel && <ThreatBadge level={sim.threatLevel} />}
                             </div>
                             <div className="flex items-center gap-1.5 flex-shrink-0">
-                              <button onClick={() => handleLoadToForm(sim)} className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition">Load</button>
-                              <button onClick={() => handleRegenerateOne(index)} disabled={aiLoading} className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-yellow-50 text-yellow-600 hover:bg-yellow-100 transition">Redo</button>
-                              <button onClick={() => handleDeleteGenerated(index)} className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">Delete</button>
+                              <button onClick={() => handleLoadToForm(sim)}
+                                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition">Load</button>
+                              <button onClick={() => handleRegenerateOne(index)} disabled={aiLoading}
+                                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-yellow-50 text-yellow-600 hover:bg-yellow-100 transition disabled:opacity-50">Redo</button>
+                              <button onClick={() => handleDeleteGenerated(index)}
+                                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">Delete</button>
                             </div>
                           </div>
 
@@ -632,7 +725,7 @@ function AddSimulation() {
                     <button onClick={() => {
                       setFormData({ scenarioName: '', question: '', category: 'Password Security', difficulty: '', options: ['', '', '', ''], explanation: '' })
                       setCorrectOption(null); setImagePreview(null); setImageFile(null)
-                      setSubmitted(false); setError(''); setExpiryDate('')
+                      setSubmitted(false); setError(''); setRegenError(''); setExpiryDate('')
                     }} className="flex-1 py-3 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
                       Add Another
                     </button>
@@ -646,17 +739,15 @@ function AddSimulation() {
             )}
           </div>
 
-          {/* ── ARIA Panel ── */}
+          {/* ARIA Panel */}
           {aiPanelOpen && (
             <div
               className="fixed right-0 top-[49px] h-[calc(100vh-49px)] w-96 flex flex-col z-30 overflow-hidden"
               style={{ background: 'linear-gradient(180deg, #0a0a0f 0%, #0d0d1a 100%)' }}>
 
-              {/* Top accent line */}
               <div className="h-px w-full flex-shrink-0"
                 style={{ background: 'linear-gradient(90deg, transparent, #7c3aed, transparent)' }} />
 
-              {/* ── Header ── */}
               <div className="flex items-center justify-between px-6 py-4 flex-shrink-0"
                 style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="flex items-center gap-3">
@@ -695,7 +786,6 @@ function AddSimulation() {
                 </button>
               </div>
 
-              {/* ── Messages ── */}
               <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4"
                 style={{ scrollbarWidth: 'none' }}>
                 {aiMessages.map((msg, index) => (
@@ -733,7 +823,6 @@ function AddSimulation() {
                 <div ref={chatEndRef} />
               </div>
 
-              {/* ── Input ── */}
               <div className="px-5 py-4 flex-shrink-0"
                 style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
                 <div className="flex items-end gap-3 rounded-2xl px-4 py-3"
@@ -784,7 +873,6 @@ function AddSimulation() {
                   </div>
                 </div>
               </div>
-
             </div>
           )}
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/dashboard/Sidebar'
-import { useProfile } from '../hooks/useProfile'
 import { supabase } from '../supabaseClient'
 import TopBar from '../components/dashboard/TopBar'
 
@@ -63,15 +63,14 @@ const ACHIEVEMENT_META = {
   },
 }
 
-// All possible achievements (for showing locked ones)
 const ALL_TYPES = Object.keys(ACHIEVEMENT_META)
 
 function AchievementsPage() {
+  const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [filter, setFilter] = useState('All')
   const [loading, setLoading] = useState(true)
   const [earnedMap, setEarnedMap] = useState({})
-  const profile = useProfile()
 
   const categories = ['All', 'General', 'Simulation', 'Training']
 
@@ -79,18 +78,36 @@ function AchievementsPage() {
 
   async function fetchAchievements() {
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
 
-    const { data } = await supabase
-  .from('achievements')
-  .select('badge_type, earned_at')
-  .eq('user_id', user.id)
+    try {
+      // ── Step 1: auth guard ──
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        navigate('/login')
+        return
+      }
 
-const map = {}
-;(data || []).forEach(a => { map[a.badge_type] = a.earned_at })
-    setEarnedMap(map)
-    setLoading(false)
+      // ── Step 2: fetch achievements ──
+      const { data, error } = await supabase
+        .from('achievements')
+        .select('badge_type, earned_at')
+        .eq('user_id', user.id)
+
+      if (error) {
+        console.error('Achievements fetch error:', error)
+        setLoading(false)
+        return
+      }
+
+      const map = {}
+      ;(data || []).forEach(a => { map[a.badge_type] = a.earned_at })
+      setEarnedMap(map)
+
+    } catch (err) {
+      console.error('Unexpected error in fetchAchievements:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   function formatDate(dateStr) {
@@ -126,13 +143,12 @@ const map = {}
 
         <div className="flex-1 p-8">
 
-          {/* ── Header ── */}
           <div className="mb-8">
             <h1 className="text-gray-900 text-2xl font-bold">Achievements</h1>
             <p className="text-gray-400 text-sm mt-0.5">Track your progress and earn badges</p>
           </div>
 
-          {/* ── Stats strip ── */}
+          {/* Stats strip */}
           {loading ? (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
               {[1,2,3,4].map(i => (
@@ -141,8 +157,6 @@ const map = {}
             </div>
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-
-              {/* Total earned */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide">Earned</p>
@@ -154,7 +168,6 @@ const map = {}
                 <p className="text-gray-400 text-xs mt-1">of {ALL_TYPES.length} badges</p>
               </div>
 
-              {/* Locked */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide">Locked</p>
@@ -166,7 +179,6 @@ const map = {}
                 <p className="text-gray-400 text-xs mt-1">still to unlock</p>
               </div>
 
-              {/* Completion */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide">Completion</p>
@@ -181,7 +193,6 @@ const map = {}
                 </div>
               </div>
 
-              {/* Latest badge */}
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide">Latest</p>
@@ -201,11 +212,10 @@ const map = {}
                   </>
                 )}
               </div>
-
             </div>
           )}
 
-          {/* ── Progress bar ── */}
+          {/* Progress bar */}
           {!loading && (
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6">
               <div className="flex items-center justify-between mb-3">
@@ -213,13 +223,8 @@ const map = {}
                 <p className="text-gray-400 text-xs">{earned.length} / {ALL_TYPES.length} unlocked</p>
               </div>
               <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-700"
-                  style={{
-                    width: `${completionPct}%`,
-                    background: 'linear-gradient(90deg, #1d4ed8, #06b6d4)',
-                  }}
-                />
+                <div className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${completionPct}%`, background: 'linear-gradient(90deg, #1d4ed8, #06b6d4)' }} />
               </div>
               <div className="flex justify-between mt-2">
                 <p className="text-gray-400 text-xs">Beginner</p>
@@ -228,7 +233,7 @@ const map = {}
             </div>
           )}
 
-          {/* ── Filter tabs ── */}
+          {/* Filter tabs */}
           <div className="flex gap-2 mb-6 flex-wrap">
             {categories.map(cat => (
               <button key={cat} onClick={() => setFilter(cat)}
@@ -241,7 +246,7 @@ const map = {}
             ))}
           </div>
 
-          {/* ── Achievement cards ── */}
+          {/* Achievement cards */}
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[1,2,3,4,5,6].map(i => (
@@ -250,7 +255,6 @@ const map = {}
             </div>
           ) : (
             <>
-              {/* Earned */}
               {filteredEarned.length > 0 && (
                 <div className="mb-8">
                   <div className="flex items-center gap-2 mb-4">
@@ -259,25 +263,18 @@ const map = {}
                       {filteredEarned.length}
                     </span>
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filteredEarned.map(type => {
                       const meta = ACHIEVEMENT_META[type]
                       return (
                         <div key={type}
                           className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex gap-4 items-start hover:shadow-md transition-shadow duration-200 relative overflow-hidden group">
-
-                          {/* Subtle gradient background on hover */}
                           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                             style={{ background: `linear-gradient(135deg, ${meta.color[0]}08, ${meta.color[1]}05)` }} />
-
-                          {/* Icon */}
                           <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 relative z-10 shadow-sm"
                             style={{ background: `linear-gradient(135deg, ${meta.color[0]}, ${meta.color[1]})` }}>
                             <span className="text-2xl">{meta.icon}</span>
                           </div>
-
-                          {/* Info */}
                           <div className="flex-1 min-w-0 relative z-10">
                             <div className="flex items-start justify-between gap-2 mb-1">
                               <h3 className="text-gray-800 font-bold text-sm">{meta.title}</h3>
@@ -304,7 +301,6 @@ const map = {}
                 </div>
               )}
 
-              {/* Locked */}
               {filteredLocked.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-4">
@@ -313,15 +309,12 @@ const map = {}
                       {filteredLocked.length}
                     </span>
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filteredLocked.map(type => {
                       const meta = ACHIEVEMENT_META[type]
                       return (
                         <div key={type}
                           className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 border-dashed flex gap-4 items-start opacity-60">
-
-                          {/* Icon — greyed out */}
                           <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 bg-gray-100 relative">
                             <span className="text-2xl grayscale opacity-40">{meta.icon}</span>
                             <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gray-400 rounded-full flex items-center justify-center">
@@ -330,8 +323,6 @@ const map = {}
                               </svg>
                             </div>
                           </div>
-
-                          {/* Info */}
                           <div className="flex-1 min-w-0">
                             <h3 className="text-gray-500 font-bold text-sm mb-1">{meta.title}</h3>
                             <p className="text-gray-400 text-xs leading-relaxed mb-2">{meta.description}</p>
@@ -346,7 +337,6 @@ const map = {}
                 </div>
               )}
 
-              {/* Empty state */}
               {filteredEarned.length === 0 && filteredLocked.length === 0 && (
                 <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">
                   <p className="text-4xl mb-4">🏆</p>

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminSidebar from '../../components/admin/AdminSidebar'
 import AdminTopBar from '../../components/admin/AdminTopBar'
@@ -13,10 +13,7 @@ function Tooltip({ text }) {
 
   function handleMouseEnter() {
     const rect = ref.current.getBoundingClientRect()
-    setPos({
-      top: rect.top - 8,
-      left: rect.left + rect.width / 2,
-    })
+    setPos({ top: rect.top - 8, left: rect.left + rect.width / 2 })
     setShow(true)
   }
 
@@ -74,6 +71,15 @@ function AddModule() {
   const [questions, setQuestions] = useState([
     { id: 1, question: '', options: ['', '', '', ''], correctIndex: null, explanation: '' }
   ])
+
+  // ── Auth guard ──
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) navigate('/login')
+    }
+    checkAuth()
+  }, [])
 
   function handleModuleChange(e) {
     setModuleData({ ...moduleData, [e.target.name]: e.target.value })
@@ -223,39 +229,72 @@ function AddModule() {
   async function handleSubmit(e) {
     e.preventDefault()
     if (!profile?.id) return
-    if (moduleData.description.length < 50) { alert('Brief description must be at least 50 characters.'); return }
+
+    // ── Inline validation instead of alert() ──
+    if (moduleData.description.trim().length < 50) {
+      setError('Brief description must be at least 50 characters.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
     for (const q of questions) {
-      if (q.correctIndex === null) { alert('Please mark the correct answer for all quiz questions.'); return }
+      if (q.correctIndex === null) {
+        setError('Please mark the correct answer for all quiz questions.')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+    }
+
+    // ── Guard against NaN on estimatedTime ──
+    const estimatedTime = parseInt(moduleData.estimatedTime)
+    if (!estimatedTime || estimatedTime < 1) {
+      setError('Please enter a valid estimated time in minutes.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
     }
 
     setLoading(true)
     setError('')
+    let moduleId = null
 
     try {
+      // ── Step 1: insert module ──
       const { data: moduleRow, error: moduleError } = await supabase
         .from('modules')
         .insert({
-          name: moduleData.name,
-          description: moduleData.description,
-          category: moduleData.category,
-          estimated_time: parseInt(moduleData.estimatedTime),
+          name: moduleData.name.trim(),
+          description: moduleData.description.trim(),
+          category: moduleData.category.trim(),
+          estimated_time: estimatedTime,
           hidden: false,
           organization_id: profile.id,
         })
         .select()
         .single()
 
-      if (moduleError) { setError('Failed to save module: ' + moduleError.message); setLoading(false); return }
+      if (moduleError) {
+        setError('Failed to save module: ' + moduleError.message)
+        setLoading(false)
+        return
+      }
 
+      moduleId = moduleRow.id
+
+      // ── Step 2: insert lessons and sections ──
       for (let i = 0; i < lessons.length; i++) {
         const lesson = lessons[i]
         const { data: lessonRow, error: lessonError } = await supabase
           .from('lessons')
-          .insert({ module_id: moduleRow.id, title: lesson.title, order_index: i })
+          .insert({ module_id: moduleRow.id, title: lesson.title.trim(), order_index: i })
           .select()
           .single()
 
-        if (lessonError) { setError('Failed to save lesson: ' + lessonError.message); setLoading(false); return }
+        if (lessonError) {
+          setError('Failed to save lesson: ' + lessonError.message)
+          // ── Rollback: delete the module if lesson fails ──
+          await supabase.from('modules').delete().eq('id', moduleId)
+          setLoading(false)
+          return
+        }
 
         for (let j = 0; j < lesson.sections.length; j++) {
           const section = lesson.sections[j]
@@ -271,26 +310,43 @@ function AddModule() {
               order_index: j,
             })
 
-          if (sectionError) { setError('Failed to save section: ' + sectionError.message); setLoading(false); return }
+          if (sectionError) {
+            setError('Failed to save section: ' + sectionError.message)
+            await supabase.from('modules').delete().eq('id', moduleId)
+            setLoading(false)
+            return
+          }
         }
       }
 
+      // ── Step 3: insert quiz questions ──
       for (const q of questions) {
         const { error: quizError } = await supabase
           .from('quiz_questions')
           .insert({
             module_id: moduleRow.id,
-            question: q.question,
+            question: q.question.trim(),
             options: q.options,
             correct_index: q.correctIndex,
-            explanation: q.explanation,
+            explanation: q.explanation.trim(),
           })
 
-        if (quizError) { setError('Failed to save quiz: ' + quizError.message); setLoading(false); return }
+        if (quizError) {
+          setError('Failed to save quiz: ' + quizError.message)
+          await supabase.from('modules').delete().eq('id', moduleId)
+          setLoading(false)
+          return
+        }
       }
 
       setSubmitted(true)
+
     } catch (err) {
+      console.error('AddModule error:', err)
+      // ── Rollback on unexpected error ──
+      if (moduleId) {
+        await supabase.from('modules').delete().eq('id', moduleId)
+      }
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
@@ -323,7 +379,7 @@ function AddModule() {
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-6">
 
-                {/* ── Module Info ── */}
+                {/* Module Info */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
                   <h2 className="text-gray-800 font-bold mb-6 flex items-center gap-2.5">
                     <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center">
@@ -382,6 +438,13 @@ function AddModule() {
                         <option value="Social Engineering" />
                         <option value="Data Privacy" />
                         <option value="Network Security" />
+                        <option value="Ransomware" />
+                        <option value="USB & Physical Security" />
+                        <option value="Insider Threat" />
+                        <option value="Email Security" />
+                        <option value="Mobile Security" />
+                        <option value="Cloud Security" />
+                        <option value="Zero-Day Awareness" />
                       </datalist>
                     </div>
 
@@ -402,12 +465,11 @@ function AddModule() {
                   </div>
                 </div>
 
-                {/* ── Lessons ── */}
+                {/* Lessons */}
                 <div className="flex flex-col gap-5">
                   {lessons.map((lesson, lessonIndex) => (
                     <div key={lesson.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm">
 
-                      {/* Lesson header */}
                       <div className="flex items-center justify-between px-6 py-3.5 bg-[#0d1117] rounded-t-2xl">
                         <div className="flex items-center gap-3">
                           <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -432,7 +494,8 @@ function AddModule() {
                             Lesson Title <span className="text-red-400 ml-0.5">*</span>
                             <Tooltip text="Each lesson is like a chapter. Break your module into logical steps — e.g. 'Introduction', 'How to Spot It', 'What to Do'." />
                           </label>
-                          <input type="text" value={lesson.title} onChange={(e) => updateLessonTitle(lesson.id, e.target.value)}
+                          <input type="text" value={lesson.title}
+                            onChange={(e) => updateLessonTitle(lesson.id, e.target.value)}
                             placeholder="e.g. Introduction to Phishing"
                             className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
                             required />
@@ -448,7 +511,6 @@ function AddModule() {
                           {lesson.sections.map((section, sectionIndex) => (
                             <div key={section.id} className="border border-gray-100 rounded-2xl">
 
-                              {/* Section header */}
                               <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-100 rounded-t-2xl">
                                 <div className="flex items-center gap-2">
                                   <div className="w-1 h-4 bg-blue-500 rounded-full" />
@@ -464,7 +526,6 @@ function AddModule() {
 
                               <div className="p-4 flex flex-col gap-4">
 
-                                {/* Heading */}
                                 <div>
                                   <label className="text-gray-600 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
                                     Heading
@@ -477,7 +538,6 @@ function AddModule() {
                                     className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition" />
                                 </div>
 
-                                {/* Body */}
                                 <div>
                                   <label className="text-gray-600 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
                                     Body Text <span className="text-red-400 ml-0.5">*</span>
@@ -491,7 +551,6 @@ function AddModule() {
                                     required />
                                 </div>
 
-                                {/* Bullet Label */}
                                 <div>
                                   <label className="text-gray-600 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
                                     Bullet Label
@@ -504,7 +563,6 @@ function AddModule() {
                                     className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition" />
                                 </div>
 
-                                {/* Bullets */}
                                 <div>
                                   <label className="text-gray-600 text-xs font-semibold mb-1.5 flex items-center uppercase tracking-wide">
                                     Bullet Points
@@ -520,7 +578,8 @@ function AddModule() {
                                           placeholder={`Bullet ${bulletIndex + 1}`}
                                           className="flex-1 bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition" />
                                         {section.bullets.length > 1 && (
-                                          <button type="button" onClick={() => deleteBullet(lesson.id, section.id, bulletIndex)}
+                                          <button type="button"
+                                            onClick={() => deleteBullet(lesson.id, section.id, bulletIndex)}
                                             className="text-red-400 hover:text-red-600 transition flex-shrink-0">
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -539,7 +598,6 @@ function AddModule() {
                                   </div>
                                 </div>
 
-                                {/* ── Content blocks after bullets ── */}
                                 {section.contentBlocks.map((block, blockIndex) => (
                                   <div key={block.id} className="border border-blue-100 rounded-xl p-4 bg-blue-50/30 flex flex-col gap-3">
                                     <div className="flex items-center justify-between">
@@ -547,7 +605,8 @@ function AddModule() {
                                         <div className="w-1 h-4 bg-blue-400 rounded-full" />
                                         <span className="text-blue-600 text-xs font-semibold">Continued Block {blockIndex + 1}</span>
                                       </div>
-                                      <button type="button" onClick={() => deleteContentBlock(lesson.id, section.id, block.id)}
+                                      <button type="button"
+                                        onClick={() => deleteContentBlock(lesson.id, section.id, block.id)}
                                         className="text-red-400 hover:text-red-600 text-xs font-semibold transition">
                                         Remove
                                       </button>
@@ -580,7 +639,6 @@ function AddModule() {
                                   </div>
                                 ))}
 
-                                {/* Add content block */}
                                 <button type="button" onClick={() => addContentBlock(lesson.id, section.id)}
                                   className="flex items-center justify-center gap-2 border border-dashed border-blue-200 hover:border-blue-400 hover:bg-blue-50 text-blue-400 hover:text-blue-600 font-semibold text-xs py-2.5 rounded-xl transition">
                                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -589,7 +647,6 @@ function AddModule() {
                                   Add heading + text after bullets
                                 </button>
 
-                                {/* Preview */}
                                 {(section.heading || section.body || section.bullets.some(b => b) || section.contentBlocks.some(b => b.body)) && (
                                   <div>
                                     <p className="text-gray-400 text-xs font-semibold uppercase tracking-wide mb-2">Preview</p>
@@ -662,7 +719,7 @@ function AddModule() {
                   </button>
                 </div>
 
-                {/* ── Quiz ── */}
+                {/* Quiz */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-gray-800 font-bold flex items-center gap-2.5">
@@ -706,7 +763,8 @@ function AddModule() {
                           <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">
                             Question <span className="text-red-400">*</span>
                           </label>
-                          <textarea value={q.question} onChange={(e) => updateQuestion(q.id, 'question', e.target.value)}
+                          <textarea value={q.question}
+                            onChange={(e) => updateQuestion(q.id, 'question', e.target.value)}
                             placeholder="Enter your question here..."
                             rows={2}
                             className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none transition"
@@ -730,7 +788,8 @@ function AddModule() {
                                     </svg>
                                   )}
                                 </button>
-                                <input type="text" value={opt} onChange={(e) => updateOption(q.id, i, e.target.value)}
+                                <input type="text" value={opt}
+                                  onChange={(e) => updateOption(q.id, i, e.target.value)}
                                   placeholder={`Option ${i + 1}`}
                                   className={`flex-1 border text-gray-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition
                                     ${q.correctIndex === i ? 'bg-green-50 border-green-300' : 'bg-white border-gray-200'}`}
@@ -748,7 +807,8 @@ function AddModule() {
                             Explanation <span className="text-red-400 ml-0.5">*</span>
                             <Tooltip text="Shown to the user after they answer — explains why the correct answer is right. Reinforces the learning." />
                           </label>
-                          <textarea value={q.explanation} onChange={(e) => updateQuestion(q.id, 'explanation', e.target.value)}
+                          <textarea value={q.explanation}
+                            onChange={(e) => updateQuestion(q.id, 'explanation', e.target.value)}
                             placeholder="Explain why the correct answer is right..."
                             rows={2}
                             className="w-full bg-white border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none transition"

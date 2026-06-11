@@ -13,56 +13,109 @@ function ViewModules() {
   const [loading, setLoading] = useState(true)
   const [deleteModal, setDeleteModal] = useState(false)
   const [deleteItem, setDeleteItem] = useState(null)
+  const [deleteError, setDeleteError] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
+
+  // ── Auth guard ──
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) navigate('/login')
+    }
+    checkAuth()
+  }, [])
 
   useEffect(() => {
     if (profile?.id) fetchModules()
   }, [profile])
 
   async function fetchModules() {
+    if (!profile?.id) return
     setLoading(true)
-    const { data, error } = await supabase
-      .from('modules')
-      .select(`*, lessons(count), quiz_questions(count)`)
-      .eq('organization_id', profile.id) // ← org filter
-      .order('created_at', { ascending: false })
 
-    if (!error && data) {
-      setModules(data.map(m => ({
-        id: m.id,
-        name: m.name,
-        category: m.category,
-        estimatedTime: m.estimated_time,
-        lessons: m.lessons[0].count,
-        questions: m.quiz_questions[0].count,
-        date: new Date(m.created_at).toLocaleDateString(),
-        hidden: m.hidden,
-      })))
+    try {
+      const { data, error } = await supabase
+        .from('modules')
+        .select('*, lessons(count), quiz_questions(count)')
+        .eq('organization_id', profile.id)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('fetchModules error:', error)
+        setLoading(false)
+        return
+      }
+
+      if (data) {
+        setModules(data.map(m => ({
+          id: m.id,
+          name: m.name,
+          category: m.category,
+          estimatedTime: m.estimated_time,
+          // ── Safe count — guard against empty arrays ──
+          lessons: m.lessons?.[0]?.count ?? 0,
+          questions: m.quiz_questions?.[0]?.count ?? 0,
+          date: new Date(m.created_at).toLocaleDateString(),
+          hidden: m.hidden,
+        })))
+      }
+
+    } catch (err) {
+      console.error('Unexpected error in fetchModules:', err)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   function handleDeleteClick(mod) {
     setDeleteItem(mod)
+    setDeleteError('')
     setDeleteModal(true)
   }
 
   async function confirmDelete() {
-    const { error } = await supabase.from('modules').delete().eq('id', deleteItem.id)
-    if (!error) {
+    if (!deleteItem?.id) return
+    setDeleteError('')
+
+    try {
+      const { error } = await supabase
+        .from('modules')
+        .delete()
+        .eq('id', deleteItem.id)
+
+      if (error) {
+        setDeleteError('Failed to delete module. Please try again.')
+        return
+      }
+
       setModules(modules.filter(m => m.id !== deleteItem.id))
       setDeleteModal(false)
       setDeleteItem(null)
+
+    } catch (err) {
+      console.error('confirmDelete error:', err)
+      setDeleteError('Something went wrong. Please try again.')
     }
   }
 
   async function toggleHide(id) {
     const mod = modules.find(m => m.id === id)
-    const { error } = await supabase.from('modules').update({ hidden: !mod.hidden }).eq('id', id)
-    if (!error) {
-      setModules(modules.map(m => m.id === id ? { ...m, hidden: !m.hidden } : m))
+    if (!mod) return
+
+    // ── Optimistic update ──
+    setModules(prev => prev.map(m => m.id === id ? { ...m, hidden: !m.hidden } : m))
+
+    const { error } = await supabase
+      .from('modules')
+      .update({ hidden: !mod.hidden })
+      .eq('id', id)
+
+    if (error) {
+      console.error('toggleHide error:', error)
+      // ── Rollback on failure ──
+      setModules(prev => prev.map(m => m.id === id ? { ...m, hidden: mod.hidden } : m))
     }
   }
 
@@ -73,8 +126,8 @@ function ViewModules() {
 
   const filteredModules = modules.filter(mod => {
     const matchesSearch =
-      mod.name.toLowerCase().includes(search.toLowerCase()) ||
-      mod.category.toLowerCase().includes(search.toLowerCase())
+      mod.name?.toLowerCase().includes(search.toLowerCase()) ||
+      mod.category?.toLowerCase().includes(search.toLowerCase())
     const matchesStatus =
       statusFilter === 'all' ||
       (statusFilter === 'visible' && !mod.hidden) ||
@@ -88,12 +141,10 @@ function ViewModules() {
       <AdminSidebar isOpen={sidebarOpen} />
 
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-48' : 'ml-16'}`}>
-
         <AdminTopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
         <div className="flex-1 p-8">
 
-          {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-gray-900 text-2xl font-bold">Training Modules</h1>
@@ -147,7 +198,6 @@ function ViewModules() {
             </div>
           </div>
 
-          {/* Results count */}
           <p className="text-gray-400 text-xs font-semibold mb-3 ml-1">
             {loading ? 'Loading...' : `${filteredModules.length} of ${totalCount} modules`}
           </p>
@@ -155,7 +205,6 @@ function ViewModules() {
           {/* Table */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
-            {/* Header */}
             <div className="grid grid-cols-12 px-6 py-3 bg-gray-50 border-b border-gray-100">
               <p className="col-span-4 text-gray-500 text-xs font-semibold uppercase tracking-wide">Module Name</p>
               <p className="col-span-2 text-gray-500 text-xs font-semibold uppercase tracking-wide">Category</p>
@@ -177,7 +226,6 @@ function ViewModules() {
                   className={`grid grid-cols-12 items-center px-6 py-4 border-b border-gray-50 hover:bg-gray-50 transition
                     ${mod.hidden ? 'opacity-50' : ''}`}>
 
-                  {/* Name */}
                   <div className="col-span-4 flex items-center gap-2">
                     {mod.hidden && (
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -187,33 +235,28 @@ function ViewModules() {
                     <p className="text-gray-800 font-semibold text-sm truncate">{mod.name}</p>
                   </div>
 
-                  {/* Category */}
                   <div className="col-span-2">
                     <span className="bg-blue-50 text-blue-600 text-xs font-medium px-2.5 py-1 rounded-lg">
                       {mod.category}
                     </span>
                   </div>
 
-                  {/* Time */}
                   <div className="col-span-1">
                     <span className="text-gray-500 text-xs font-medium">{mod.estimatedTime}m</span>
                   </div>
 
-                  {/* Lessons */}
                   <div className="col-span-1">
                     <span className="bg-blue-50 text-blue-600 text-xs font-bold px-2.5 py-1 rounded-lg">
                       {mod.lessons}
                     </span>
                   </div>
 
-                  {/* Quiz */}
                   <div className="col-span-1">
                     <span className="bg-purple-50 text-purple-600 text-xs font-bold px-2.5 py-1 rounded-lg">
                       {mod.questions}
                     </span>
                   </div>
 
-                  {/* Status */}
                   <div className="col-span-1">
                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full
                       ${mod.hidden ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-600'}`}>
@@ -221,7 +264,6 @@ function ViewModules() {
                     </span>
                   </div>
 
-                  {/* Actions */}
                   <div className="col-span-2 flex items-center gap-1.5">
                     <button onClick={() => toggleHide(mod.id)}
                       className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg transition
@@ -302,9 +344,14 @@ function ViewModules() {
             <h2 className="text-gray-800 text-lg font-bold mb-1">Delete Module</h2>
             <p className="text-gray-500 text-sm mb-1">You are about to delete</p>
             <p className="text-gray-800 font-bold mb-1">{deleteItem.name}</p>
-            <p className="text-red-400 text-xs mb-6">This action cannot be undone.</p>
+            <p className="text-red-400 text-xs mb-4">This action cannot be undone.</p>
+            {deleteError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
+                <p className="text-red-600 text-sm">{deleteError}</p>
+              </div>
+            )}
             <div className="flex gap-3">
-              <button onClick={() => setDeleteModal(false)}
+              <button onClick={() => { setDeleteModal(false); setDeleteItem(null); setDeleteError('') }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
                 Cancel
               </button>

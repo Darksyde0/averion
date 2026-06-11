@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import AdminSidebar from '../../components/admin/AdminSidebar'
 import AdminTopBar from '../../components/admin/AdminTopBar'
 import { useProfile } from '../../hooks/useProfile'
@@ -12,10 +13,8 @@ function CustomBarTooltip({ active, payload, label }) {
   if (active && payload && payload.length) {
     return (
       <div style={{
-        backgroundColor: '#fff',
-        border: '1px solid #e5e7eb',
-        borderRadius: '10px',
-        padding: '8px 14px',
+        backgroundColor: '#fff', border: '1px solid #e5e7eb',
+        borderRadius: '10px', padding: '8px 14px',
         boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
       }}>
         <p style={{ color: '#6b7280', fontSize: '11px', marginBottom: '2px' }}>{label}</p>
@@ -40,6 +39,7 @@ function timeAgo(dateStr) {
 }
 
 function AdminDashboard() {
+  const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [view, setView] = useState('6M')
   const profile = useProfile()
@@ -56,6 +56,15 @@ function AdminDashboard() {
   const [activityLoading, setActivityLoading] = useState(true)
   const [leaderboardLoading, setLeaderboardLoading] = useState(true)
 
+  // ── Auth guard ──
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) navigate('/login')
+    }
+    checkAuth()
+  }, [])
+
   useEffect(() => {
     if (profile?.id) {
       fetchStats()
@@ -65,185 +74,210 @@ function AdminDashboard() {
   }, [profile])
 
   async function fetchStats() {
+    if (!profile?.id) return
     setLoading(true)
 
-    const { data: users } = await supabase
-      .from('users').select('id, full_name').eq('role', 'user').eq('organization_id', profile.id)
+    try {
+      const { data: users } = await supabase
+        .from('users').select('id, full_name')
+        .eq('role', 'user').eq('organization_id', profile.id)
 
-    const totalUsers = users?.length || 0
-    const userIds = users?.map(u => u.id) || []
+      const totalUsers = users?.length || 0
+      const userIds = users?.map(u => u.id) || []
 
-    let avgScore = 0, atRiskUsers = 0, allBarData = []
+      let avgScore = 0, atRiskUsers = 0, allBarData = []
 
-    if (userIds.length > 0) {
-      const { data: simResults } = await supabase
-        .from('simulation_results').select('score, completed_at, user_id')
-        .in('user_id', userIds).order('completed_at', { ascending: true })
+      if (userIds.length > 0) {
+        const { data: simResults } = await supabase
+          .from('simulation_results').select('score, completed_at, user_id')
+          .in('user_id', userIds).order('completed_at', { ascending: true })
 
-      if (simResults && simResults.length > 0) {
-        avgScore = Math.round(simResults.reduce((sum, r) => sum + r.score, 0) / simResults.length)
+        if (simResults && simResults.length > 0) {
+          avgScore = Math.round(simResults.reduce((sum, r) => sum + r.score, 0) / simResults.length)
 
-        const userScores = {}
-        simResults.forEach(r => {
-          if (!userScores[r.user_id] || r.completed_at > userScores[r.user_id].date) {
-            userScores[r.user_id] = { score: r.score, date: r.completed_at }
-          }
-        })
-        atRiskUsers = Object.values(userScores).filter(s => s.score < 50).length
+          const userScores = {}
+          simResults.forEach(r => {
+            if (!userScores[r.user_id] || r.completed_at > userScores[r.user_id].date) {
+              userScores[r.user_id] = { score: r.score, date: r.completed_at }
+            }
+          })
+          atRiskUsers = Object.values(userScores).filter(s => s.score < 50).length
 
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        const grouped = {}
-        simResults.forEach(r => {
-          const date = new Date(r.completed_at)
-          const key = `${date.getFullYear()}-${date.getMonth()}`
-          if (!grouped[key]) grouped[key] = { scores: [], month: monthNames[date.getMonth()], date }
-          grouped[key].scores.push(r.score)
-        })
-        allBarData = Object.values(grouped)
-          .sort((a, b) => a.date - b.date)
-          .map(m => ({
-            month: m.month,
-            score: Math.round(m.scores.reduce((a, b) => a + b, 0) / m.scores.length),
-            date: m.date,
-          }))
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+          const grouped = {}
+          simResults.forEach(r => {
+            const date = new Date(r.completed_at)
+            const key = `${date.getFullYear()}-${date.getMonth()}`
+            if (!grouped[key]) grouped[key] = { scores: [], month: monthNames[date.getMonth()], date }
+            grouped[key].scores.push(r.score)
+          })
+          allBarData = Object.values(grouped)
+            .sort((a, b) => a.date - b.date)
+            .map(m => ({
+              month: m.month,
+              score: Math.round(m.scores.reduce((a, b) => a + b, 0) / m.scores.length),
+              date: m.date,
+            }))
+        }
       }
-    }
 
-    let completedCount = 0, inProgressCount = 0, notStartedCount = 0
-    const { data: allModules } = await supabase.from('modules').select('id').eq('hidden', false)
-    const totalModules = allModules?.length || 0
+      let completedCount = 0, inProgressCount = 0, notStartedCount = 0
 
-    if (userIds.length > 0 && totalModules > 0) {
-      const { data: progress } = await supabase
-        .from('module_progress')
-        .select('user_id, module_id, quiz_completed')
-        .in('user_id', userIds)
+      // ── FIXED: filter modules by organization_id ──
+      const { data: allModules } = await supabase
+        .from('modules')
+        .select('id')
+        .eq('hidden', false)
+        .eq('organization_id', profile.id)
 
-      const userModuleMap = {}
-      userIds.forEach(id => {
-        userModuleMap[id] = { completedModules: new Set(), startedModules: new Set() }
-      })
+      const totalModules = allModules?.length || 0
 
-        ; (progress || []).forEach(p => {
+      if (userIds.length > 0 && totalModules > 0) {
+        const moduleIds = allModules.map(m => m.id)
+
+        const { data: progress } = await supabase
+          .from('module_progress')
+          .select('user_id, module_id, quiz_completed')
+          .in('user_id', userIds)
+          .in('module_id', moduleIds)
+
+        const userModuleMap = {}
+        userIds.forEach(id => {
+          userModuleMap[id] = { completedModules: new Set(), startedModules: new Set() }
+        })
+
+        ;(progress || []).forEach(p => {
           if (!userModuleMap[p.user_id]) return
           if (p.quiz_completed === true) userModuleMap[p.user_id].completedModules.add(p.module_id)
           else userModuleMap[p.user_id].startedModules.add(p.module_id)
         })
 
-      userIds.forEach(id => {
-        const completed = userModuleMap[id].completedModules.size
-        const started = userModuleMap[id].startedModules.size
-        if (completed >= totalModules) completedCount++
-        else if (completed > 0 || started > 0) inProgressCount++
-        else notStartedCount++
-      })
-    } else {
-      notStartedCount = totalUsers
-    }
+        userIds.forEach(id => {
+          const completed = userModuleMap[id].completedModules.size
+          const started = userModuleMap[id].startedModules.size
+          if (completed >= totalModules) completedCount++
+          else if (completed > 0 || started > 0) inProgressCount++
+          else notStartedCount++
+        })
+      } else {
+        notStartedCount = totalUsers
+      }
 
-    const completionRate = totalUsers > 0 ? Math.round((completedCount / totalUsers) * 100) : 0
-    setStats({ totalUsers, avgScore, completionRate, atRiskUsers, completedCount, inProgressCount, notStartedCount })
-    setAllBarData(allBarData)
-    setLoading(false)
+      const completionRate = totalUsers > 0 ? Math.round((completedCount / totalUsers) * 100) : 0
+      setStats({ totalUsers, avgScore, completionRate, atRiskUsers, completedCount, inProgressCount, notStartedCount })
+      setAllBarData(allBarData)
+
+    } catch (err) {
+      console.error('fetchStats error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function fetchLeaderboard() {
+    if (!profile?.id) return
     setLeaderboardLoading(true)
 
-    const { data: users } = await supabase
-      .from('users')
-      .select('id, full_name, avatar_url')
-      .eq('role', 'user')
-      .eq('organization_id', profile.id)
+    try {
+      const { data: users } = await supabase
+        .from('users').select('id, full_name, avatar_url')
+        .eq('role', 'user').eq('organization_id', profile.id)
 
-    if (!users || users.length === 0) { setLeaderboardLoading(false); return }
+      if (!users || users.length === 0) { setLeaderboardLoading(false); return }
 
-    const userIds = users.map(u => u.id)
-    const userMap = {}
-    users.forEach(u => { userMap[u.id] = { name: u.full_name || 'User', avatar: u.avatar_url || null } })
+      const userIds = users.map(u => u.id)
+      const userMap = {}
+      users.forEach(u => { userMap[u.id] = { name: u.full_name || 'User', avatar: u.avatar_url || null } })
 
-    const { data: simResults } = await supabase
-      .from('simulation_results')
-      .select('user_id, score, completed_at')
-      .in('user_id', userIds)
-      .order('completed_at', { ascending: false })
+      const { data: simResults } = await supabase
+        .from('simulation_results').select('user_id, score, completed_at')
+        .in('user_id', userIds).order('completed_at', { ascending: false })
 
-    if (!simResults || simResults.length === 0) { setLeaderboardLoading(false); return }
+      if (!simResults || simResults.length === 0) { setLeaderboardLoading(false); return }
 
-    // ── Per user: avg score + attempt count ──
-    const userStats = {}
-    simResults.forEach(r => {
-      if (!userStats[r.user_id]) userStats[r.user_id] = { scores: [], latestDate: r.completed_at }
-      userStats[r.user_id].scores.push(r.score)
-    })
+      const userStats = {}
+      simResults.forEach(r => {
+        if (!userStats[r.user_id]) userStats[r.user_id] = { scores: [], latestDate: r.completed_at }
+        userStats[r.user_id].scores.push(r.score)
+      })
 
-    const ranked = Object.entries(userStats).map(([userId, data]) => ({
-      userId,
-      name: userMap[userId]?.name || 'User',
-      avatar: userMap[userId]?.avatar || null,
-      avgScore: Math.round(data.scores.reduce((a, b) => a + b, 0) / data.scores.length),
-      attempts: data.scores.length,
-      latestScore: data.scores[0],
-    })).sort((a, b) => b.avgScore - a.avgScore)
+      const ranked = Object.entries(userStats).map(([userId, data]) => ({
+        userId,
+        name: userMap[userId]?.name || 'User',
+        avatar: userMap[userId]?.avatar || null,
+        avgScore: Math.round(data.scores.reduce((a, b) => a + b, 0) / data.scores.length),
+        attempts: data.scores.length,
+        latestScore: data.scores[0],
+      })).sort((a, b) => b.avgScore - a.avgScore)
 
-    setTopPerformers(ranked.filter(u => u.avgScore >= 50).slice(0, 5))
-    setAtRiskList(ranked.filter(u => u.avgScore < 50).slice(0, 5))
-    setLeaderboardLoading(false)
+      setTopPerformers(ranked.filter(u => u.avgScore >= 50).slice(0, 5))
+      setAtRiskList(ranked.filter(u => u.avgScore < 50).slice(0, 5))
+
+    } catch (err) {
+      console.error('fetchLeaderboard error:', err)
+    } finally {
+      setLeaderboardLoading(false)
+    }
   }
 
   async function fetchRecentActivity() {
+    if (!profile?.id) return
     setActivityLoading(true)
 
-    const { data: users } = await supabase
-      .from('users')
-      .select('id, full_name, avatar_url')
-      .eq('role', 'user')
-      .eq('organization_id', profile.id)
+    try {
+      const { data: users } = await supabase
+        .from('users').select('id, full_name, avatar_url')
+        .eq('role', 'user').eq('organization_id', profile.id)
 
-    if (!users || users.length === 0) { setActivityLoading(false); return }
+      if (!users || users.length === 0) { setActivityLoading(false); return }
 
-    const userIds = users.map(u => u.id)
-    const userMap = {}
-    users.forEach(u => {
-      userMap[u.id] = { name: u.full_name || 'A user', avatar: u.avatar_url || null }
-    })
+      const userIds = users.map(u => u.id)
+      const userMap = {}
+      users.forEach(u => {
+        userMap[u.id] = { name: u.full_name || 'A user', avatar: u.avatar_url || null }
+      })
 
-    const { data: simResults } = await supabase
-      .from('simulation_results').select('user_id, score, completed_at')
-      .in('user_id', userIds).order('completed_at', { ascending: false }).limit(10)
+      const { data: simResults } = await supabase
+        .from('simulation_results').select('user_id, score, completed_at')
+        .in('user_id', userIds).order('completed_at', { ascending: false }).limit(10)
 
-    const simActivities = (simResults || []).map(r => ({
-      id: `sim-${r.user_id}-${r.completed_at}`,
-      user: userMap[r.user_id]?.name || 'A user',
-      avatar: userMap[r.user_id]?.avatar || null,
-      action: 'completed a simulation',
-      score: r.score,
-      time: r.completed_at,
-      type: 'simulation',
-    }))
+      const simActivities = (simResults || []).map(r => ({
+        id: `sim-${r.user_id}-${r.completed_at}`,
+        user: userMap[r.user_id]?.name || 'A user',
+        avatar: userMap[r.user_id]?.avatar || null,
+        action: 'completed a simulation',
+        score: r.score,
+        time: r.completed_at,
+        type: 'simulation',
+      }))
 
-    const { data: moduleProgress } = await supabase
-      .from('module_progress').select('user_id, score, completed_at, modules(name)')
-      .in('user_id', userIds).eq('quiz_completed', true)
-      .order('completed_at', { ascending: false }).limit(10)
+      const { data: moduleProgress } = await supabase
+        .from('module_progress').select('user_id, score, completed_at, modules(name)')
+        .in('user_id', userIds).eq('quiz_completed', true)
+        .order('completed_at', { ascending: false }).limit(10)
 
-    const moduleActivities = (moduleProgress || []).map(p => ({
-      id: `mod-${p.user_id}-${p.completed_at}`,
-      user: userMap[p.user_id]?.name || 'A user',
-      avatar: userMap[p.user_id]?.avatar || null,
-      action: 'completed a module',
-      detail: p.modules?.name || 'Training Module',
-      score: p.score,
-      time: p.completed_at,
-      type: 'module',
-    }))
+      const moduleActivities = (moduleProgress || []).map(p => ({
+        id: `mod-${p.user_id}-${p.completed_at}`,
+        user: userMap[p.user_id]?.name || 'A user',
+        avatar: userMap[p.user_id]?.avatar || null,
+        action: 'completed a module',
+        detail: p.modules?.name || 'Training Module',
+        score: p.score,
+        time: p.completed_at,
+        type: 'module',
+      }))
 
-    const all = [...simActivities, ...moduleActivities]
-      .sort((a, b) => new Date(b.time) - new Date(a.time))
-      .slice(0, 8)
+      const all = [...simActivities, ...moduleActivities]
+        .sort((a, b) => new Date(b.time) - new Date(a.time))
+        .slice(0, 8)
 
-    setRecentActivity(all)
-    setActivityLoading(false)
+      setRecentActivity(all)
+
+    } catch (err) {
+      console.error('fetchRecentActivity error:', err)
+    } finally {
+      setActivityLoading(false)
+    }
   }
 
   function getFilteredData() {
@@ -297,41 +331,6 @@ function AdminDashboard() {
     },
   ]
 
-  function UserRow({ user, rank, showRank, scoreColor }) {
-    return (
-      <div className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
-        {showRank && (
-          <span className={`text-xs font-extrabold w-4 text-right flex-shrink-0
-            ${rank === 1 ? 'text-yellow-500' : rank === 2 ? 'text-gray-400' : rank === 3 ? 'text-amber-600' : 'text-gray-300'}`}>
-            {rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`}
-          </span>
-        )}
-        {user.avatar ? (
-          <img src={user.avatar} alt={user.name}
-            className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-            onError={e => e.target.style.display = 'none'} />
-        ) : (
-          <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-gray-500">
-            {user.name.charAt(0).toUpperCase()}
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <p className="text-gray-800 text-xs font-semibold truncate">{user.name}</p>
-          <p className="text-gray-400 text-xs">{user.attempts} attempt{user.attempts > 1 ? 's' : ''}</p>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${user.avgScore}%`, backgroundColor: scoreColor }} />
-          </div>
-          <p className={`text-xs font-extrabold w-8 text-right`} style={{ color: scoreColor }}>
-            {user.avgScore}%
-          </p>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="flex min-h-screen bg-gray-50">
       <AdminSidebar isOpen={sidebarOpen} />
@@ -345,10 +344,10 @@ function AdminDashboard() {
             <h1 className="text-gray-900 text-2xl font-bold">
               Welcome, {profile?.full_name?.split(' ')[0] || 'Admin'} 👋
             </h1>
-            <p className="text-gray-400 text-sm mt-0.5">Organization-wide security training overview</p>
+            <p className="text-gray-400 text-sm mt-0.5">Organization security training overview</p>
           </div>
 
-          {/* ── Stat cards ── */}
+          {/* Stat cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
             {statCards.map((card, i) => (
               <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
@@ -365,10 +364,10 @@ function AdminDashboard() {
             ))}
           </div>
 
-          {/* ── Charts row ── */}
+          {/* Charts row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
 
-            {/* ── Area chart ── */}
+            {/* Area chart */}
             <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="px-6 pt-5 pb-4 border-b border-gray-50">
                 <div className="flex items-center justify-between mb-1">
@@ -468,7 +467,7 @@ function AdminDashboard() {
               </div>
             </div>
 
-            {/* ── Donut chart ── */}
+            {/* Donut chart */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="px-5 pt-4 pb-3 border-b border-gray-50">
                 <h2 className="text-gray-800 text-sm font-bold">Training Status</h2>
@@ -532,10 +531,9 @@ function AdminDashboard() {
             </div>
           </div>
 
-          {/* ── Bottom row ── */}
+          {/* Bottom row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-            {/* ── Left: Top Performers + At Risk ── */}
             <div className="lg:col-span-2 grid grid-cols-1 lg:grid-cols-2 gap-5">
 
               {/* Top Performers */}
@@ -554,7 +552,6 @@ function AdminDashboard() {
                     {topPerformers.length}
                   </span>
                 </div>
-
                 <div className="px-5 py-3">
                   {leaderboardLoading ? (
                     <div className="flex flex-col gap-2 py-2">
@@ -606,7 +603,7 @@ function AdminDashboard() {
                 </div>
               </div>
 
-              {/* At Risk Users */}
+              {/* At Risk */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -625,7 +622,6 @@ function AdminDashboard() {
                     {atRiskList.length}
                   </span>
                 </div>
-
                 <div className="px-5 py-3">
                   {leaderboardLoading ? (
                     <div className="flex flex-col gap-2 py-2">
@@ -678,10 +674,9 @@ function AdminDashboard() {
                   )}
                 </div>
               </div>
-
             </div>
 
-            {/* ── Recent Activity ── */}
+            {/* Recent Activity */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
                 <div>

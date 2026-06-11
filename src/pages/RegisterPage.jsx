@@ -32,7 +32,16 @@ function RegisterPage() {
 
   function handleNextStep(e) {
     e.preventDefault()
-    if (!formData.fullName || !formData.email || !formData.companyName) return
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!formData.fullName.trim()) { setError('Full name is required.'); return }
+    if (!formData.email.trim() || !emailRegex.test(formData.email.trim())) {
+      setError('Please enter a valid email address.')
+      return
+    }
+    if (!formData.companyName.trim()) { setError('Company name is required.'); return }
+    if (!formData.department) { setError('Please select a department.'); return }
+    if (!formData.jobTitle.trim()) { setError('Job title is required.'); return }
+    setError('')
     setStep(2)
   }
 
@@ -44,7 +53,6 @@ function RegisterPage() {
       setError('You must agree to the Terms & Conditions and Privacy Policy to create an account.')
       return
     }
-
     if (formData.password !== formData.confirmPassword) {
       setError(t('register.passwordMismatch'))
       return
@@ -57,15 +65,16 @@ function RegisterPage() {
     setLoading(true)
 
     try {
+      // ── Step 1: create auth user ──
       const { data, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
         options: {
           data: {
-            full_name: formData.fullName,
-            company_name: formData.companyName,
+            full_name: formData.fullName.trim(),
+            company_name: formData.companyName.trim(),
             department: formData.department,
-            job_title: formData.jobTitle,
+            job_title: formData.jobTitle.trim(),
             employee_id: formData.employeeId.trim() || null,
             role: 'admin',
           }
@@ -75,7 +84,7 @@ function RegisterPage() {
       if (authError) {
         if (authError.message.toLowerCase().includes('rate limit') ||
           authError.message.toLowerCase().includes('email')) {
-          setError('Too many attempts. Please wait a few minutes and try again, or use a different email address.')
+          setError('Too many attempts. Please wait a few minutes and try again.')
         } else {
           setError(authError.message)
         }
@@ -83,16 +92,22 @@ function RegisterPage() {
         return
       }
 
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // ── Step 2: guard against null user ──
+      if (!data?.user?.id) {
+        setError('Registration failed. Please try again with a different email.')
+        setLoading(false)
+        return
+      }
 
+      // ── Step 3: insert profile ──
       const { error: profileError } = await supabase.from('users').insert({
         id: data.user.id,
-        full_name: formData.fullName,
-        email: formData.email,
+        full_name: formData.fullName.trim(),
+        email: formData.email.trim().toLowerCase(),
         department: formData.department,
-        job_title: formData.jobTitle,
+        job_title: formData.jobTitle.trim(),
         employee_id: formData.employeeId.trim() || null,
-        company_name: formData.companyName,
+        company_name: formData.companyName.trim(),
         role: 'admin',
         first_login: false,
         organization_id: data.user.id,
@@ -100,13 +115,13 @@ function RegisterPage() {
 
       if (profileError) {
         console.error('Profile error:', profileError)
-        if (profileError.message.includes('duplicate key') || profileError.message.includes('users_email_key')) {
-          await supabase.auth.signOut()
+        await supabase.auth.signOut()
+        if (profileError.message.includes('duplicate key') ||
+          profileError.message.includes('users_email_key')) {
           setError('An account with this email already exists. Please sign in instead.')
-          setLoading(false)
-          return
+        } else {
+          setError('Account setup failed. Please try again.')
         }
-        setError(`Profile setup failed: ${profileError.message}`)
         setLoading(false)
         return
       }
@@ -115,6 +130,8 @@ function RegisterPage() {
       setLoading(false)
 
     } catch (err) {
+      console.error('Registration error:', err)
+      await supabase.auth.signOut()
       setError('Something went wrong. Please try again.')
       setLoading(false)
     }
@@ -140,7 +157,6 @@ function RegisterPage() {
   if (registered) {
     return (
       <div className="min-h-screen bg-[#020408] flex items-center justify-center px-6 relative overflow-hidden">
-
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(29,78,216,0.2),transparent)]" />
         <div className="absolute inset-0 opacity-[0.03]"
           style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
@@ -212,7 +228,6 @@ function RegisterPage() {
 
       {/* ── Left panel ── */}
       <div aria-hidden="true" className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden">
-
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),transparent)]" />
         <div className="absolute inset-0 opacity-[0.03]"
           style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
@@ -401,9 +416,15 @@ function RegisterPage() {
               <div>
                 <label htmlFor="reg-password" className={labelClass}>{t('register.password')}</label>
                 <div className="relative">
-                  <input type={showPassword ? 'text' : 'password'} name="password"
-                    value={formData.password} onChange={handleChange}
-                    placeholder="Min. 8 characters" required className={inputClass} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    id="reg-password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Min. 8 characters"
+                    required
+                    className={inputClass} />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition">
                     {showPassword ? eyeOff : eyeOpen}
@@ -429,11 +450,16 @@ function RegisterPage() {
               </div>
 
               <div>
-                <label className={labelClass}>{t('register.confirmPassword')}</label>
+                <label htmlFor="reg-confirmPassword" className={labelClass}>{t('register.confirmPassword')}</label>
                 <div className="relative">
-                  <input type={showConfirm ? 'text' : 'password'} name="confirmPassword"
-                    value={formData.confirmPassword} onChange={handleChange}
-                    placeholder="Repeat your password" required
+                  <input
+                    type={showConfirm ? 'text' : 'password'}
+                    id="reg-confirmPassword"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="Repeat your password"
+                    required
                     className={`${inputClass} ${formData.confirmPassword && formData.confirmPassword !== formData.password
                       ? 'border-red-500/50 focus:ring-red-500'
                       : formData.confirmPassword && formData.confirmPassword === formData.password
@@ -485,8 +511,7 @@ function RegisterPage() {
                       className="sr-only peer"
                       required
                       aria-required="true"
-                      aria-describedby="terms-desc"
-                    />
+                      aria-describedby="terms-desc" />
                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200
                       ${agreedToTerms
                         ? 'bg-blue-600 border-blue-600'

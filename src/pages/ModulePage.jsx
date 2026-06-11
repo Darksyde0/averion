@@ -2,28 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Sidebar from '../components/dashboard/Sidebar'
 import { supabase } from '../supabaseClient'
-import { useProfile } from '../hooks/useProfile'
 import TopBar from '../components/dashboard/TopBar'
-
-const colorPalette = [
-  ['#1d4ed8', '#3b82f6'],
-  ['#6d28d9', '#8b5cf6'],
-  ['#be123c', '#f43f5e'],
-  ['#065f46', '#10b981'],
-  ['#c2410c', '#f97316'],
-  ['#0e7490', '#06b6d4'],
-  ['#86198f', '#d946ef'],
-  ['#0f766e', '#14b8a6'],
-  ['#b91c1c', '#ef4444'],
-  ['#4338ca', '#6366f1'],
-  ['#b45309', '#f59e0b'],
-  ['#be185d', '#ec4899'],
-]
-
-function getModuleColor(id) {
-  const sum = String(id).split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-  return colorPalette[sum % colorPalette.length]
-}
 
 function ModulePage() {
   const { id } = useParams()
@@ -40,9 +19,8 @@ function ModulePage() {
   const [quiz, setQuiz] = useState([])
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState(null)
-  const profile = useProfile()
+  const [saveError, setSaveError] = useState('')
 
-  // ── Already completed state ──
   const [alreadyCompleted, setAlreadyCompleted] = useState(false)
   const [completedScore, setCompletedScore] = useState(null)
 
@@ -51,31 +29,43 @@ function ModulePage() {
   async function fetchModule() {
     setLoading(true)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) setUserId(user.id)
+    try {
+      // ── Step 1: auth guard ──
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        navigate('/login')
+        return
+      }
+      setUserId(user.id)
 
-    const { data: mod, error: modError } = await supabase
-      .from('modules').select('*').eq('id', id).single()
-    if (modError || !mod) { setLoading(false); return }
-    setModule(mod)
+      // ── Step 2: fetch module ──
+      const { data: mod, error: modError } = await supabase
+        .from('modules').select('*').eq('id', id).single()
 
-    // ── Check if quiz already completed ──
-    if (user) {
+      if (modError || !mod) {
+        console.error('Module fetch error:', modError)
+        setLoading(false)
+        return
+      }
+      setModule(mod)
+
+      // ── Step 3: check if already completed ──
       const { data: existingProgress, error: progressError } = await supabase
         .from('module_progress')
         .select('quiz_completed, score')
         .eq('user_id', user.id)
         .eq('module_id', id)
-        .maybeSingle() // fix: check existing progress
+        .maybeSingle()
 
-      console.log('existingProgress:', existingProgress)
-      console.log('progressError:', progressError)
+      if (progressError) {
+        console.error('Progress check error:', progressError)
+      }
 
       if (existingProgress?.quiz_completed === true) {
         setAlreadyCompleted(true)
         setCompletedScore(existingProgress.score)
 
-        // ── Still load lessons so user can read them ──
+        // Load lessons so user can re-read
         const { data: lessonsData } = await supabase
           .from('lessons').select('*, lesson_sections(*)')
           .eq('module_id', id).order('order_index', { ascending: true })
@@ -94,44 +84,52 @@ function ModulePage() {
               }))
           })))
         }
-
         setLoading(false)
         return
       }
-    }
 
-    // ── Not yet completed — load everything ──
-    const { data: lessonsData } = await supabase
-      .from('lessons').select('*, lesson_sections(*)')
-      .eq('module_id', id).order('order_index', { ascending: true })
+      // ── Step 4: load lessons ──
+      const { data: lessonsData, error: lessonsError } = await supabase
+        .from('lessons').select('*, lesson_sections(*)')
+        .eq('module_id', id).order('order_index', { ascending: true })
 
-    if (lessonsData) {
-      setLessons(lessonsData.map(l => ({
-        id: l.id,
-        title: l.title,
-        content: l.lesson_sections
-          .sort((a, b) => a.order_index - b.order_index)
-          .map(s => ({
-            heading: s.heading || '',
-            body: s.body || '',
-            bulletLabel: s.bullet_label || '',
-            list: s.bullets || [],
-          }))
-      })))
-    }
+      if (lessonsError) {
+        console.error('Lessons fetch error:', lessonsError)
+      }
 
-    const { data: quizData } = await supabase
-      .from('quiz_questions').select('*').eq('module_id', id)
-    if (quizData) {
-      setQuiz(quizData.map(q => ({
-        question: q.question,
-        options: q.options,
-        correctIndex: q.correct_index,
-        explanation: q.explanation,
-      })))
-    }
+      if (lessonsData) {
+        setLessons(lessonsData.map(l => ({
+          id: l.id,
+          title: l.title,
+          content: l.lesson_sections
+            .sort((a, b) => a.order_index - b.order_index)
+            .map(s => ({
+              heading: s.heading || '',
+              body: s.body || '',
+              bulletLabel: s.bullet_label || '',
+              list: s.bullets || [],
+            }))
+        })))
+      }
 
-    if (user) {
+      // ── Step 5: load quiz ──
+      const { data: quizData, error: quizError } = await supabase
+        .from('quiz_questions').select('*').eq('module_id', id)
+
+      if (quizError) {
+        console.error('Quiz fetch error:', quizError)
+      }
+
+      if (quizData) {
+        setQuiz(quizData.map(q => ({
+          question: q.question,
+          options: q.options,
+          correctIndex: q.correct_index,
+          explanation: q.explanation,
+        })))
+      }
+
+      // ── Step 6: mark as in-progress (only if not already started) ──
       await supabase.from('module_progress').upsert({
         user_id: user.id,
         module_id: id,
@@ -139,9 +137,12 @@ function ModulePage() {
         quiz_completed: false,
         score: null,
       }, { onConflict: 'user_id,module_id', ignoreDuplicates: true })
-    }
 
-    setLoading(false)
+    } catch (err) {
+      console.error('Unexpected error in fetchModule:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (loading) {
@@ -169,9 +170,7 @@ function ModulePage() {
     )
   }
 
-  // ─────────────────────────────────────────────────────
-  // ── ALREADY COMPLETED — lessons readable, quiz locked ──
-  // ─────────────────────────────────────────────────────
+  // ── ALREADY COMPLETED ──
   if (alreadyCompleted) {
     const scoreColor = completedScore >= 80 ? 'text-green-500'
       : completedScore >= 50 ? 'text-yellow-500' : 'text-red-500'
@@ -187,7 +186,6 @@ function ModulePage() {
           <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
           <div className="flex-1 p-6">
 
-            {/* Top bar */}
             <div className="bg-[#0d1117] rounded-2xl px-5 py-3.5 flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="bg-blue-600 p-2 rounded-lg">
@@ -215,19 +213,14 @@ function ModulePage() {
             </div>
 
             <div className="flex gap-5 items-start">
-
-              {/* Left sidebar */}
               <div className="w-56 flex-shrink-0 flex flex-col gap-3">
-
-                {/* Lessons list */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-50">
                     <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide">Lessons</p>
                   </div>
                   <div className="p-2">
                     {lessons.map((lesson, li) => (
-                      <div key={lesson.id}
-                        className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl mb-0.5">
+                      <div key={lesson.id} className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl mb-0.5">
                         <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 bg-green-500 text-white">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -239,7 +232,6 @@ function ModulePage() {
                   </div>
                 </div>
 
-                {/* Quiz locked */}
                 <div className="bg-white rounded-2xl border border-green-200 shadow-sm overflow-hidden">
                   <div className="px-4 py-3 border-b border-green-100 bg-green-50">
                     <p className="text-green-600 text-xs font-semibold uppercase tracking-wide">Quiz</p>
@@ -251,7 +243,6 @@ function ModulePage() {
                   </div>
                 </div>
 
-                {/* About */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
                   <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-3">About</p>
                   <div className="flex flex-col gap-2.5">
@@ -271,14 +262,11 @@ function ModulePage() {
                 </div>
               </div>
 
-              {/* Right — lessons readable */}
               <div className="flex-1 min-w-0">
                 {lessons.map((lesson, li) => (
                   <div key={lesson.id} className="mb-5">
                     <div className="bg-[#0d1117] rounded-t-2xl px-6 py-4">
-                      <span className="text-blue-400 text-xs font-bold uppercase tracking-widest">
-                        Lesson {li + 1}
-                      </span>
+                      <span className="text-blue-400 text-xs font-bold uppercase tracking-widest">Lesson {li + 1}</span>
                       <h2 className="text-white text-lg font-bold mt-0.5">{lesson.title}</h2>
                     </div>
                     <div className="bg-[#1a2744] rounded-b-2xl px-7 py-7">
@@ -296,9 +284,7 @@ function ModulePage() {
                           {section.list && section.list.length > 0 && (
                             <div className="ml-4 bg-[#243860] rounded-xl p-4">
                               {section.bulletLabel && (
-                                <p className="text-blue-400 text-xs font-bold uppercase tracking-wide mb-3">
-                                  {section.bulletLabel}
-                                </p>
+                                <p className="text-blue-400 text-xs font-bold uppercase tracking-wide mb-3">{section.bulletLabel}</p>
                               )}
                               <div className="flex flex-col gap-2">
                                 {section.list.map((item, j) => (
@@ -316,7 +302,6 @@ function ModulePage() {
                   </div>
                 ))}
 
-                {/* Quiz locked screen */}
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
                   <div className={`w-20 h-20 rounded-full border-4 ${scoreBorder} flex items-center justify-center mx-auto mb-4`}>
                     <p className={`text-xl font-extrabold ${scoreColor}`}>{completedScore}%</p>
@@ -346,9 +331,7 @@ function ModulePage() {
     )
   }
 
-  // ─────────────────────────────────────────────
-  // ── NORMAL FLOW — first time taking module ──
-  // ─────────────────────────────────────────────
+  // ── NORMAL FLOW ──
   const currentLessonData = lessons[currentLesson]
   const sections = currentLessonData?.content || []
   const currentSectionData = sections[currentSection]
@@ -421,18 +404,29 @@ function ModulePage() {
 
   async function handleQuizNext() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
+    setSaveError('')
+
     if (!isLastQuestion) {
       setCurrentQuestion(currentQuestion + 1)
     } else {
+      // ── Save quiz result ──
       if (userId) {
-        await supabase.from('module_progress').upsert({
-          user_id: userId,
-          module_id: id,
-          lessons_completed: lessons.length,
-          quiz_completed: true,
-          score: scorePercent,
-          completed_at: new Date().toISOString(),
-        }, { onConflict: 'user_id,module_id' })
+        const { error: saveErr } = await supabase
+          .from('module_progress')
+          .upsert({
+            user_id: userId,
+            module_id: id,
+            lessons_completed: lessons.length,
+            quiz_completed: true,
+            score: scorePercent,
+            completed_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,module_id' })
+
+        if (saveErr) {
+          console.error('Quiz save error:', saveErr)
+          setSaveError('Failed to save your quiz result. Please try again.')
+          return
+        }
       }
       setQuizSubmitted(true)
     }
@@ -441,7 +435,6 @@ function ModulePage() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Sidebar isOpen={sidebarOpen} />
-
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-60' : 'ml-16'}`}>
         <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
@@ -478,12 +471,17 @@ function ModulePage() {
             </div>
           </div>
 
-          {/* Two-column layout */}
+          {/* Save error */}
+          {saveError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
+              <p className="text-red-600 text-sm">{saveError}</p>
+            </div>
+          )}
+
           <div className="flex gap-5 items-start">
 
             {/* Left sidebar */}
             <div className="w-56 flex-shrink-0 flex flex-col gap-3">
-
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-4 py-3 border-b border-gray-50">
                   <p className="text-gray-500 text-xs font-semibold uppercase tracking-wide">Lessons</p>
@@ -569,7 +567,6 @@ function ModulePage() {
                   </div>
                 </div>
               </div>
-
             </div>
 
             {/* Right — main content */}
@@ -600,9 +597,7 @@ function ModulePage() {
                     {currentSectionData.list && currentSectionData.list.length > 0 && (
                       <div className="ml-4 bg-[#243860] rounded-xl p-4">
                         {currentSectionData.bulletLabel && (
-                          <p className="text-blue-400 text-xs font-bold uppercase tracking-wide mb-3">
-                            {currentSectionData.bulletLabel}
-                          </p>
+                          <p className="text-blue-400 text-xs font-bold uppercase tracking-wide mb-3">{currentSectionData.bulletLabel}</p>
                         )}
                         <div className="flex flex-col gap-2">
                           {currentSectionData.list.map((item, j) => (
@@ -719,7 +714,7 @@ function ModulePage() {
                 </div>
               )}
 
-              {/* ── FIRST TIME RESULTS — score + correct/wrong answers shown ── */}
+              {/* QUIZ RESULTS */}
               {showQuiz && quizSubmitted && (
                 <div>
                   <div className="bg-[#0d1117] rounded-2xl px-6 py-8 mb-5 text-center">
@@ -739,7 +734,6 @@ function ModulePage() {
                     </span>
                   </div>
 
-                  {/* Correct/wrong answers shown only on first completion */}
                   <div className="flex flex-col gap-4 mb-5">
                     {quiz.map((q, index) => {
                       const userAnswer = quizAnswers[index]

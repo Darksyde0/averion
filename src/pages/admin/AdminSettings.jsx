@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
 import AdminSidebar from '../../components/admin/AdminSidebar'
@@ -14,6 +15,7 @@ function centerAspectCrop(mediaWidth, mediaHeight, aspect) {
 }
 
 function AdminSettings() {
+  const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState('profile')
   const profile = useProfile()
@@ -26,6 +28,7 @@ function AdminSettings() {
   const [imgSrc, setImgSrc] = useState('')
   const [crop, setCrop] = useState()
   const [completedCrop, setCompletedCrop] = useState()
+  const [avatarError, setAvatarError] = useState('')
   const imgRef = useRef(null)
   const fileInputRef = useRef(null)
   const canvasRef = useRef(null)
@@ -36,6 +39,7 @@ function AdminSettings() {
   })
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   // ── SECURITY ──
   const [passwordData, setPasswordData] = useState({
@@ -54,6 +58,7 @@ function AdminSettings() {
   })
   const [orgSaving, setOrgSaving] = useState(false)
   const [orgSaveSuccess, setOrgSaveSuccess] = useState(false)
+  const [orgSaveError, setOrgSaveError] = useState('')
 
   // ── PLATFORM ──
   const [platformSettings, setPlatformSettings] = useState({
@@ -63,6 +68,7 @@ function AdminSettings() {
   })
   const [platformSaving, setPlatformSaving] = useState(false)
   const [platformSuccess, setPlatformSuccess] = useState(false)
+  const [platformError, setPlatformError] = useState('')
 
   // ── NOTIFICATION ──
   const [notifications, setNotifications] = useState({
@@ -71,6 +77,16 @@ function AdminSettings() {
   })
   const [notifSaving, setNotifSaving] = useState(false)
   const [notifSuccess, setNotifSuccess] = useState(false)
+  const [notifError, setNotifError] = useState('')
+
+  // ── Auth guard ──
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) navigate('/login')
+    }
+    checkAuth()
+  }, [])
 
   // ── POPULATE FORMS ──
   useEffect(() => {
@@ -103,10 +119,20 @@ function AdminSettings() {
   function handleFileSelect(e) {
     const file = e.target.files[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) { alert('Please select an image file.'); return }
-    if (file.size > 10 * 1024 * 1024) { alert('Image must be under 10MB.'); return }
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('Please select an image file.')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setAvatarError('Image must be under 10MB.')
+      return
+    }
+    setAvatarError('')
     const reader = new FileReader()
-    reader.addEventListener('load', () => { setImgSrc(reader.result?.toString() || ''); setCropModalOpen(true) })
+    reader.addEventListener('load', () => {
+      setImgSrc(reader.result?.toString() || '')
+      setCropModalOpen(true)
+    })
     reader.readAsDataURL(file)
     e.target.value = ''
   }
@@ -117,7 +143,7 @@ function AdminSettings() {
   }
 
   async function handleCropAndUpload() {
-    if (!completedCrop || !imgRef.current || !canvasRef.current || !profile) return
+    if (!completedCrop || !imgRef.current || !canvasRef.current || !profile?.id) return
     setAvatarUploading(true)
     const image = imgRef.current
     const canvas = canvasRef.current
@@ -132,7 +158,11 @@ function AdminSettings() {
       if (!blob) { setAvatarUploading(false); return }
       const fileName = `${profile.id}.jpg`
       const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' })
-      if (uploadError) { alert('Upload failed: ' + uploadError.message); setAvatarUploading(false); return }
+      if (uploadError) {
+        setAvatarError('Upload failed: ' + uploadError.message)
+        setAvatarUploading(false)
+        return
+      }
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName)
       const urlWithCache = `${publicUrl.split('?')[0]}?t=${Date.now()}`
       const { error: updateError } = await supabase.from('users').update({ avatar_url: urlWithCache }).eq('id', profile.id)
@@ -144,7 +174,7 @@ function AdminSettings() {
   }
 
   async function handleRemoveAvatar() {
-    if (!profile) return
+    if (!profile?.id) return
     setAvatarRemoving(true)
     for (const ext of ['jpg', 'jpeg', 'png', 'gif', 'webp']) {
       await supabase.storage.from('avatars').remove([`${profile.id}.${ext}`])
@@ -160,19 +190,29 @@ function AdminSettings() {
     if (!profile?.id) return
     setSaving(true)
     setSaveSuccess(false)
+    setSaveError('')
+
+    // ── Email intentionally excluded — changing email requires auth.updateUser ──
     const { error } = await supabase.from('users').update({
       full_name: `${profileData.firstName} ${profileData.lastName}`.trim(),
-      email: profileData.email,
       phone: profileData.phone,
       job_title: profileData.jobTitle,
     }).eq('id', profile.id)
+
     setSaving(false)
-    if (!error) { setSaveSuccess(true); setTimeout(() => setSaveSuccess(false), 3000) }
+    if (error) {
+      console.error('Profile save error:', error)
+      setSaveError('Failed to save changes. Please try again.')
+      return
+    }
+    setSaveSuccess(true)
+    setTimeout(() => setSaveSuccess(false), 3000)
   }
 
   // ── PASSWORD SAVE ──
   async function handlePasswordSave(e) {
     e.preventDefault()
+    if (!profile?.email) return
     setPasswordError('')
     setPasswordSuccess(false)
     if (!passwordData.currentPassword) { setPasswordError('Please enter your current password.'); return }
@@ -184,14 +224,20 @@ function AdminSettings() {
     const { error: updateError } = await supabase.auth.updateUser({ password: passwordData.newPassword })
     setPasswordSaving(false)
     if (updateError) { setPasswordError(updateError.message) }
-    else { setPasswordSuccess(true); setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' }); setTimeout(() => setPasswordSuccess(false), 3000) }
+    else {
+      setPasswordSuccess(true)
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      setTimeout(() => setPasswordSuccess(false), 3000)
+    }
   }
 
   // ── ORG SAVE ──
   async function handleOrgSave(e) {
     e.preventDefault()
+    if (!profile?.id) return
     setOrgSaving(true)
     setOrgSaveSuccess(false)
+    setOrgSaveError('')
     const { error } = await supabase.from('users').update({
       company_name: orgData.companyName,
       industry: orgData.industry,
@@ -201,25 +247,47 @@ function AdminSettings() {
       website: orgData.website,
     }).eq('id', profile.id)
     setOrgSaving(false)
-    if (!error) { setOrgSaveSuccess(true); setTimeout(() => setOrgSaveSuccess(false), 3000) }
+    if (error) {
+      console.error('Org save error:', error)
+      setOrgSaveError('Failed to save organisation details. Please try again.')
+      return
+    }
+    setOrgSaveSuccess(true)
+    setTimeout(() => setOrgSaveSuccess(false), 3000)
   }
 
   // ── PLATFORM SAVE ──
   async function handlePlatformSave() {
+    if (!profile?.id) return
     setPlatformSaving(true)
     setPlatformSuccess(false)
+    setPlatformError('')
     const { error } = await supabase.from('users').update({ platform_settings: platformSettings }).eq('id', profile.id)
     setPlatformSaving(false)
-    if (!error) { setPlatformSuccess(true); setTimeout(() => setPlatformSuccess(false), 3000) }
+    if (error) {
+      console.error('Platform save error:', error)
+      setPlatformError('Failed to save platform settings. Please try again.')
+      return
+    }
+    setPlatformSuccess(true)
+    setTimeout(() => setPlatformSuccess(false), 3000)
   }
 
   // ── NOTIFICATION SAVE ──
   async function handleNotifSave() {
+    if (!profile?.id) return
     setNotifSaving(true)
     setNotifSuccess(false)
+    setNotifError('')
     const { error } = await supabase.from('users').update({ notification_preferences: notifications }).eq('id', profile.id)
     setNotifSaving(false)
-    if (!error) { setNotifSuccess(true); setTimeout(() => setNotifSuccess(false), 3000) }
+    if (error) {
+      console.error('Notif save error:', error)
+      setNotifError('Failed to save notification preferences. Please try again.')
+      return
+    }
+    setNotifSuccess(true)
+    setTimeout(() => setNotifSuccess(false), 3000)
   }
 
   function EyeIcon({ show }) {
@@ -247,7 +315,7 @@ function AdminSettings() {
     <div className="flex min-h-screen bg-gray-100">
       <AdminSidebar isOpen={sidebarOpen} />
 
-      {/* ── CROP MODAL ── */}
+      {/* CROP MODAL */}
       {cropModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
@@ -294,7 +362,6 @@ function AdminSettings() {
       )}
 
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-48' : 'ml-16'}`}>
-
         <AdminTopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
         <div className="flex-1 p-8">
@@ -303,7 +370,7 @@ function AdminSettings() {
 
           <div className="flex gap-6 items-start">
 
-            {/* Left — tabs */}
+            {/* Left tabs */}
             <div className="w-52 bg-white border border-gray-200 rounded-2xl p-3 shadow-sm flex-shrink-0">
               {tabs.map((tab) => (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -314,14 +381,21 @@ function AdminSettings() {
               ))}
             </div>
 
-            {/* Right — content */}
+            {/* Right content */}
             <div className="flex-1 bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
 
-              {/* ── PROFILE TAB ── */}
+              {/* PROFILE TAB */}
               {activeTab === 'profile' && (
                 <div>
                   <h2 className="text-gray-800 text-xl font-bold mb-1">Profile Information</h2>
                   <p className="text-gray-500 text-sm mb-5">Update your personal details</p>
+
+                  {/* Avatar error */}
+                  {avatarError && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5">
+                      <p className="text-red-600 text-sm">{avatarError}</p>
+                    </div>
+                  )}
 
                   {/* Avatar */}
                   <div className="flex items-center gap-6 mb-8">
@@ -362,36 +436,42 @@ function AdminSettings() {
                       <p className="text-green-600 text-sm font-semibold">✓ Changes saved successfully!</p>
                     </div>
                   )}
+                  {saveError && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5">
+                      <p className="text-red-600 text-sm">{saveError}</p>
+                    </div>
+                  )}
 
                   <form onSubmit={handleSave}>
                     <div className="grid grid-cols-2 gap-5 mb-5">
                       <div>
                         <label className="text-gray-700 text-sm font-medium mb-1 block">First Name *</label>
-                        <input type="text" name="firstName" value={profileData.firstName}
+                        <input type="text" value={profileData.firstName}
                           onChange={(e) => setProfileData({ ...profileData, firstName: e.target.value })}
                           className="w-full bg-gray-100 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                       <div>
                         <label className="text-gray-700 text-sm font-medium mb-1 block">Last Name *</label>
-                        <input type="text" name="lastName" value={profileData.lastName}
+                        <input type="text" value={profileData.lastName}
                           onChange={(e) => setProfileData({ ...profileData, lastName: e.target.value })}
                           className="w-full bg-gray-100 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                       <div>
-                        <label className="text-gray-700 text-sm font-medium mb-1 block">Email Address *</label>
-                        <input type="email" name="email" value={profileData.email}
-                          onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                          className="w-full bg-gray-100 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                        <label className="text-gray-700 text-sm font-medium mb-1 block">Email Address</label>
+                        {/* ── Email read-only — changing requires auth.updateUser ── */}
+                        <input type="email" value={profileData.email} disabled
+                          className="w-full bg-gray-100 text-gray-400 rounded-xl px-4 py-3 text-sm cursor-not-allowed" />
+                        <p className="text-gray-400 text-xs mt-1">Email cannot be changed here</p>
                       </div>
                       <div>
                         <label className="text-gray-700 text-sm font-medium mb-1 block">Phone Number</label>
-                        <input type="text" name="phone" value={profileData.phone}
+                        <input type="text" value={profileData.phone}
                           onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
                           className="w-full bg-gray-100 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                       <div>
                         <label className="text-gray-700 text-sm font-medium mb-1 block">Job Title</label>
-                        <input type="text" name="jobTitle" value={profileData.jobTitle}
+                        <input type="text" value={profileData.jobTitle}
                           onChange={(e) => setProfileData({ ...profileData, jobTitle: e.target.value })}
                           className="w-full bg-gray-100 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
@@ -412,7 +492,7 @@ function AdminSettings() {
                 </div>
               )}
 
-              {/* ── SECURITY TAB ── */}
+              {/* SECURITY TAB */}
               {activeTab === 'security' && (
                 <div>
                   <h2 className="text-gray-800 text-2xl font-bold mb-1">Security Settings</h2>
@@ -511,7 +591,7 @@ function AdminSettings() {
                 </div>
               )}
 
-              {/* ── ORGANIZATION TAB ── */}
+              {/* ORGANIZATION TAB */}
               {activeTab === 'organization' && (
                 <div>
                   <h2 className="text-gray-800 text-xl font-bold mb-1">Organization Settings</h2>
@@ -522,6 +602,11 @@ function AdminSettings() {
                     {orgSaveSuccess && (
                       <div className="bg-green-50 border border-green-300 rounded-xl px-4 py-3 mb-5">
                         <p className="text-green-600 text-sm font-semibold">✓ Organisation details saved!</p>
+                      </div>
+                    )}
+                    {orgSaveError && (
+                      <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5">
+                        <p className="text-red-600 text-sm">{orgSaveError}</p>
                       </div>
                     )}
                     <form onSubmit={handleOrgSave}>
@@ -582,7 +667,7 @@ function AdminSettings() {
                 </div>
               )}
 
-              {/* ── PLATFORM TAB ── */}
+              {/* PLATFORM TAB */}
               {activeTab === 'platform' && (
                 <div>
                   <h2 className="text-gray-800 text-xl font-bold mb-1">Platform Settings</h2>
@@ -591,6 +676,11 @@ function AdminSettings() {
                   {platformSuccess && (
                     <div className="bg-green-50 border border-green-300 rounded-xl px-4 py-3 mb-5">
                       <p className="text-green-600 text-sm font-semibold">✓ Platform settings saved!</p>
+                    </div>
+                  )}
+                  {platformError && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5">
+                      <p className="text-red-600 text-sm">{platformError}</p>
                     </div>
                   )}
 
@@ -649,7 +739,7 @@ function AdminSettings() {
                 </div>
               )}
 
-              {/* ── NOTIFICATION TAB ── */}
+              {/* NOTIFICATION TAB */}
               {activeTab === 'notification' && (
                 <div>
                   <h2 className="text-gray-800 text-xl font-bold mb-1">Notifications</h2>
@@ -658,6 +748,11 @@ function AdminSettings() {
                   {notifSuccess && (
                     <div className="bg-green-50 border border-green-300 rounded-xl px-4 py-3 mb-5">
                       <p className="text-green-600 text-sm font-semibold">✓ Notification preferences saved!</p>
+                    </div>
+                  )}
+                  {notifError && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-5">
+                      <p className="text-red-600 text-sm">{notifError}</p>
                     </div>
                   )}
 

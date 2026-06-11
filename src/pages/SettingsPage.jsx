@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import ReactCrop, { centerCrop, makeAspectCrop } from 'react-image-crop'
 import 'react-image-crop/dist/ReactCrop.css'
 import Sidebar from '../components/dashboard/Sidebar'
@@ -15,6 +16,7 @@ function centerAspectCrop(mediaWidth, mediaHeight, aspect) {
 }
 
 function SettingsPage() {
+  const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeTab, setActiveTab] = useState('profile')
   const [saving, setSaving] = useState(false)
@@ -75,6 +77,15 @@ function SettingsPage() {
   const [privacySaving, setPrivacySaving] = useState(false)
   const [privacySuccess, setPrivacySuccess] = useState(false)
 
+  // ── AUTH GUARD ──
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) navigate('/login')
+    }
+    checkAuth()
+  }, [])
+
   // ── POPULATE FORM ──
   useEffect(() => {
     if (profile) {
@@ -117,7 +128,7 @@ function SettingsPage() {
 
   // ── CROP & UPLOAD ──
   async function handleCropAndUpload() {
-    if (!completedCrop || !imgRef.current || !canvasRef.current || !profile) return
+    if (!completedCrop || !imgRef.current || !canvasRef.current || !profile?.id) return
     setAvatarUploading(true)
 
     const image = imgRef.current
@@ -174,18 +185,14 @@ function SettingsPage() {
 
   // ── REMOVE AVATAR ──
   async function handleRemoveAvatar() {
-    if (!profile) return
+    if (!profile?.id) return
     setAvatarRemoving(true)
 
-    // Try removing all common extensions
     const extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp']
     for (const ext of extensions) {
-      await supabase.storage
-        .from('avatars')
-        .remove([`${profile.id}.${ext}`])
+      await supabase.storage.from('avatars').remove([`${profile.id}.${ext}`])
     }
 
-    // Clear avatar_url in users table
     const { error } = await supabase
       .from('users')
       .update({ avatar_url: null })
@@ -202,20 +209,29 @@ function SettingsPage() {
 
   async function handleSave(e) {
     e.preventDefault()
+    if (!profile?.id) return
     setSaving(true)
     setSaveSuccess(false)
+
+    // ── Note: email intentionally excluded ──
+    // Changing email requires supabase.auth.updateUser, not a direct table update
     const { error } = await supabase
       .from('users')
       .update({
         full_name: `${formData.firstName} ${formData.lastName}`.trim(),
-        email: formData.email,
         phone: formData.phone,
         department: formData.department,
         job_title: formData.jobTitle,
       })
       .eq('id', profile.id)
+
     setSaving(false)
-    if (!error) setSaveSuccess(true)
+    if (error) {
+      console.error('Profile save error:', error)
+      alert('Failed to save changes. Please try again.')
+      return
+    }
+    setSaveSuccess(true)
     setTimeout(() => setSaveSuccess(false), 3000)
   }
 
@@ -226,6 +242,7 @@ function SettingsPage() {
 
   async function handlePasswordSave(e) {
     e.preventDefault()
+    if (!profile?.email) return
     setPasswordError('')
     setPasswordSuccess(false)
     if (!passwordData.currentPassword) { setPasswordError('Please enter your current password.'); return }
@@ -248,21 +265,31 @@ function SettingsPage() {
 
   // ── NOTIFICATION SAVE ──
   async function handleNotifSave() {
+    if (!profile?.id) return
     setNotifSaving(true)
     setNotifSuccess(false)
-    const { error } = await supabase.from('users').update({ notification_preferences: notifications }).eq('id', profile.id)
+    const { error } = await supabase
+      .from('users')
+      .update({ notification_preferences: notifications })
+      .eq('id', profile.id)
     setNotifSaving(false)
-    if (!error) setNotifSuccess(true)
+    if (error) { console.error('Notif save error:', error); return }
+    setNotifSuccess(true)
     setTimeout(() => setNotifSuccess(false), 3000)
   }
 
   // ── PRIVACY SAVE ──
   async function handlePrivacySave() {
+    if (!profile?.id) return
     setPrivacySaving(true)
     setPrivacySuccess(false)
-    const { error } = await supabase.from('users').update({ privacy_preferences: privacy }).eq('id', profile.id)
+    const { error } = await supabase
+      .from('users')
+      .update({ privacy_preferences: privacy })
+      .eq('id', profile.id)
     setPrivacySaving(false)
-    if (!error) setPrivacySuccess(true)
+    if (error) { console.error('Privacy save error:', error); return }
+    setPrivacySuccess(true)
     setTimeout(() => setPrivacySuccess(false), 3000)
   }
 
@@ -346,8 +373,7 @@ function SettingsPage() {
                   aspect={1}
                   circularCrop
                   minWidth={50}
-                  minHeight={50}
-                >
+                  minHeight={50}>
                   <img ref={imgRef} src={imgSrc} alt="Crop" onLoad={onImageLoad}
                     style={{ maxHeight: '400px', maxWidth: '100%' }} />
                 </ReactCrop>
@@ -387,7 +413,6 @@ function SettingsPage() {
       )}
 
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-60' : 'ml-16'}`}>
-
         <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
         <div className="flex-1 p-8">
@@ -416,15 +441,12 @@ function SettingsPage() {
                   <h2 className="text-gray-800 text-xl font-bold mb-1">Profile Information</h2>
                   <p className="text-gray-500 text-sm mb-5">Update your personal and professional details</p>
 
-                  {/* Avatar section */}
                   <div className="flex items-center gap-6 mb-8">
                     <div className="relative">
                       <Avatar size="lg" />
                     </div>
                     <div className="flex flex-col gap-2">
                       <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
-
-                      {/* Change photo */}
                       <button type="button" onClick={() => fileInputRef.current.click()}
                         className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -432,26 +454,16 @@ function SettingsPage() {
                         </svg>
                         Change Photo
                       </button>
-
-                      {/* Remove photo — only shows if avatar exists */}
                       {avatarUrl && (
-                        <button
-                          type="button"
-                          onClick={handleRemoveAvatar}
-                          disabled={avatarRemoving}
+                        <button type="button" onClick={handleRemoveAvatar} disabled={avatarRemoving}
                           className={`flex items-center gap-2 text-sm font-semibold px-5 py-2 rounded-lg transition
-                            ${avatarRemoving
-                              ? 'text-gray-400 cursor-not-allowed'
-                              : 'text-red-500 hover:text-red-600 hover:bg-red-50'
-                            }`}
-                        >
+                            ${avatarRemoving ? 'text-gray-400 cursor-not-allowed' : 'text-red-500 hover:text-red-600 hover:bg-red-50'}`}>
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
                           </svg>
                           {avatarRemoving ? 'Removing...' : 'Remove Photo'}
                         </button>
                       )}
-
                       <p className="text-gray-400 text-xs">JPG, PNG or GIF — max 10MB</p>
                     </div>
                   </div>
@@ -475,9 +487,11 @@ function SettingsPage() {
                           className="w-full bg-gray-100 text-gray-800 rounded-lg px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                       <div>
-                        <label className="text-gray-700 text-sm font-medium mb-1 block">Email Address *</label>
-                        <input type="email" name="email" value={formData.email} onChange={handleChange}
-                          className="w-full bg-gray-100 text-gray-800 rounded-lg px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+                        <label className="text-gray-700 text-sm font-medium mb-1 block">Email Address</label>
+                        {/* ── Email is read-only — changing requires auth.updateUser ── */}
+                        <input type="email" name="email" value={formData.email} disabled
+                          className="w-full bg-gray-100 text-gray-400 rounded-lg px-4 py-3 text-sm cursor-not-allowed" />
+                        <p className="text-gray-400 text-xs mt-1">Email cannot be changed here</p>
                       </div>
                       <div>
                         <label className="text-gray-700 text-sm font-medium mb-1 block">Phone Number</label>
@@ -607,7 +621,7 @@ function SettingsPage() {
                   </div>
 
                   <div className="border border-gray-200 rounded-2xl p-6">
-                    <h3 className="text-gray.800 text-lg font-bold mb-4">Two-Factor Authentication</h3>
+                    <h3 className="text-gray-800 text-lg font-bold mb-4">Two-Factor Authentication</h3>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <p className="text-gray-800 text-sm font-semibold mb-1">Enable 2FA</p>

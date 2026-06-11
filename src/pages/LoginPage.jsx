@@ -19,7 +19,11 @@ function LoginPage() {
     setError('')
 
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      // ── Step 1: authenticate ──
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
 
       if (authError) {
         if (authError.message.includes('Email not confirmed')) {
@@ -31,17 +35,21 @@ function LoginPage() {
         return
       }
 
-      await new Promise(resolve => setTimeout(resolve, 500))
-
+      // ── Step 2: fetch profile (only needed fields) ──
       const { data: profile, error: profileError } = await supabase
-        .from('users').select('*').eq('id', data.user.id).single()
+        .from('users')
+        .select('id, role, first_login, full_name')
+        .eq('id', data.user.id)
+        .single()
 
       if (profileError || !profile) {
         setError(t('login.accountNotFound'))
+        await supabase.auth.signOut()
         setLoading(false)
         return
       }
 
+      // ── Step 3: check role matches selected tab ──
       if (profile.role !== role) {
         setError(`${t('login.wrongRole')} ${role === 'admin' ? 'an Admin' : 'a User'}.`)
         await supabase.auth.signOut()
@@ -49,10 +57,16 @@ function LoginPage() {
         return
       }
 
-      if (profile.first_login) { navigate('/change-password'); return }
+      // ── Step 4: redirect ──
+      setLoading(false)
+      if (profile.first_login) {
+        navigate('/change-password')
+        return
+      }
       navigate(profile.role === 'admin' ? '/admin/dashboard' : '/dashboard')
 
     } catch (err) {
+      console.error('Login error:', err)
       setError('Something went wrong. Please try again.')
       setLoading(false)
     }
@@ -163,7 +177,7 @@ function LoginPage() {
             <p className="text-gray-300 text-sm">{t('login.subtext')}</p>
           </div>
 
-          {/* ── Role switcher — FIXED: admin turns red ── */}
+          {/* ── Role switcher ── */}
           <div
             role="group"
             aria-label="Select account type"

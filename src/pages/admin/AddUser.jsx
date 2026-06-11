@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminSidebar from '../../components/admin/AdminSidebar'
 import AdminTopBar from '../../components/admin/AdminTopBar'
@@ -36,12 +36,20 @@ function AddUser() {
     firstName: '',
     lastName: '',
     email: '',
-    username: '',
     department: '',
     jobTitle: '',
     employeeId: '',
     password: generatePassword(),
   })
+
+  // ── Auth guard ──
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) navigate('/login')
+    }
+    checkAuth()
+  }, [])
 
   function handleChange(e) {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -70,29 +78,38 @@ function AddUser() {
     }
 
     try {
-      const fullName = `${formData.firstName} ${formData.lastName}`
+      // ── Get current admin session for auth header ──
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setError('Session expired. Please log in again.')
+        setLoading(false)
+        return
+      }
 
-      const { data, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-      })
+      // ── Call Edge Function — admin session is never touched ──
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-user`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            email: formData.email.trim().toLowerCase(),
+            password: formData.password,
+            fullName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+            department: formData.department,
+            jobTitle: formData.jobTitle.trim(),
+            employeeId: formData.employeeId.trim() || null,
+          }),
+        }
+      )
 
-      if (authError) { setError(authError.message); setLoading(false); return }
+      const result = await response.json()
 
-      const { error: profileError } = await supabase.from('users').insert({
-        id: data.user.id,
-        full_name: fullName,
-        email: formData.email,
-        department: formData.department,
-        job_title: formData.jobTitle,
-        employee_id: formData.employeeId.trim() || null,
-        role: 'user',
-        first_login: true,
-        organization_id: profile.id,
-      })
-
-      if (profileError) {
-        setError('User created but profile setup failed: ' + profileError.message)
+      if (!response.ok || !result.success) {
+        setError(result.error || 'Failed to create user. Please try again.')
         setLoading(false)
         return
       }
@@ -100,6 +117,7 @@ function AddUser() {
       setSubmitted(true)
 
     } catch (err) {
+      console.error('AddUser error:', err)
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
@@ -111,7 +129,6 @@ function AddUser() {
       firstName: '',
       lastName: '',
       email: '',
-      username: '',
       department: '',
       jobTitle: '',
       employeeId: '',
@@ -159,27 +176,27 @@ function AddUser() {
 
                   <div className="grid grid-cols-2 gap-6">
                     <div>
-                      <label className="text-gray-700 text-sm font-semibold mb-2 block">First Name <span className="text-red-500">*</span></label>
-                      <input type="text" name="firstName" value={formData.firstName} onChange={handleChange}
-                        placeholder="Enter First Name" required
+                      <label className="text-gray-700 text-sm font-semibold mb-2 block">
+                        First Name <span className="text-red-500">*</span>
+                      </label>
+                      <input type="text" name="firstName" value={formData.firstName}
+                        onChange={handleChange} placeholder="Enter First Name" required
                         className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400" />
                     </div>
                     <div>
-                      <label className="text-gray-700 text-sm font-semibold mb-2 block">Last Name <span className="text-red-500">*</span></label>
-                      <input type="text" name="lastName" value={formData.lastName} onChange={handleChange}
-                        placeholder="Enter Last Name" required
+                      <label className="text-gray-700 text-sm font-semibold mb-2 block">
+                        Last Name <span className="text-red-500">*</span>
+                      </label>
+                      <input type="text" name="lastName" value={formData.lastName}
+                        onChange={handleChange} placeholder="Enter Last Name" required
                         className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400" />
                     </div>
-                    <div>
-                      <label className="text-gray-700 text-sm font-semibold mb-2 block">Email Address <span className="text-red-500">*</span></label>
-                      <input type="email" name="email" value={formData.email} onChange={handleChange}
-                        placeholder="Enter Email Address" required
-                        className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400" />
-                    </div>
-                    <div>
-                      <label className="text-gray-700 text-sm font-semibold mb-2 block">Username <span className="text-red-500">*</span></label>
-                      <input type="text" name="username" value={formData.username} onChange={handleChange}
-                        placeholder="Enter Username" required
+                    <div className="col-span-2">
+                      <label className="text-gray-700 text-sm font-semibold mb-2 block">
+                        Email Address <span className="text-red-500">*</span>
+                      </label>
+                      <input type="email" name="email" value={formData.email}
+                        onChange={handleChange} placeholder="Enter Email Address" required
                         className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400" />
                     </div>
                   </div>
@@ -198,8 +215,11 @@ function AddUser() {
 
                   <div className="grid grid-cols-2 gap-6">
                     <div>
-                      <label className="text-gray-700 text-sm font-semibold mb-2 block">Department <span className="text-red-500">*</span></label>
-                      <select name="department" value={formData.department} onChange={handleChange} required
+                      <label className="text-gray-700 text-sm font-semibold mb-2 block">
+                        Department <span className="text-red-500">*</span>
+                      </label>
+                      <select name="department" value={formData.department}
+                        onChange={handleChange} required
                         className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
                         <option value="">Select Department</option>
                         <option>Engineering</option>
@@ -212,20 +232,20 @@ function AddUser() {
                       </select>
                     </div>
                     <div>
-                      <label className="text-gray-700 text-sm font-semibold mb-2 block">Job Title <span className="text-red-500">*</span></label>
-                      <input type="text" name="jobTitle" value={formData.jobTitle} onChange={handleChange}
-                        placeholder="Enter job title" required
+                      <label className="text-gray-700 text-sm font-semibold mb-2 block">
+                        Job Title <span className="text-red-500">*</span>
+                      </label>
+                      <input type="text" name="jobTitle" value={formData.jobTitle}
+                        onChange={handleChange} placeholder="Enter job title" required
                         className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400" />
                     </div>
-
-                    {/* ── Employee ID — optional ── */}
                     <div className="col-span-2">
                       <div className="flex items-center justify-between mb-2">
                         <label className="text-gray-700 text-sm font-semibold">Employee ID</label>
                         <span className="text-gray-400 text-xs bg-gray-100 px-2 py-0.5 rounded-full">Optional</span>
                       </div>
-                      <input type="text" name="employeeId" value={formData.employeeId} onChange={handleChange}
-                        placeholder="e.g. EMP-1234 — leave blank to skip"
+                      <input type="text" name="employeeId" value={formData.employeeId}
+                        onChange={handleChange} placeholder="e.g. EMP-1234 — leave blank to skip"
                         className="w-full bg-white border border-gray-300 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition placeholder-gray-400" />
                       <p className="text-gray-400 text-xs mt-1.5">
                         Leave blank to skip — the user's profile will show no Employee ID until one is assigned.
@@ -330,22 +350,23 @@ function AddUser() {
                   <span className="font-semibold text-gray-700">{formData.firstName} {formData.lastName}</span> has been added to Averion.
                 </p>
                 <p className="text-gray-400 text-xs mb-8">
-                  They will receive a verification email at <span className="font-semibold text-gray-600">{formData.email}</span>.
-                  They must verify their email before logging in, then change their password on first login.
+                  Their account is active immediately — no email verification required.
+                  They must change their password on first login.
                 </p>
                 <div className="bg-gray-50 rounded-xl p-4 text-left mb-8">
                   <p className="text-gray-700 text-sm font-bold mb-3">Login Credentials</p>
                   <div className="flex flex-col gap-2">
                     {[
                       { label: 'Email', value: formData.email },
-                      { label: 'Username', value: formData.username },
-                      { label: 'Password', value: formData.password, mono: true },
+                      { label: 'Temp Password', value: formData.password, mono: true },
                       { label: 'Department', value: formData.department },
                       ...(formData.employeeId ? [{ label: 'Employee ID', value: formData.employeeId }] : []),
                     ].map((item, i) => (
                       <div key={i} className="flex justify-between">
                         <p className="text-gray-500 text-xs">{item.label}</p>
-                        <p className={`text-gray-800 text-xs font-semibold ${item.mono ? 'font-mono' : ''}`}>{item.value}</p>
+                        <p className={`text-gray-800 text-xs font-semibold ${item.mono ? 'font-mono' : ''}`}>
+                          {item.value}
+                        </p>
                       </div>
                     ))}
                   </div>

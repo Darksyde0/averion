@@ -1,23 +1,39 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from '../components/dashboard/Sidebar'
-import { useProfile } from '../hooks/useProfile'
 import TopBar from '../components/dashboard/TopBar'
-
+import { supabase } from '../supabaseClient'
 
 function SimulationResults() {
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const profile = useProfile()
+  const [authChecked, setAuthChecked] = useState(false)
 
-  const { simulations, userAnswers, score, total } = location.state || {
-    simulations: [],
-    userAnswers: {},
-    score: 0,
-    total: 0,
-  }
+  // ── Auth guard ──
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        navigate('/login')
+        return
+      }
+      setAuthChecked(true)
+    }
+    checkAuth()
+  }, [navigate])
 
+  // ── Guard: must arrive from SimulationPage ──
+  const state = location.state
+  useEffect(() => {
+    if (authChecked && (!state || !state.simulations || state.simulations.length === 0)) {
+      navigate('/simulations')
+    }
+  }, [authChecked, state, navigate])
+
+  const { simulations = [], userAnswers = {}, score = 0, total = 0 } = state || {}
+
+  // ── Score is raw count — calculate percentage here ──
   const percentage = total > 0 ? Math.round((score / total) * 100) : 0
 
   function getResultMessage() {
@@ -28,17 +44,22 @@ function SimulationResults() {
 
   const result = getResultMessage()
 
+  // ── Don't render until auth confirmed ──
+  if (!authChecked) {
+    return (
+      <div className="flex min-h-screen bg-gray-100 items-center justify-center">
+        <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen bg-gray-100">
       <Sidebar isOpen={sidebarOpen} />
 
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-60' : 'ml-16'}`}>
-
-        {/* Top bar */}
         <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
-
-        {/* Results content */}
         <div className="flex-1 p-8">
 
           <h1 className="text-gray-800 text-3xl font-bold mb-2">
@@ -77,7 +98,6 @@ function SimulationResults() {
 
               return (
                 <div key={sim.id} className="bg-white rounded-2xl shadow p-6">
-
                   <p className="text-gray-800 font-semibold text-sm mb-4">
                     Q{index + 1}: {sim.question}
                   </p>
@@ -95,8 +115,7 @@ function SimulationResults() {
                       return (
                         <div
                           key={optIndex}
-                          className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm ${style}`}
-                        >
+                          className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm ${style}`}>
                           {optIndex === sim.correctIndex && (
                             <span className="text-green-600 font-bold">✓</span>
                           )}
@@ -118,19 +137,22 @@ function SimulationResults() {
                       {sim.explanation}
                     </p>
                   </div>
-
                 </div>
               )
             })}
           </div>
 
-          {/* Button */}
+          {/* Actions */}
           <div className="flex gap-4">
             <button
               onClick={() => navigate('/dashboard')}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl transition"
-            >
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl transition">
               Back to Dashboard
+            </button>
+            <button
+              onClick={() => navigate('/simulations')}
+              className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 font-semibold px-6 py-3 rounded-xl transition">
+              View All Simulations
             </button>
           </div>
 

@@ -2,15 +2,18 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import AdminSidebar from '../../components/admin/AdminSidebar'
 import AdminTopBar from '../../components/admin/AdminTopBar'
+import { useProfile } from '../../hooks/useProfile'
 import { supabase } from '../../supabaseClient'
 
 function EditModule() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const profile = useProfile()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
+  const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState('')
 
   const [moduleData, setModuleData] = useState({
@@ -19,58 +22,95 @@ function EditModule() {
   const [lessons, setLessons] = useState([])
   const [questions, setQuestions] = useState([])
 
-  useEffect(() => { fetchModule() }, [id])
+  // ── Auth guard ──
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) navigate('/login')
+    }
+    checkAuth()
+  }, [])
+
+  useEffect(() => { if (id) fetchModule() }, [id])
 
   async function fetchModule() {
     setFetching(true)
-    const { data: mod, error: modError } = await supabase.from('modules').select('*').eq('id', id).single()
-    if (modError || !mod) { setError('Module not found.'); setFetching(false); return }
 
-    setModuleData({ name: mod.name, description: mod.description, category: mod.category, estimatedTime: mod.estimated_time })
+    try {
+      // ── Ownership check: only fetch if belongs to this admin's org ──
+      let query = supabase.from('modules').select('*').eq('id', id)
+      if (profile?.id) query = query.eq('organization_id', profile.id)
+      const { data: mod, error: modError } = await query.single()
 
-    const { data: lessonsData } = await supabase
-      .from('lessons').select('*, lesson_sections(*)')
-      .eq('module_id', id).order('order_index', { ascending: true })
+      if (modError || !mod) {
+        setNotFound(true)
+        setFetching(false)
+        return
+      }
 
-    if (lessonsData) {
-      const mapped = lessonsData.map(l => ({
-        id: l.id, title: l.title,
-        sections: l.lesson_sections.sort((a, b) => a.order_index - b.order_index).map(s => ({
-          id: s.id, heading: s.heading || '', body: s.body || '',
-          bulletLabel: s.bullet_label || 'It usually comes in the form of:',
-          bullets: s.bullets?.length ? s.bullets : [''],
+      setModuleData({
+        name: mod.name,
+        description: mod.description,
+        category: mod.category,
+        estimatedTime: mod.estimated_time,
+      })
+
+      const { data: lessonsData, error: lessonsError } = await supabase
+        .from('lessons').select('*, lesson_sections(*)')
+        .eq('module_id', id).order('order_index', { ascending: true })
+
+      if (lessonsError) console.error('Lessons fetch error:', lessonsError)
+
+      if (lessonsData) {
+        const mapped = lessonsData.map(l => ({
+          id: l.id, title: l.title,
+          sections: l.lesson_sections.sort((a, b) => a.order_index - b.order_index).map(s => ({
+            id: s.id, heading: s.heading || '', body: s.body || '',
+            bulletLabel: s.bullet_label || '',
+            bullets: s.bullets?.length ? s.bullets : [''],
+          }))
         }))
-      }))
-      setLessons(mapped.length > 0 ? mapped : [{
-        id: Date.now(), title: '',
-        sections: [{ id: Date.now() + 1, heading: '', body: '', bulletLabel: 'It usually comes in the form of:', bullets: [''] }]
-      }])
-    }
+        setLessons(mapped.length > 0 ? mapped : [{
+          id: Date.now(), title: '',
+          sections: [{ id: Date.now() + 1, heading: '', body: '', bulletLabel: '', bullets: [''] }]
+        }])
+      }
 
-    const { data: quizData } = await supabase.from('quiz_questions').select('*').eq('module_id', id)
-    if (quizData) {
-      const mappedQ = quizData.map(q => ({
-        id: q.id, question: q.question, options: q.options, correctIndex: q.correct_index, explanation: q.explanation,
-      }))
-      setQuestions(mappedQ.length > 0 ? mappedQ : [
-        { id: Date.now(), question: '', options: ['', '', '', ''], correctIndex: null, explanation: '' }
-      ])
+      const { data: quizData, error: quizError } = await supabase
+        .from('quiz_questions').select('*').eq('module_id', id)
+
+      if (quizError) console.error('Quiz fetch error:', quizError)
+
+      if (quizData) {
+        const mappedQ = quizData.map(q => ({
+          id: q.id, question: q.question, options: q.options,
+          correctIndex: q.correct_index, explanation: q.explanation,
+        }))
+        setQuestions(mappedQ.length > 0 ? mappedQ : [
+          { id: Date.now(), question: '', options: ['', '', '', ''], correctIndex: null, explanation: '' }
+        ])
+      }
+
+    } catch (err) {
+      console.error('Unexpected error in fetchModule:', err)
+      setNotFound(true)
+    } finally {
+      setFetching(false)
     }
-    setFetching(false)
   }
 
   function handleModuleChange(e) { setModuleData({ ...moduleData, [e.target.name]: e.target.value }) }
 
   // ── Lesson handlers ──
   function addLesson() {
-    setLessons([...lessons, { id: Date.now(), title: '', sections: [{ id: Date.now() + 1, heading: '', body: '', bulletLabel: 'It usually comes in the form of:', bullets: [''] }] }])
+    setLessons([...lessons, { id: Date.now(), title: '', sections: [{ id: Date.now() + 1, heading: '', body: '', bulletLabel: '', bullets: [''] }] }])
   }
   function deleteLesson(lessonId) { if (lessons.length === 1) return; setLessons(lessons.filter(l => l.id !== lessonId)) }
   function updateLessonTitle(lessonId, value) { setLessons(lessons.map(l => l.id === lessonId ? { ...l, title: value } : l)) }
 
   // ── Section handlers ──
   function addSection(lessonId) {
-    setLessons(lessons.map(l => l.id !== lessonId ? l : { ...l, sections: [...l.sections, { id: Date.now(), heading: '', body: '', bulletLabel: 'It usually comes in the form of:', bullets: [''] }] }))
+    setLessons(lessons.map(l => l.id !== lessonId ? l : { ...l, sections: [...l.sections, { id: Date.now(), heading: '', body: '', bulletLabel: '', bullets: [''] }] }))
   }
   function deleteSection(lessonId, sectionId) {
     setLessons(lessons.map(l => l.id !== lessonId ? l : l.sections.length === 1 ? l : { ...l, sections: l.sections.filter(s => s.id !== sectionId) }))
@@ -111,48 +151,103 @@ function EditModule() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (moduleData.description.length < 50) { alert('Brief description must be at least 50 characters.'); return }
-    for (const q of questions) { if (q.correctIndex === null) { alert('Please mark the correct answer for all quiz questions.'); return } }
 
-    setLoading(true); setError('')
+    // ── Inline validation instead of alert() ──
+    if (moduleData.description.trim().length < 50) {
+      setError('Brief description must be at least 50 characters.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    for (const q of questions) {
+      if (q.correctIndex === null) {
+        setError('Please mark the correct answer for all quiz questions.')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+    }
+
+    // ── Guard against NaN ──
+    const estimatedTime = parseInt(moduleData.estimatedTime)
+    if (!estimatedTime || estimatedTime < 1) {
+      setError('Please enter a valid estimated time in minutes.')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
+    setLoading(true)
+    setError('')
 
     try {
+      // ── Step 1: update module ──
       const { error: moduleError } = await supabase.from('modules').update({
-        name: moduleData.name, description: moduleData.description,
-        category: moduleData.category, estimated_time: parseInt(moduleData.estimatedTime),
+        name: moduleData.name.trim(),
+        description: moduleData.description.trim(),
+        category: moduleData.category.trim(),
+        estimated_time: estimatedTime,
       }).eq('id', id)
 
-      if (moduleError) { setError('Failed to update module: ' + moduleError.message); setLoading(false); return }
+      if (moduleError) {
+        setError('Failed to update module: ' + moduleError.message)
+        setLoading(false)
+        return
+      }
 
+      // ── Step 2: delete old lessons and quiz ──
       await supabase.from('lessons').delete().eq('module_id', id)
       await supabase.from('quiz_questions').delete().eq('module_id', id)
 
+      // ── Step 3: reinsert lessons and sections ──
       for (let i = 0; i < lessons.length; i++) {
         const lesson = lessons[i]
-        const { data: lessonRow, error: lessonError } = await supabase.from('lessons')
-          .insert({ module_id: id, title: lesson.title, order_index: i }).select().single()
-        if (lessonError) { setError('Failed to save lesson: ' + lessonError.message); setLoading(false); return }
+        const { data: lessonRow, error: lessonError } = await supabase
+          .from('lessons')
+          .insert({ module_id: id, title: lesson.title.trim(), order_index: i })
+          .select().single()
+
+        if (lessonError) {
+          setError('Failed to save lesson: ' + lessonError.message)
+          setLoading(false)
+          return
+        }
 
         for (let j = 0; j < lesson.sections.length; j++) {
           const section = lesson.sections[j]
           const { error: sectionError } = await supabase.from('lesson_sections').insert({
-            lesson_id: lessonRow.id, heading: section.heading, body: section.body,
-            bullet_label: section.bulletLabel, bullets: section.bullets.filter(b => b !== ''), order_index: j,
+            lesson_id: lessonRow.id,
+            heading: section.heading,
+            body: section.body,
+            bullet_label: section.bulletLabel,
+            bullets: section.bullets.filter(b => b !== ''),
+            order_index: j,
           })
-          if (sectionError) { setError('Failed to save section: ' + sectionError.message); setLoading(false); return }
+          if (sectionError) {
+            setError('Failed to save section: ' + sectionError.message)
+            setLoading(false)
+            return
+          }
         }
       }
 
+      // ── Step 4: reinsert quiz questions ──
       for (const q of questions) {
         const { error: quizError } = await supabase.from('quiz_questions').insert({
-          module_id: id, question: q.question, options: q.options,
-          correct_index: q.correctIndex, explanation: q.explanation,
+          module_id: id,
+          question: q.question.trim(),
+          options: q.options,
+          correct_index: q.correctIndex,
+          explanation: q.explanation.trim(),
         })
-        if (quizError) { setError('Failed to save quiz question: ' + quizError.message); setLoading(false); return }
+        if (quizError) {
+          setError('Failed to save quiz question: ' + quizError.message)
+          setLoading(false)
+          return
+        }
       }
 
       setSubmitted(true)
+
     } catch (err) {
+      console.error('EditModule handleSubmit error:', err)
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
@@ -179,12 +274,32 @@ function EditModule() {
     )
   }
 
+  // ── Not found state ──
+  if (notFound) {
+    return (
+      <div className="flex min-h-screen bg-gray-50">
+        <AdminSidebar isOpen={true} />
+        <div className="flex-1 flex flex-col ml-48">
+          <AdminTopBar onMenuClick={() => {}} />
+          <div className="flex-1 flex items-center justify-center">
+            <div className="bg-white rounded-2xl p-10 text-center shadow-sm border border-gray-100">
+              <p className="text-gray-500 text-sm mb-4">Module not found or access denied.</p>
+              <button onClick={() => navigate('/admin/training')}
+                className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-semibold">
+                Back to Modules
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <AdminSidebar isOpen={sidebarOpen} />
 
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-48' : 'ml-16'}`}>
-
         <AdminTopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
         <div className="flex-1 p-8">
@@ -193,7 +308,6 @@ function EditModule() {
 
             <div className="w-full max-w-4xl">
 
-              {/* Header */}
               <div className="mb-8">
                 <button onClick={() => navigate('/admin/training')}
                   className="flex items-center gap-1.5 text-gray-400 hover:text-gray-700 text-sm mb-3 transition">
@@ -214,7 +328,7 @@ function EditModule() {
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-6">
 
-                {/* ── Module Info ── */}
+                {/* Module Info */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
                   <h2 className="text-gray-800 font-bold mb-6 flex items-center gap-2.5">
                     <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center">
@@ -227,13 +341,17 @@ function EditModule() {
 
                   <div className="grid grid-cols-2 gap-5">
                     <div className="col-span-2">
-                      <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Module Name <span className="text-red-400">*</span></label>
+                      <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">
+                        Module Name <span className="text-red-400">*</span>
+                      </label>
                       <input type="text" name="name" value={moduleData.name} onChange={handleModuleChange}
                         className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition" required />
                     </div>
 
                     <div className="col-span-2">
-                      <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Brief Description <span className="text-red-400">*</span></label>
+                      <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">
+                        Brief Description <span className="text-red-400">*</span>
+                      </label>
                       <textarea name="description" value={moduleData.description} onChange={handleModuleChange}
                         rows={4} maxLength={200}
                         className={`w-full bg-gray-50 border text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 resize-none transition
@@ -247,19 +365,34 @@ function EditModule() {
                     </div>
 
                     <div>
-                      <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Category <span className="text-red-400">*</span></label>
-                      <select name="category" value={moduleData.category} onChange={handleModuleChange}
-                        className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
-                        <option>Phishing Detection</option>
-                        <option>Password Security</option>
-                        <option>Social Engineering</option>
-                        <option>Data Privacy</option>
-                        <option>Network Security</option>
-                      </select>
+                      <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">
+                        Category <span className="text-red-400">*</span>
+                      </label>
+                      {/* ── Free-text with datalist — matches AddModule ── */}
+                      <input type="text" name="category" value={moduleData.category} onChange={handleModuleChange}
+                        list="edit-module-category-options"
+                        className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
+                        required />
+                      <datalist id="edit-module-category-options">
+                        <option value="Phishing Detection" />
+                        <option value="Password Security" />
+                        <option value="Social Engineering" />
+                        <option value="Data Privacy" />
+                        <option value="Network Security" />
+                        <option value="Ransomware" />
+                        <option value="USB & Physical Security" />
+                        <option value="Insider Threat" />
+                        <option value="Email Security" />
+                        <option value="Mobile Security" />
+                        <option value="Cloud Security" />
+                        <option value="Zero-Day Awareness" />
+                      </datalist>
                     </div>
 
                     <div>
-                      <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Estimated Time <span className="text-red-400">*</span></label>
+                      <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">
+                        Estimated Time <span className="text-red-400">*</span>
+                      </label>
                       <div className="relative">
                         <input type="number" name="estimatedTime" value={moduleData.estimatedTime} onChange={handleModuleChange}
                           placeholder="e.g. 30" min="1"
@@ -270,7 +403,7 @@ function EditModule() {
                   </div>
                 </div>
 
-                {/* ── Lessons ── */}
+                {/* Lessons */}
                 <div className="flex flex-col gap-5">
                   {lessons.map((lesson, lessonIndex) => (
                     <div key={lesson.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -335,7 +468,9 @@ function EditModule() {
                                 </div>
 
                                 <div>
-                                  <label className="text-gray-600 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Body Text <span className="text-red-400">*</span></label>
+                                  <label className="text-gray-600 text-xs font-semibold mb-1.5 block uppercase tracking-wide">
+                                    Body Text <span className="text-red-400">*</span>
+                                  </label>
                                   <textarea value={section.body}
                                     onChange={(e) => updateSection(lesson.id, section.id, 'body', e.target.value)}
                                     placeholder="Explain this section in detail..."
@@ -398,9 +533,11 @@ function EditModule() {
                                       {section.body && <p className="text-gray-300 text-xs leading-relaxed mb-3 ml-3">{section.body}</p>}
                                       {section.bullets.some(b => b) && (
                                         <div className="ml-3 bg-[#243860] rounded-xl p-3">
-                                          <p className="text-blue-400 text-xs font-bold uppercase tracking-wide mb-2">
-                                            {section.bulletLabel || 'It usually comes in the form of:'}
-                                          </p>
+                                          {section.bulletLabel && (
+                                            <p className="text-blue-400 text-xs font-bold uppercase tracking-wide mb-2">
+                                              {section.bulletLabel}
+                                            </p>
+                                          )}
                                           <div className="flex flex-col gap-1.5">
                                             {section.bullets.filter(b => b).map((bullet, i) => (
                                               <div key={i} className="flex items-center gap-2">
@@ -440,7 +577,7 @@ function EditModule() {
                   </button>
                 </div>
 
-                {/* ── Quiz ── */}
+                {/* Quiz */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
                   <div className="flex items-center justify-between mb-6">
                     <h2 className="text-gray-800 font-bold flex items-center gap-2.5">
@@ -549,7 +686,6 @@ function EditModule() {
 
           ) : (
 
-            // ── SUCCESS ──
             <div className="max-w-md mx-auto mt-20 text-center">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">

@@ -38,15 +38,34 @@ function ChangePasswordPage() {
 
     try {
       const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
-      if (updateError) { setError('Failed to update password. Please try again.'); setLoading(false); return }
+      if (updateError) {
+        setError('Failed to update password. Please try again.')
+        setLoading(false)
+        return
+      }
 
+      // ── Null guard on user after password update ──
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) await supabase.from('users').update({ first_login: false }).eq('id', user.id)
+      if (!user?.id) {
+        setError('Session expired. Please log in again.')
+        setLoading(false)
+        return
+      }
 
-      const { data: profile } = await supabase.from('users').select('role').eq('id', user.id).single()
+      // ── Mark first_login as done ──
+      await supabase.from('users').update({ first_login: false }).eq('id', user.id)
+
+      // ── Fetch role for redirect — default to /dashboard if fetch fails ──
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
       navigate(profile?.role === 'admin' ? '/admin/dashboard' : '/dashboard')
 
     } catch (err) {
+      console.error('ChangePassword error:', err)
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
@@ -90,7 +109,7 @@ function ChangePasswordPage() {
   return (
     <div className="min-h-screen bg-[#020408] flex overflow-hidden">
 
-      {/* ── Left panel ── */}
+      {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden">
 
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),transparent)]" />
@@ -160,7 +179,7 @@ function ChangePasswordPage() {
         </div>
       </div>
 
-      {/* ── Right panel ── */}
+      {/* Right panel */}
       <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 relative">
         <div className="absolute inset-0 bg-[#04080f] lg:bg-transparent" />
 

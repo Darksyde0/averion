@@ -15,9 +15,10 @@ function ForgotPasswordPage() {
     setLoading(true)
     setError('')
 
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/change-password`,
-    })
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      email.trim().toLowerCase(),
+      { redirectTo: `${window.location.origin}/change-password` }
+    )
 
     if (resetError) {
       setError('Something went wrong. Please try again.')
@@ -32,7 +33,7 @@ function ForgotPasswordPage() {
   return (
     <div className="min-h-screen bg-[#020408] flex overflow-hidden">
 
-      {/* ── Left panel ── */}
+      {/* Left panel */}
       <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden">
 
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),transparent)]" />
@@ -100,7 +101,7 @@ function ForgotPasswordPage() {
         </div>
       </div>
 
-      {/* ── Right panel ── */}
+      {/* Right panel */}
       <div className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 relative">
         <div className="absolute inset-0 bg-[#04080f] lg:bg-transparent" />
 
@@ -176,6 +177,7 @@ function ForgotPasswordPage() {
             </>
 
           ) : (
+
             <div className="flex flex-col items-center text-center">
 
               <div className="relative mb-8">

@@ -3,10 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom'
 import AdminSidebar from '../../components/admin/AdminSidebar'
 import AdminTopBar from '../../components/admin/AdminTopBar'
 import { supabase } from '../../supabaseClient'
+import { useProfile } from '../../hooks/useProfile'
 
 function EditSimulation() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const profile = useProfile()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [submitted, setSubmitted] = useState(false)
   const [fetching, setFetching] = useState(true)
@@ -16,6 +18,7 @@ function EditSimulation() {
   const [imageFile, setImageFile] = useState(null)
   const [correctOption, setCorrectOption] = useState(null)
   const [scenarioName, setScenarioName] = useState('')
+  const [notFound, setNotFound] = useState(false)
 
   const [formData, setFormData] = useState({
     scenarioName: '',
@@ -26,32 +29,61 @@ function EditSimulation() {
     explanation: '',
   })
 
+  // ── Auth guard ──
   useEffect(() => {
-    fetchSimulation()
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) navigate('/login')
+    }
+    checkAuth()
+  }, [])
+
+  useEffect(() => {
+    if (id) fetchSimulation()
   }, [id])
 
   async function fetchSimulation() {
     setFetching(true)
-    const { data, error } = await supabase
-      .from('simulations')
-      .select('*')
-      .eq('id', id)
-      .single()
 
-    if (error || !data) { setFetching(false); return }
+    try {
+      // ── Build query — add org filter once profile is available ──
+      let query = supabase
+        .from('simulations')
+        .select('*')
+        .eq('id', id)
 
-    setFormData({
-      scenarioName: data.scenario_name,
-      question: data.question,
-      category: data.category,
-      difficulty: data.difficulty,
-      options: data.options,
-      explanation: data.explanation,
-    })
-    setCorrectOption(data.correct_index)
-    setScenarioName(data.scenario_name)
-    if (data.image_url) setImagePreview(data.image_url)
-    setFetching(false)
+      // ── Ownership check: only fetch if belongs to this admin's org ──
+      if (profile?.id) {
+        query = query.eq('organization_id', profile.id)
+      }
+
+      const { data, error } = await query.single()
+
+      if (error || !data) {
+        console.error('fetchSimulation error:', error)
+        setNotFound(true)
+        setFetching(false)
+        return
+      }
+
+      setFormData({
+        scenarioName: data.scenario_name,
+        question: data.question,
+        category: data.category,
+        difficulty: data.difficulty,
+        options: data.options,
+        explanation: data.explanation,
+      })
+      setCorrectOption(data.correct_index)
+      setScenarioName(data.scenario_name)
+      if (data.image_url) setImagePreview(data.image_url)
+
+    } catch (err) {
+      console.error('Unexpected error in fetchSimulation:', err)
+      setNotFound(true)
+    } finally {
+      setFetching(false)
+    }
   }
 
   function handleChange(e) {
@@ -74,7 +106,12 @@ function EditSimulation() {
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (correctOption === null) { alert('Please select the correct answer.'); return }
+
+    // ── Inline error instead of alert ──
+    if (correctOption === null) {
+      setError('Please select the correct answer before saving.')
+      return
+    }
 
     setLoading(true)
     setError('')
@@ -95,7 +132,9 @@ function EditSimulation() {
           return
         }
 
-        const { data: urlData } = supabase.storage.from('simulation-images').getPublicUrl(fileName)
+        const { data: urlData } = supabase.storage
+          .from('simulation-images')
+          .getPublicUrl(fileName)
         imageUrl = urlData.publicUrl
       }
 
@@ -104,26 +143,27 @@ function EditSimulation() {
       const { error: updateError } = await supabase
         .from('simulations')
         .update({
-          scenario_name: formData.scenarioName,
-          question: formData.question,
-          category: formData.category,
+          scenario_name: formData.scenarioName.trim(),
+          question: formData.question.trim(),
+          category: formData.category.trim(),
           difficulty: formData.difficulty,
           type: imageUrl ? 'image' : 'text',
           image_url: imageUrl,
           options: formData.options,
           correct_index: correctOption,
-          explanation: formData.explanation,
+          explanation: formData.explanation.trim(),
         })
         .eq('id', id)
 
       if (updateError) {
         setError('Failed to update simulation: ' + updateError.message)
-        setLoading(false)
         return
       }
 
       setSubmitted(true)
+
     } catch (err) {
+      console.error('handleSubmit error:', err)
       setError('Something went wrong. Please try again.')
     } finally {
       setLoading(false)
@@ -149,7 +189,7 @@ function EditSimulation() {
   }
 
   // ── Not found state ──
-  if (!formData.scenarioName && !fetching) {
+  if (notFound) {
     return (
       <div className="flex min-h-screen bg-gray-50">
         <AdminSidebar isOpen={true} />
@@ -157,7 +197,7 @@ function EditSimulation() {
           <AdminTopBar onMenuClick={() => {}} />
           <div className="flex-1 flex items-center justify-center">
             <div className="bg-white rounded-2xl p-10 text-center shadow-sm border border-gray-100">
-              <p className="text-gray-500 text-sm mb-4">Simulation not found.</p>
+              <p className="text-gray-500 text-sm mb-4">Simulation not found or access denied.</p>
               <button onClick={() => navigate('/admin/simulations')}
                 className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-semibold">
                 Back to Simulations
@@ -174,7 +214,6 @@ function EditSimulation() {
       <AdminSidebar isOpen={sidebarOpen} />
 
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-48' : 'ml-16'}`}>
-
         <AdminTopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
         <div className="flex-1 p-8">
@@ -183,7 +222,6 @@ function EditSimulation() {
 
             <div className="max-w-3xl">
 
-              {/* Header */}
               <div className="flex items-start justify-between mb-8">
                 <div>
                   <button onClick={() => navigate('/admin/simulations')}
@@ -214,7 +252,6 @@ function EditSimulation() {
                 </div>
               )}
 
-              {/* Image preview */}
               {imagePreview && (
                 <div className="mb-5 bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
                   <img src={imagePreview} alt="Scenario" className="w-full max-h-56 object-contain p-4" />
@@ -238,33 +275,46 @@ function EditSimulation() {
 
                   {/* Scenario Name */}
                   <div className="mb-5">
-                    <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Scenario Name <span className="text-red-400">*</span></label>
-                    <input type="text" name="scenarioName" value={formData.scenarioName} onChange={handleChange}
-                      className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
-                      required />
+                    <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">
+                      Scenario Name <span className="text-red-400">*</span>
+                    </label>
+                    <input type="text" name="scenarioName" value={formData.scenarioName}
+                      onChange={handleChange} required
+                      className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition" />
                   </div>
 
                   {/* Question */}
                   <div className="mb-5">
-                    <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Question <span className="text-red-400">*</span></label>
+                    <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">
+                      Question <span className="text-red-400">*</span>
+                    </label>
                     <textarea name="question" value={formData.question} onChange={handleChange}
-                      rows={3}
-                      className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                      required />
+                      rows={3} required
+                      className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
                   </div>
 
                   {/* Category + Difficulty */}
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     <div>
                       <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Category</label>
-                      <select name="category" value={formData.category} onChange={handleChange}
-                        className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition">
-                        <option>Password Security</option>
-                        <option>Phishing Detection</option>
-                        <option>Social Engineering</option>
-                        <option>Data Privacy</option>
-                        <option>Network Security</option>
-                      </select>
+                      {/* ── Free-text with datalist — matches AddSimulation ── */}
+                      <input type="text" name="category" value={formData.category}
+                        onChange={handleChange} list="edit-category-options"
+                        className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition" />
+                      <datalist id="edit-category-options">
+                        <option value="Password Security" />
+                        <option value="Phishing Detection" />
+                        <option value="Social Engineering" />
+                        <option value="Data Privacy" />
+                        <option value="Network Security" />
+                        <option value="Ransomware" />
+                        <option value="USB & Physical Security" />
+                        <option value="Insider Threat" />
+                        <option value="Email Security" />
+                        <option value="Mobile Security" />
+                        <option value="Cloud Security" />
+                        <option value="Zero-Day Awareness" />
+                      </datalist>
                     </div>
                     <div>
                       <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Difficulty</label>
@@ -279,7 +329,9 @@ function EditSimulation() {
 
                   {/* Answer Options */}
                   <div className="mb-5">
-                    <label className="text-gray-700 text-xs font-semibold mb-3 block uppercase tracking-wide">Answer Options <span className="text-red-400">*</span></label>
+                    <label className="text-gray-700 text-xs font-semibold mb-3 block uppercase tracking-wide">
+                      Answer Options <span className="text-red-400">*</span>
+                    </label>
                     <div className="flex flex-col gap-2.5">
                       {formData.options.map((option, index) => (
                         <div key={index} className="flex items-center gap-3">
@@ -288,10 +340,10 @@ function EditSimulation() {
                               ${correctOption === index ? 'border-blue-600 bg-blue-600' : 'border-gray-300 bg-white hover:border-blue-400'}`}>
                             {correctOption === index && <div className="w-2.5 h-2.5 rounded-full bg-white" />}
                           </button>
-                          <input type="text" value={option} onChange={(e) => handleOptionChange(index, e.target.value)}
-                            placeholder={`Option ${index + 1}`}
-                            className="flex-1 bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
-                            required />
+                          <input type="text" value={option}
+                            onChange={(e) => handleOptionChange(index, e.target.value)}
+                            placeholder={`Option ${index + 1}`} required
+                            className="flex-1 bg-gray-50 border border-gray-200 text-gray-800 placeholder-gray-400 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition" />
                         </div>
                       ))}
                     </div>
@@ -299,11 +351,12 @@ function EditSimulation() {
 
                   {/* Explanation */}
                   <div>
-                    <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">Explanation <span className="text-red-400">*</span></label>
+                    <label className="text-gray-700 text-xs font-semibold mb-1.5 block uppercase tracking-wide">
+                      Explanation <span className="text-red-400">*</span>
+                    </label>
                     <textarea name="explanation" value={formData.explanation} onChange={handleChange}
-                      rows={3}
-                      className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                      required />
+                      rows={3} required
+                      className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
                   </div>
 
                 </div>
@@ -326,7 +379,6 @@ function EditSimulation() {
 
           ) : (
 
-            // ── Success ──
             <div className="max-w-md mx-auto mt-20 text-center">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10">
                 <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">

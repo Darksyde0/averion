@@ -14,30 +14,50 @@ function ViewSimulations() {
   const [expandedBatch, setExpandedBatch] = useState(null)
   const [deleteModal, setDeleteModal] = useState(false)
   const [deleteItem, setDeleteItem] = useState(null)
+  const [deleteError, setDeleteError] = useState('')
   const [deleteBatchModal, setDeleteBatchModal] = useState(false)
   const [deleteBatchItem, setDeleteBatchItem] = useState(null)
+  const [deleteBatchError, setDeleteBatchError] = useState('')
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
-
-  // ── Expiry modal state ──
   const [expiryModal, setExpiryModal] = useState(false)
   const [expiryBatch, setExpiryBatch] = useState(null)
   const [expiryDate, setExpiryDate] = useState('')
   const [expiryLoading, setExpiryLoading] = useState(false)
+  const [expiryError, setExpiryError] = useState('')
+
+  // ── Auth guard ──
+  useEffect(() => {
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) navigate('/login')
+    }
+    checkAuth()
+  }, [])
 
   useEffect(() => {
     if (profile?.id) fetchSimulations()
   }, [profile])
 
   async function fetchSimulations() {
+    if (!profile?.id) return
     setLoading(true)
-    const { data, error } = await supabase
-      .from('simulations')
-      .select('*')
-      .eq('organization_id', profile.id)
-      .order('created_at', { ascending: false })
 
-    if (!error && data) {
+    try {
+      const { data, error } = await supabase
+        .from('simulations')
+        .select('*')
+        .eq('organization_id', profile.id)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('fetchSimulations error:', error)
+        setLoading(false)
+        return
+      }
+
+      if (!data) { setLoading(false); return }
+
       const batchMap = {}
       data.forEach(s => {
         const bid = s.batch_id || s.id
@@ -64,20 +84,29 @@ function ViewSimulations() {
         (a, b) => new Date(b.created_at) - new Date(a.created_at)
       )
       setBatches(sorted)
+
+    } catch (err) {
+      console.error('Unexpected error in fetchSimulations:', err)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   async function toggleHide(simId) {
     const allSims = batches.flatMap(b => b.sims)
     const sim = allSims.find(s => s.id === simId)
     if (!sim) return
-    const { error } = await supabase.from('simulations').update({ hidden: !sim.hidden }).eq('id', simId)
+    const { error } = await supabase
+      .from('simulations')
+      .update({ hidden: !sim.hidden })
+      .eq('id', simId)
     if (!error) {
       setBatches(prev => prev.map(b => ({
         ...b,
         sims: b.sims.map(s => s.id === simId ? { ...s, hidden: !s.hidden } : s)
       })))
+    } else {
+      console.error('toggleHide error:', error)
     }
   }
 
@@ -85,45 +114,90 @@ function ViewSimulations() {
     const allHidden = batch.sims.every(s => s.hidden)
     const newHidden = !allHidden
     const ids = batch.sims.map(s => s.id)
-    const { error } = await supabase.from('simulations').update({ hidden: newHidden }).in('id', ids)
+    const { error } = await supabase
+      .from('simulations')
+      .update({ hidden: newHidden })
+      .in('id', ids)
     if (!error) {
       setBatches(prev => prev.map(b =>
         b.batch_id === batch.batch_id
           ? { ...b, sims: b.sims.map(s => ({ ...s, hidden: newHidden })) }
           : b
       ))
+    } else {
+      console.error('toggleHideBatch error:', error)
     }
   }
 
-  function handleDeleteClick(sim) { setDeleteItem(sim); setDeleteModal(true) }
+  function handleDeleteClick(sim) {
+    setDeleteItem(sim)
+    setDeleteError('')
+    setDeleteModal(true)
+  }
 
   async function confirmDelete() {
-    const { error } = await supabase.from('simulations').delete().eq('id', deleteItem.id)
-    if (!error) {
+    if (!deleteItem?.id) return
+    setDeleteError('')
+
+    try {
+      const { error } = await supabase
+        .from('simulations')
+        .delete()
+        .eq('id', deleteItem.id)
+
+      if (error) {
+        setDeleteError('Failed to delete. Please try again.')
+        return
+      }
+
       setBatches(prev => prev
         .map(b => ({ ...b, sims: b.sims.filter(s => s.id !== deleteItem.id) }))
         .filter(b => b.sims.length > 0)
       )
       setDeleteModal(false)
       setDeleteItem(null)
+
+    } catch (err) {
+      console.error('confirmDelete error:', err)
+      setDeleteError('Something went wrong. Please try again.')
     }
   }
 
-  function handleDeleteBatchClick(batch) { setDeleteBatchItem(batch); setDeleteBatchModal(true) }
+  function handleDeleteBatchClick(batch) {
+    setDeleteBatchItem(batch)
+    setDeleteBatchError('')
+    setDeleteBatchModal(true)
+  }
 
   async function confirmDeleteBatch() {
-    const ids = deleteBatchItem.sims.map(s => s.id)
-    const { error } = await supabase.from('simulations').delete().in('id', ids)
-    if (!error) {
+    if (!deleteBatchItem) return
+    setDeleteBatchError('')
+
+    try {
+      const ids = deleteBatchItem.sims.map(s => s.id)
+      const { error } = await supabase
+        .from('simulations')
+        .delete()
+        .in('id', ids)
+
+      if (error) {
+        setDeleteBatchError('Failed to delete batch. Please try again.')
+        return
+      }
+
       setBatches(prev => prev.filter(b => b.batch_id !== deleteBatchItem.batch_id))
       setDeleteBatchModal(false)
       setDeleteBatchItem(null)
+
+    } catch (err) {
+      console.error('confirmDeleteBatch error:', err)
+      setDeleteBatchError('Something went wrong. Please try again.')
     }
   }
 
-  // ── Open expiry modal ──
   function handleEditExpiry(batch) {
     setExpiryBatch(batch)
+    setExpiryError('')
     setExpiryDate(
       batch.expires_at
         ? new Date(batch.expires_at).toISOString().slice(0, 16)
@@ -132,19 +206,25 @@ function ViewSimulations() {
     setExpiryModal(true)
   }
 
-  // ── Save expiry ──
   async function confirmEditExpiry() {
     if (!expiryBatch) return
     setExpiryLoading(true)
-    const ids = expiryBatch.sims.map(s => s.id)
-    const newExpiry = expiryDate ? new Date(expiryDate).toISOString() : null
+    setExpiryError('')
 
-    const { error } = await supabase
-      .from('simulations')
-      .update({ expires_at: newExpiry })
-      .in('id', ids)
+    try {
+      const ids = expiryBatch.sims.map(s => s.id)
+      const newExpiry = expiryDate ? new Date(expiryDate).toISOString() : null
 
-    if (!error) {
+      const { error } = await supabase
+        .from('simulations')
+        .update({ expires_at: newExpiry })
+        .in('id', ids)
+
+      if (error) {
+        setExpiryError('Failed to update expiry. Please try again.')
+        return
+      }
+
       setBatches(prev => prev.map(b =>
         b.batch_id === expiryBatch.batch_id
           ? { ...b, expires_at: newExpiry }
@@ -153,8 +233,13 @@ function ViewSimulations() {
       setExpiryModal(false)
       setExpiryBatch(null)
       setExpiryDate('')
+
+    } catch (err) {
+      console.error('confirmEditExpiry error:', err)
+      setExpiryError('Something went wrong. Please try again.')
+    } finally {
+      setExpiryLoading(false)
     }
-    setExpiryLoading(false)
   }
 
   function isExpired(dateStr) {
@@ -193,8 +278,8 @@ function ViewSimulations() {
 
   const filteredBatches = batches.filter(batch => {
     const matchesSearch = batch.sims.some(s =>
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.category.toLowerCase().includes(search.toLowerCase())
+      s.name?.toLowerCase().includes(search.toLowerCase()) ||
+      s.category?.toLowerCase().includes(search.toLowerCase())
     )
     const matchesStatus =
       statusFilter === 'all' ||
@@ -212,7 +297,6 @@ function ViewSimulations() {
 
         <div className="flex-1 p-8">
 
-          {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
               <h1 className="text-gray-900 text-2xl font-bold">Simulations</h1>
@@ -256,7 +340,6 @@ function ViewSimulations() {
             </div>
           </div>
 
-          {/* Results count */}
           <p className="text-gray-400 text-xs font-semibold mb-3 ml-1">
             {loading ? 'Loading...' : `${filteredBatches.length} batch${filteredBatches.length !== 1 ? 'es' : ''} · ${totalSims} simulations`}
           </p>
@@ -302,7 +385,6 @@ function ViewSimulations() {
                     className={`bg-white rounded-2xl border shadow-sm overflow-hidden
                       ${expired ? 'border-red-100 opacity-70' : 'border-gray-100'}`}>
 
-                    {/* ── Expiry banner ── */}
                     {batch.expires_at && (
                       <div className={`flex items-center justify-between px-6 py-2 text-xs font-medium
                         ${expired
@@ -328,11 +410,8 @@ function ViewSimulations() {
                       </div>
                     )}
 
-                    {/* Batch header */}
                     <div className={`flex items-center justify-between px-6 py-4 ${allHidden ? 'opacity-60' : ''}`}>
                       <div className="flex items-center gap-4 flex-1 min-w-0">
-
-                        {/* Expand toggle */}
                         <button onClick={() => setExpandedBatch(isExpanded ? null : batch.batch_id)}
                           className="w-8 h-8 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center flex-shrink-0 transition">
                           <svg xmlns="http://www.w3.org/2000/svg"
@@ -367,17 +446,12 @@ function ViewSimulations() {
                           </div>
                           <p className="text-gray-400 text-xs">
                             Batch #{batchIndex + 1} · Added {formatDate(batch.created_at)}
-                            {!batch.expires_at && (
-                              <span className="text-gray-300"> · No expiry</span>
-                            )}
+                            {!batch.expires_at && <span className="text-gray-300"> · No expiry</span>}
                           </p>
                         </div>
                       </div>
 
-                      {/* Batch actions */}
                       <div className="flex items-center gap-2 flex-shrink-0">
-
-                        {/* Edit expiry button */}
                         <button onClick={() => handleEditExpiry(batch)}
                           className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 transition">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -388,9 +462,7 @@ function ViewSimulations() {
 
                         <button onClick={() => toggleHideBatch(batch)}
                           className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition
-                            ${allHidden
-                              ? 'bg-green-50 text-green-600 hover:bg-green-100'
-                              : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'}`}>
+                            ${allHidden ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-100'}`}>
                           {allHidden ? (
                             <>
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -419,7 +491,6 @@ function ViewSimulations() {
                       </div>
                     </div>
 
-                    {/* Expanded simulations */}
                     {isExpanded && (
                       <div className="border-t border-gray-50">
                         <div className="grid grid-cols-12 px-6 py-2.5 bg-gray-50">
@@ -478,17 +549,15 @@ function ViewSimulations() {
                         ))}
                       </div>
                     )}
-
                   </div>
                 )
               })}
             </div>
           )}
-
         </div>
       </div>
 
-      {/* ── Edit Expiry Modal ── */}
+      {/* Edit Expiry Modal */}
       {expiryModal && expiryBatch && (
         <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center px-4">
           <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm">
@@ -497,22 +566,24 @@ function ViewSimulations() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-
             <h2 className="text-gray-800 text-lg font-bold mb-1 text-center">Edit Expiry Date</h2>
             <p className="text-gray-400 text-sm text-center mb-6">
               Set when this batch of {expiryBatch.sims.length} simulation{expiryBatch.sims.length > 1 ? 's' : ''} expires
             </p>
 
+            {expiryError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
+                <p className="text-red-600 text-sm">{expiryError}</p>
+              </div>
+            )}
+
             <div className="mb-2">
               <label className="text-gray-500 text-xs font-semibold uppercase tracking-wide mb-2 block">
                 Expiry Date & Time
               </label>
-              <input
-                type="datetime-local"
-                value={expiryDate}
+              <input type="datetime-local" value={expiryDate}
                 onChange={e => setExpiryDate(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition"
-              />
+                className="w-full bg-gray-50 border border-gray-200 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition" />
             </div>
 
             <p className="text-gray-400 text-xs mb-6">
@@ -521,7 +592,6 @@ function ViewSimulations() {
                 : 'Leave empty to remove expiry — simulation stays active indefinitely'}
             </p>
 
-            {/* Quick presets */}
             <div className="flex gap-2 mb-6 flex-wrap">
               {[
                 { label: '+1 Day', days: 1 },
@@ -545,7 +615,7 @@ function ViewSimulations() {
             </div>
 
             <div className="flex gap-3">
-              <button onClick={() => { setExpiryModal(false); setExpiryBatch(null); setExpiryDate('') }}
+              <button onClick={() => { setExpiryModal(false); setExpiryBatch(null); setExpiryDate(''); setExpiryError('') }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
                 Cancel
               </button>
@@ -576,9 +646,14 @@ function ViewSimulations() {
             <h2 className="text-gray-800 text-lg font-bold mb-1">Delete Simulation</h2>
             <p className="text-gray-500 text-sm mb-1">You are about to delete</p>
             <p className="text-gray-800 font-bold mb-1">{deleteItem.name}</p>
-            <p className="text-red-400 text-xs mb-6">This action cannot be undone.</p>
+            <p className="text-red-400 text-xs mb-4">This action cannot be undone.</p>
+            {deleteError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
+                <p className="text-red-600 text-sm">{deleteError}</p>
+              </div>
+            )}
             <div className="flex gap-3">
-              <button onClick={() => setDeleteModal(false)}
+              <button onClick={() => { setDeleteModal(false); setDeleteItem(null); setDeleteError('') }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
                 Cancel
               </button>
@@ -603,9 +678,14 @@ function ViewSimulations() {
             <h2 className="text-gray-800 text-lg font-bold mb-1">Delete Entire Batch</h2>
             <p className="text-gray-500 text-sm mb-1">This will permanently delete</p>
             <p className="text-gray-800 font-bold mb-1">{deleteBatchItem.sims.length} simulation{deleteBatchItem.sims.length > 1 ? 's' : ''}</p>
-            <p className="text-red-400 text-xs mb-6">This action cannot be undone.</p>
+            <p className="text-red-400 text-xs mb-4">This action cannot be undone.</p>
+            {deleteBatchError && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-4">
+                <p className="text-red-600 text-sm">{deleteBatchError}</p>
+              </div>
+            )}
             <div className="flex gap-3">
-              <button onClick={() => setDeleteBatchModal(false)}
+              <button onClick={() => { setDeleteBatchModal(false); setDeleteBatchItem(null); setDeleteBatchError('') }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
                 Cancel
               </button>
