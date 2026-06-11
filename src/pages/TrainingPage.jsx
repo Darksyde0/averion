@@ -45,18 +45,18 @@ const defaultIcon = (
 )
 
 const colorPalette = [
-  ['#1d4ed8', '#7c3aed'],
-  ['#be123c', '#f97316'],
-  ['#065f46', '#0891b2'],
-  ['#c2410c', '#fbbf24'],
-  ['#6d28d9', '#db2777'],
-  ['#0e7490', '#10b981'],
-  ['#1e40af', '#0891b2'],
-  ['#86198f', '#c2410c'],
-  ['#166534', '#0f766e'],
-  ['#4338ca', '#be185d'],
-  ['#9a3412', '#b45309'],
-  ['#0c4a6e', '#6d28d9'],
+  ['#0e7490', '#22d3ee'],   // teal (canyon card)
+  ['#1d4ed8', '#60a5fa'],   // blue
+  ['#6d28d9', '#a78bfa'],   // purple
+  ['#be123c', '#fb7185'],   // red/rose
+  ['#c2410c', '#fb923c'],   // orange
+  ['#065f46', '#34d399'],   // emerald
+  ['#86198f', '#e879f9'],   // fuchsia
+  ['#0f766e', '#5eead4'],   // teal-green
+  ['#1e40af', '#93c5fd'],   // navy blue
+  ['#4338ca', '#818cf8'],   // indigo
+  ['#b45309', '#fcd34d'],   // amber
+  ['#be185d', '#f9a8d4'],   // pink
 ]
 
 function getModuleColor(id, index) {
@@ -223,7 +223,7 @@ function TrainingPage() {
                 <div
                   key={mod.id}
                   className="rounded-2xl p-6 flex flex-col justify-between min-h-[240px] shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
-                  style={{ background: `linear-gradient(135deg, ${mod.color[0]}, ${mod.color[1]})` }}
+                  style={{ background: `linear-gradient(160deg, ${mod.color[0]} 0%, ${mod.color[1]} 100%)` }}
                 >
 
                   {/* Top row */}
