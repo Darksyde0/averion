@@ -45,18 +45,18 @@ const defaultIcon = (
 )
 
 const colorPalette = [
-  ['#0e7490', '#22d3ee'],   // teal (canyon card)
-  ['#1d4ed8', '#60a5fa'],   // blue
-  ['#6d28d9', '#a78bfa'],   // purple
-  ['#be123c', '#fb7185'],   // red/rose
-  ['#c2410c', '#fb923c'],   // orange
-  ['#065f46', '#34d399'],   // emerald
-  ['#86198f', '#e879f9'],   // fuchsia
-  ['#0f766e', '#5eead4'],   // teal-green
-  ['#1e40af', '#93c5fd'],   // navy blue
-  ['#4338ca', '#818cf8'],   // indigo
-  ['#b45309', '#fcd34d'],   // amber
-  ['#be185d', '#f9a8d4'],   // pink
+  ['#0e7490', '#0891b2'],   // teal dark → teal medium
+  ['#1d4ed8', '#2563eb'],   // blue dark → blue medium
+  ['#6d28d9', '#7c3aed'],   // purple dark → purple medium
+  ['#9f1239', '#be123c'],   // rose dark → rose medium
+  ['#c2410c', '#ea580c'],   // orange dark → orange medium
+  ['#065f46', '#047857'],   // emerald dark → emerald medium
+  ['#86198f', '#a21caf'],   // fuchsia dark → fuchsia medium
+  ['#0f766e', '#0d9488'],   // teal-green dark → medium
+  ['#1e40af', '#1d4ed8'],   // navy → blue
+  ['#4338ca', '#4f46e5'],   // indigo dark → medium
+  ['#92400e', '#b45309'],   // amber dark → medium (NO yellow!)
+  ['#9d174d', '#be185d'],   // pink dark → medium
 ]
 
 function getModuleColor(id, index) {
