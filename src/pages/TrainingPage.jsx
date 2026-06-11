@@ -260,7 +260,7 @@ function TrainingPage() {
                     </p>
                   </div>
 
-                  {/* Footer */}
+                  {/* Footers */}
                   <div className="mt-4 flex items-center justify-between">
                     <span className="text-white text-xs opacity-70">⏱ {mod.estimatedTime} mins</span>
 
