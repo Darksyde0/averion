@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/dashboard/Sidebar'
 import { supabase } from '../supabaseClient'
-import { useProfile } from '../hooks/useProfile'
 import TopBar from '../components/dashboard/TopBar'
 
 const categoryIcons = {
@@ -28,7 +27,7 @@ const categoryIcons = {
   ),
   'Network Security': (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.997 0 0121 12c0 .778-.099 1.533-.284 2.253" />
     </svg>
   ),
   'Office Safety': (
@@ -44,19 +43,20 @@ const defaultIcon = (
   </svg>
 )
 
+// ── WCAG-safe: dark → slightly lighter same hue, white text always passes ──
 const colorPalette = [
-  ['#0e7490', '#0891b2'],   // teal dark → teal medium
-  ['#1d4ed8', '#2563eb'],   // blue dark → blue medium
-  ['#6d28d9', '#7c3aed'],   // purple dark → purple medium
-  ['#9f1239', '#be123c'],   // rose dark → rose medium
-  ['#c2410c', '#ea580c'],   // orange dark → orange medium
-  ['#065f46', '#047857'],   // emerald dark → emerald medium
-  ['#86198f', '#a21caf'],   // fuchsia dark → fuchsia medium
-  ['#0f766e', '#0d9488'],   // teal-green dark → medium
-  ['#1e40af', '#1d4ed8'],   // navy → blue
-  ['#4338ca', '#4f46e5'],   // indigo dark → medium
-  ['#92400e', '#b45309'],   // amber dark → medium (NO yellow!)
-  ['#9d174d', '#be185d'],   // pink dark → medium
+  ['#0e7490', '#0891b2'],
+  ['#1d4ed8', '#2563eb'],
+  ['#6d28d9', '#7c3aed'],
+  ['#9f1239', '#be123c'],
+  ['#c2410c', '#ea580c'],
+  ['#065f46', '#047857'],
+  ['#86198f', '#a21caf'],
+  ['#0f766e', '#0d9488'],
+  ['#1e40af', '#1d4ed8'],
+  ['#4338ca', '#4f46e5'],
+  ['#92400e', '#b45309'],
+  ['#9d174d', '#be185d'],
 ]
 
 function getModuleColor(id, index) {
@@ -76,7 +76,7 @@ function TrainingPage() {
   const [filter, setFilter] = useState('all')
   const [modules, setModules] = useState([])
   const [loading, setLoading] = useState(true)
-  const profile = useProfile()
+  const [fetchError, setFetchError] = useState('')
 
   const [totalModules, setTotalModules] = useState(0)
   const [completedCount, setCompletedCount] = useState(0)
@@ -87,41 +87,93 @@ function TrainingPage() {
 
   async function fetchModules() {
     setLoading(true)
+    setFetchError('')
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setLoading(false); return }
+    try {
+      // ── Step 1: get current user ──
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        navigate('/login')
+        return
+      }
 
-    const { data: userProfile } = await supabase
-      .from('users')
-      .select('organization_id')
-      .eq('id', user.id)
-      .single()
+      // ── Step 2: get user's organization_id ──
+      const { data: userProfile, error: profileError } = await supabase
+        .from('users')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single()
 
-    if (!userProfile?.organization_id) { setLoading(false); return }
+      if (profileError || !userProfile?.organization_id) {
+        console.error('Profile error:', profileError)
+        setFetchError('Could not load your profile. Please try again.')
+        setLoading(false)
+        return
+      }
 
-    const { data, error } = await supabase
-      .from('modules')
-      .select('*')
-      .eq('hidden', false)
-      .eq('organization_id', userProfile.organization_id)
-      .order('created_at', { ascending: false })
+      // ── Step 3: fetch modules for this org only ──
+      const { data: modulesData, error: modulesError } = await supabase
+        .from('modules')
+        .select('id, name, description, category, estimated_time')
+        .eq('hidden', false)
+        .eq('organization_id', userProfile.organization_id)
+        .order('created_at', { ascending: false })
 
-    if (!error && data) {
-      setTotalModules(data.length)
+      if (modulesError) {
+        console.error('Modules error:', modulesError)
+        setFetchError('Could not load training modules. Please try again.')
+        setLoading(false)
+        return
+      }
 
-      const { data: progress } = await supabase
+      if (!modulesData || modulesData.length === 0) {
+        setModules([])
+        setTotalModules(0)
+        setLoading(false)
+        return
+      }
+
+      const moduleIds = modulesData.map(m => m.id)
+      setTotalModules(modulesData.length)
+
+      // ── Step 4: fetch progress only for THIS user + THESE modules ──
+      // Prevents cross-org data leakage
+      const { data: progress, error: progressError } = await supabase
         .from('module_progress')
         .select('module_id, quiz_completed')
         .eq('user_id', user.id)
+        .in('module_id', moduleIds)
 
-      const completedIds = (progress || []).filter(p => p.quiz_completed === true).map(p => p.module_id)
-      const inProgressIds = (progress || []).filter(p => p.quiz_completed === false).map(p => p.module_id)
+      if (progressError) {
+        console.error('Progress error:', progressError)
+        // Non-fatal — continue with empty progress
+      }
+
+      const progressList = progress || []
+
+      // ── Step 5: deduplicate — use latest status per module ──
+      // If somehow a module has multiple rows, completed takes priority
+      const progressMap = {}
+      progressList.forEach(p => {
+        if (!progressMap[p.module_id] || p.quiz_completed === true) {
+          progressMap[p.module_id] = p.quiz_completed
+        }
+      })
+
+      const completedIds = Object.entries(progressMap)
+        .filter(([, done]) => done === true)
+        .map(([id]) => id)
+
+      const inProgressIds = Object.entries(progressMap)
+        .filter(([, done]) => done === false)
+        .map(([id]) => id)
 
       setCompletedCount(completedIds.length)
       setInProgressCount(inProgressIds.length)
       setTotalPoints(completedIds.length * 100)
 
-      const mapped = data.map((m, index) => ({
+      // ── Step 6: map modules with status and color ──
+      const mapped = modulesData.map((m, index) => ({
         id: m.id,
         title: m.name,
         description: m.description,
@@ -137,9 +189,13 @@ function TrainingPage() {
       }))
 
       setModules(mapped)
-    }
 
-    setLoading(false)
+    } catch (err) {
+      console.error('Unexpected error in fetchModules:', err)
+      setFetchError('Something went wrong. Please refresh the page.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const completionPercent = totalModules > 0
@@ -161,6 +217,13 @@ function TrainingPage() {
 
           <h1 className="text-gray-800 text-3xl font-bold mb-1">Training Modules</h1>
           <p className="text-gray-500 text-sm mb-6">Expand your cybersecurity knowledge</p>
+
+          {/* Fetch error */}
+          {fetchError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">
+              <p className="text-red-600 text-sm">{fetchError}</p>
+            </div>
+          )}
 
           {/* Stats cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -215,7 +278,9 @@ function TrainingPage() {
             </div>
           ) : filteredModules.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-400 text-sm">No modules found.</p>
+              <p className="text-gray-400 text-sm">
+                {filter === 'all' ? 'No modules available yet.' : `No ${filter.replace('-', ' ')} modules.`}
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -238,18 +303,18 @@ function TrainingPage() {
                       </span>
                     )}
                     {mod.status === 'in-progress' && (
-                      <span className="bg-orange-400 text-white text-xs font-bold px-2.5 py-1 rounded-lg">
+                      <span className="bg-orange-500 text-white text-xs font-bold px-2.5 py-1 rounded-lg">
                         IN PROGRESS
                       </span>
                     )}
                     {mod.status === 'completed' && (
-                      <span className="bg-green-400 text-white text-xs font-bold px-2.5 py-1 rounded-lg">
+                      <span className="bg-green-500 text-white text-xs font-bold px-2.5 py-1 rounded-lg">
                         COMPLETED
                       </span>
                     )}
                   </div>
 
-                  {/* Contents */}
+                  {/* Content */}
                   <div className="flex-1">
                     <p className="text-white text-xs font-semibold uppercase tracking-widest opacity-70 mb-1">
                       {mod.category}
@@ -260,7 +325,7 @@ function TrainingPage() {
                     </p>
                   </div>
 
-                  {/* Footers */}
+                  {/* Footer */}
                   <div className="mt-4 flex items-center justify-between">
                     <span className="text-white text-xs opacity-70">⏱ {mod.estimatedTime} mins</span>
 
