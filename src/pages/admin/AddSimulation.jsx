@@ -5,9 +5,8 @@ import AdminTopBar from '../../components/admin/AdminTopBar'
 import { useProfile } from '../../hooks/useProfile'
 import { supabase } from '../../supabaseClient'
 
-// ── ARIA conversational system prompt ──
 function buildAriaSystemPrompt(adminName) {
-  return `You are ARIA — Averion's Risk Intelligence Assistant. You are a sophisticated cybersecurity simulation designer with deep expertise in behavioral psychology, threat intelligence, and security awareness training.
+  return `You are ARIA, Averion's Risk Intelligence Assistant. You are a sophisticated cybersecurity simulation designer with deep expertise in behavioral psychology, threat intelligence, and security awareness training.
 
 You are having a conversation with ${adminName}, a cybersecurity administrator. Your role is twofold:
 1. Have a natural, intelligent conversation to understand exactly what kind of simulations they need
@@ -15,12 +14,13 @@ You are having a conversation with ${adminName}, a cybersecurity administrator. 
 
 CONVERSATION BEHAVIOR:
 - Greet the admin warmly by their first name on first message
-- Ask clarifying questions before generating — understand the context, department, and goal
-- Be concise but intelligent — you are a professional AI, not a chatbot
+- Ask clarifying questions before generating, understand the context, department, and goal
+- Be concise but intelligent, you are a professional AI not a chatbot
 - When you have enough context, generate the simulations
 - After generating, offer to refine, adjust difficulty, or generate more
 - If the admin says something casual or unclear, ask a smart follow-up
 - Never generate immediately without at least understanding the basic intent
+- Do not use em dashes in your responses
 
 KEY QUESTIONS TO UNDERSTAND BEFORE GENERATING:
 - What department or user group is this for? (IT, HR, Finance, C-Suite, general staff?)
@@ -51,16 +51,15 @@ Each simulation object must have exactly these fields:
 }
 
 RULES:
-- Randomize simulation order — never group by category
-- Each scenario must be unique — different settings, attack vectors, emotional triggers
-- Vary perspective — mix You, named characters, role-based, team context
-- Create real tension — urgency, authority, fear, or curiosity
-- Wrong answers must be plausible — not obviously wrong
-- The foresightMeta is CRITICAL — fill it thoughtfully for every simulation
+- Randomize simulation order, never group by category
+- Each scenario must be unique, different settings, attack vectors, emotional triggers
+- Vary perspective, mix You, named characters, role-based, team context
+- Create real tension, urgency, authority, fear, or curiosity
+- Wrong answers must be plausible, not obviously wrong
+- The foresightMeta is CRITICAL, fill it thoughtfully for every simulation
 - Never skip foresightMeta fields`
 }
 
-// ── Detect if the AI response contains a JSON array ──
 function extractJSON(text) {
   try {
     const match = text.match(/\[[\s\S]*\]/)
@@ -131,6 +130,7 @@ function AddSimulation() {
   const [imageFile, setImageFile] = useState(null)
   const [correctOption, setCorrectOption] = useState(null)
   const [ariaOpen, setAriaOpen] = useState(false)
+  const [ariaMinimized, setAriaMinimized] = useState(false)
   const [expiryDate, setExpiryDate] = useState('')
   const [aiInput, setAiInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
@@ -138,12 +138,11 @@ function AddSimulation() {
   const [showGenerated, setShowGenerated] = useState(false)
   const [conversationHistory, setConversationHistory] = useState([])
   const [ariaGreeted, setAriaGreeted] = useState(false)
+  const [aiMessages, setAiMessages] = useState([])
   const chatEndRef = useRef(null)
   const inputRef = useRef(null)
 
   const adminFirstName = profile?.full_name?.split(' ')[0] || 'there'
-
-  const [aiMessages, setAiMessages] = useState([])
 
   const [formData, setFormData] = useState({
     scenarioName: '', question: '', category: 'Password Security',
@@ -159,15 +158,14 @@ function AddSimulation() {
   }, [])
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [aiMessages])
+    if (!ariaMinimized) chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [aiMessages, ariaMinimized])
 
-  // ── Greet when ARIA opens ──
   useEffect(() => {
     if (ariaOpen && !ariaGreeted && profile) {
       const greeting = {
         role: 'ai',
-        text: `Good to see you, ${adminFirstName}.\n\nI'm ARIA — your Risk Intelligence Assistant. I'm here to help you design cybersecurity simulations that go beyond basic awareness testing.\n\nBefore I generate anything, tell me — what are you working on? Who is this simulation for, and what kind of behavior are you trying to test?`,
+        text: `Good to see you, ${adminFirstName}.\n\nI'm ARIA, your Risk Intelligence Assistant. I'm here to help you design cybersecurity simulations that go beyond basic awareness testing.\n\nBefore I generate anything, tell me what are you working on? Who is this simulation for, and what kind of behavior are you trying to test?`,
       }
       setAiMessages([greeting])
       setConversationHistory([{ role: 'assistant', content: greeting.text }])
@@ -219,31 +217,25 @@ function AddSimulation() {
     const userMessage = aiInput.trim()
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
-
     setAiInput('')
     setAiLoading(true)
-
+    if (ariaMinimized) setAriaMinimized(false)
     const newUserMsg = { role: 'user', text: userMessage }
     const updatedMessages = [...aiMessages, newUserMsg]
     setAiMessages([...updatedMessages, { role: 'ai', text: '', loading: true }])
-
     const newHistory = [...conversationHistory, { role: 'user', content: userMessage }]
-
     try {
       const responseText = await callARIA(newHistory, adminFirstName, session.access_token)
       const parsed = extractJSON(responseText)
-
       const finalHistory = [...newHistory, { role: 'assistant', content: responseText }]
       setConversationHistory(finalHistory)
       setAiMessages(prev => prev.filter(m => !m.loading))
-
       if (parsed && Array.isArray(parsed) && parsed.length > 0) {
         const sims = parsed.map(shuffleSim)
-        setGeneratedSims(sims)
-        setShowGenerated(true)
+        setGeneratedSims(sims); setShowGenerated(true)
         setAiMessages(prev => [...prev, {
           role: 'ai',
-          text: `${sims.length} simulation${sims.length > 1 ? 's' : ''} generated and ready for review.\n\nEach question has been calibrated to test specific cognitive patterns. Review them below — I can refine, replace, or add more if needed.`,
+          text: `${sims.length} simulation${sims.length > 1 ? 's' : ''} generated and ready for review.\n\nEach question has been calibrated to test specific cognitive patterns. Review them below. I can refine, replace, or add more if needed.`,
         }])
       } else {
         setAiMessages(prev => [...prev, { role: 'ai', text: responseText }])
@@ -260,8 +252,7 @@ function AddSimulation() {
 
   function handleLoadToForm(sim) {
     setFormData({ scenarioName: sim.scenarioName, question: sim.question, category: sim.category, difficulty: sim.difficulty, options: sim.options, explanation: sim.explanation })
-    setCorrectOption(sim.correctIndex)
-    setAriaOpen(false)
+    setCorrectOption(sim.correctIndex); setAriaOpen(false); setAriaMinimized(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -308,7 +299,7 @@ function AddSimulation() {
       setGeneratedSims([]); setShowGenerated(false)
       setAiMessages(prev => [...prev, {
         role: 'ai',
-        text: `${rows.length} simulation${rows.length > 1 ? 's' : ''} saved successfully — including all Foresight metadata.\n\nWant to generate another batch, adjust difficulty, or focus on a different department?`,
+        text: `${rows.length} simulation${rows.length > 1 ? 's' : ''} saved successfully, including all Foresight metadata.\n\nWant to generate another batch, adjust difficulty, or focus on a different department?`,
       }])
     } catch (err) {
       setError('Something went wrong.')
@@ -319,6 +310,8 @@ function AddSimulation() {
 
   const inputClass = "w-full bg-white border border-gray-200 text-gray-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-gray-300"
   const labelClass = "text-gray-500 text-xs font-medium mb-1.5 block"
+
+  const unreadCount = aiMessages.filter(m => m.role === 'ai' && !m.loading).length
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: '#f8fafc' }}>
@@ -338,8 +331,8 @@ function AddSimulation() {
                   <p className="text-gray-400 text-xs mt-0.5">Create a new cybersecurity simulation question</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setAriaOpen(true)}
-                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg transition bg-violet-50 text-violet-600 hover:bg-violet-100 border border-violet-200">
+                  <button onClick={() => { setAriaOpen(true); setAriaMinimized(false) }}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg transition bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                     </svg>
@@ -370,7 +363,6 @@ function AddSimulation() {
               )}
 
               <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-
                 <div className="bg-white rounded-xl border border-gray-100 p-5">
                   <label className={labelClass}>Scenario Name <span className="text-red-400">*</span></label>
                   <input type="text" name="scenarioName" value={formData.scenarioName} onChange={handleChange}
@@ -474,7 +466,7 @@ function AddSimulation() {
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <p className="text-gray-800 text-sm font-semibold">{generatedSims.length} Simulation{generatedSims.length > 1 ? 's' : ''} Generated</p>
-                      <p className="text-gray-400 text-xs mt-0.5">Review each before saving — Foresight metadata included</p>
+                      <p className="text-gray-400 text-xs mt-0.5">Review each before saving. Foresight metadata included.</p>
                     </div>
                     <button onClick={handleSaveAll} disabled={loading}
                       className={`text-xs font-medium px-4 py-2 rounded-lg transition
@@ -483,9 +475,9 @@ function AddSimulation() {
                     </button>
                   </div>
 
-                  <div className="bg-violet-50 border border-violet-100 rounded-lg px-4 py-3 mb-4 flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-violet-400 flex-shrink-0" />
-                    <p className="text-violet-600 text-xs">All {generatedSims.length} simulations will be saved as a single batch with Foresight metadata for future analysis.</p>
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 mb-4 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                    <p className="text-blue-600 text-xs">All {generatedSims.length} simulations will be saved as a single batch with Foresight metadata for future analysis.</p>
                   </div>
 
                   <div className="flex flex-col gap-3">
@@ -507,12 +499,9 @@ function AddSimulation() {
                               )}
                             </div>
                             <div className="flex items-center gap-1.5 flex-shrink-0">
-                              <button onClick={() => handleLoadToForm(sim)}
-                                className="text-xs font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Load</button>
-                              <button onClick={() => handleRegenerateOne(index)} disabled={aiLoading}
-                                className="text-xs font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition disabled:opacity-40">Redo</button>
-                              <button onClick={() => handleDeleteGenerated(index)}
-                                className="text-xs font-medium px-2.5 py-1 rounded-md bg-red-50 text-red-400 hover:bg-red-100 transition">Delete</button>
+                              <button onClick={() => handleLoadToForm(sim)} className="text-xs font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Load</button>
+                              <button onClick={() => handleRegenerateOne(index)} disabled={aiLoading} className="text-xs font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition disabled:opacity-40">Redo</button>
+                              <button onClick={() => handleDeleteGenerated(index)} className="text-xs font-medium px-2.5 py-1 rounded-md bg-red-50 text-red-400 hover:bg-red-100 transition">Delete</button>
                             </div>
                           </div>
 
@@ -529,20 +518,13 @@ function AddSimulation() {
                             </div>
                           )}
 
-                          {/* Foresight metadata preview */}
                           {sim.foresightMeta && (
-                            <div className="mb-3 px-3 py-2.5 rounded-lg border border-violet-100 bg-violet-50/50">
-                              <p className="text-violet-600 text-xs font-medium mb-1.5">Foresight Intelligence</p>
+                            <div className="mb-3 px-3 py-2.5 rounded-lg border border-blue-100 bg-blue-50/50">
+                              <p className="text-blue-600 text-xs font-medium mb-1.5">Foresight Intelligence</p>
                               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                                {sim.foresightMeta.cognitivePattern && (
-                                  <p className="text-xs text-gray-500"><span className="text-gray-400">Pattern: </span>{sim.foresightMeta.cognitivePattern}</p>
-                                )}
-                                {sim.foresightMeta.riskVector && (
-                                  <p className="text-xs text-gray-500"><span className="text-gray-400">Risk: </span>{sim.foresightMeta.riskVector}</p>
-                                )}
-                                {sim.foresightMeta.behavioralIndicator && (
-                                  <p className="text-xs text-gray-500 col-span-2"><span className="text-gray-400">Indicator: </span>{sim.foresightMeta.behavioralIndicator}</p>
-                                )}
+                                {sim.foresightMeta.cognitivePattern && <p className="text-xs text-gray-500"><span className="text-gray-400">Pattern: </span>{sim.foresightMeta.cognitivePattern}</p>}
+                                {sim.foresightMeta.riskVector && <p className="text-xs text-gray-500"><span className="text-gray-400">Risk: </span>{sim.foresightMeta.riskVector}</p>}
+                                {sim.foresightMeta.behavioralIndicator && <p className="text-xs text-gray-500 col-span-2"><span className="text-gray-400">Indicator: </span>{sim.foresightMeta.behavioralIndicator}</p>}
                               </div>
                             </div>
                           )}
@@ -601,153 +583,236 @@ function AddSimulation() {
         </div>
       </div>
 
-      {/* ── ARIA Centered Modal ── */}
+      {/* ── ARIA Modal ── */}
       {ariaOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
-          onClick={e => { if (e.target === e.currentTarget) setAriaOpen(false) }}>
+        <>
+          {/* Backdrop - only show when not minimized */}
+          {!ariaMinimized && (
+            <div className="fixed inset-0 z-40"
+              style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+              onClick={() => setAriaMinimized(true)} />
+          )}
 
-          <div className="w-full max-w-lg flex flex-col rounded-2xl overflow-hidden shadow-2xl"
-            style={{
-              background: 'linear-gradient(180deg, #0a0a0f 0%, #0d0d1a 100%)',
-              border: '1px solid rgba(124,58,237,0.3)',
-              height: '620px',
-              boxShadow: '0 0 60px rgba(109,40,217,0.2), 0 25px 60px rgba(0,0,0,0.5)',
+          {/* Modal / Minimized pill */}
+          <div className={`fixed z-50 transition-all duration-300 ease-in-out`}
+            style={ariaMinimized ? {
+              bottom: '24px', right: '24px',
+              width: 'auto',
+            } : {
+              top: '50%', left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '100%',
+              maxWidth: '520px',
+              padding: '16px',
             }}>
 
-            {/* Top glow line */}
-            <div className="h-px w-full flex-shrink-0"
-              style={{ background: 'linear-gradient(90deg, transparent, #7c3aed, #4f46e5, transparent)' }} />
-
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 flex-shrink-0"
-              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-center gap-3">
+            {ariaMinimized ? (
+              /* Minimized pill */
+              <button onClick={() => setAriaMinimized(false)}
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl transition-all"
+                style={{
+                  background: 'linear-gradient(160deg, rgba(30,35,60,0.97) 0%, rgba(15,18,35,0.99) 100%)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(37,99,235,0.15)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                }}>
                 <div className="relative flex-shrink-0">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                    style={{ background: 'linear-gradient(135deg, #6d28d9, #4f46e5)', boxShadow: '0 0 20px rgba(109,40,217,0.4)' }}>
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', boxShadow: '0 0 14px rgba(59,130,246,0.4)' }}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                     </svg>
                   </div>
                   <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2"
-                    style={{ borderColor: '#0a0a0f' }} />
+                    style={{ borderColor: '#0f1223' }} />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-white text-sm font-semibold tracking-wide">ARIA</p>
-                    <span className="px-1.5 py-0.5 rounded text-xs font-medium"
-                      style={{ background: 'rgba(109,40,217,0.3)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.2)' }}>
-                      GPT-4o
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded text-xs font-medium"
-                      style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)' }}>
-                      Foresight Ready
-                    </span>
+                <div className="text-left">
+                  <p className="text-white text-xs font-semibold">ARIA</p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                    {aiLoading ? 'Thinking...' : 'Click to expand'}
+                  </p>
+                </div>
+                {aiLoading && (
+                  <div className="flex items-center gap-1 ml-1">
+                    {[0, 150, 300].map(delay => (
+                      <span key={delay} className="w-1 h-1 rounded-full animate-bounce"
+                        style={{ background: '#3b82f6', animationDelay: `${delay}ms` }} />
+                    ))}
                   </div>
-                  <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>Averion Risk Intelligence Assistant</p>
-                </div>
-              </div>
-              <button onClick={() => setAriaOpen(false)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center transition"
-                style={{ color: 'rgba(255,255,255,0.3)' }}
-                onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
-                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                )}
+                <div className="w-px h-5 mx-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
+                <button onClick={e => { e.stopPropagation(); setAriaOpen(false); setAriaMinimized(false) }}
+                  className="flex-shrink-0 transition"
+                  style={{ color: 'rgba(255,255,255,0.3)' }}
+                  onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </button>
-            </div>
+            ) : (
+              /* Full modal */
+              <div className="w-full flex flex-col rounded-2xl overflow-hidden"
+                style={{
+                  height: '620px',
+                  background: 'linear-gradient(160deg, rgba(30,35,60,0.97) 0%, rgba(15,18,35,0.99) 100%)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  boxShadow: '0 0 0 1px rgba(255,255,255,0.04), 0 30px 80px rgba(0,0,0,0.65), 0 0 50px rgba(37,99,235,0.1)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                }}>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4" style={{ scrollbarWidth: 'none' }}>
-              {aiMessages.map((msg, index) => (
-                <div key={index} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {msg.role === 'ai' && (
-                    <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                      style={{ background: 'linear-gradient(135deg, #6d28d9, #4f46e5)' }}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                      </svg>
+                {/* Top glow */}
+                <div className="h-px w-full flex-shrink-0"
+                  style={{ background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.8), rgba(99,102,241,0.5), transparent)' }} />
+
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 py-4 flex-shrink-0"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                  <div className="flex items-center gap-3">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                        style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', boxShadow: '0 0 20px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                        </svg>
+                      </div>
+                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2"
+                        style={{ borderColor: '#0f1223' }} />
                     </div>
-                  )}
-                  <div className={`px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-wrap
-                    ${msg.role === 'user' ? 'rounded-2xl rounded-tr-sm max-w-[75%]' : 'rounded-2xl rounded-tl-sm max-w-[85%]'}`}
-                    style={msg.role === 'user'
-                      ? { background: 'linear-gradient(135deg, #6d28d9, #4f46e5)', color: '#fff' }
-                      : msg.loading
-                        ? { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.3)' }
-                        : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.75)', border: '1px solid rgba(255,255,255,0.06)' }
-                    }>
-                    {msg.loading ? (
-                      <span className="flex items-center gap-1.5 py-0.5">
-                        {[0, 150, 300].map(delay => (
-                          <span key={delay} className="w-1.5 h-1.5 rounded-full animate-bounce"
-                            style={{ background: 'rgba(255,255,255,0.4)', animationDelay: `${delay}ms` }} />
-                        ))}
-                      </span>
-                    ) : msg.text}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-white text-sm font-semibold tracking-wide">ARIA</p>
+                        <span className="px-1.5 py-0.5 rounded text-xs font-medium"
+                          style={{ background: 'rgba(59,130,246,0.2)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.25)' }}>
+                          GPT-4o
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded text-xs font-medium"
+                          style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)' }}>
+                          Foresight Ready
+                        </span>
+                      </div>
+                      <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>Averion Risk Intelligence Assistant</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {/* Minimize */}
+                    <button onClick={() => setAriaMinimized(true)}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition"
+                      style={{ color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                      title="Minimize">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
+                      </svg>
+                    </button>
+                    {/* Close */}
+                    <button onClick={() => { setAriaOpen(false); setAriaMinimized(false) }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center transition"
+                      style={{ color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'rgba(239,68,68,0.15)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                      title="Close">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
-              ))}
-              <div ref={chatEndRef} />
-            </div>
 
-            {/* Suggested prompts — show only when no user messages yet */}
-            {aiMessages.length <= 1 && (
-              <div className="px-5 pb-3 flex flex-col gap-1.5 flex-shrink-0">
-                <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.2)' }}>Quick starts</p>
-                {[
-                  '5 phishing simulations for the finance team, hard difficulty',
-                  'Mix of social engineering and insider threat for HR',
-                  'Test urgency response and authority bias for all staff',
-                ].map((suggestion, i) => (
-                  <button key={i} onClick={() => setAiInput(suggestion)}
-                    className="text-left px-3 py-2 rounded-lg text-xs transition w-full"
-                    style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.45)', border: '1px solid rgba(255,255,255,0.06)' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(109,40,217,0.15)'; e.currentTarget.style.color = '#a78bfa' }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(255,255,255,0.45)' }}>
-                    → {suggestion}
-                  </button>
-                ))}
+                {/* Messages */}
+                <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4" style={{ scrollbarWidth: 'none' }}>
+                  {aiMessages.map((msg, index) => (
+                    <div key={index} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      {msg.role === 'ai' && (
+                        <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                          style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', boxShadow: '0 0 10px rgba(59,130,246,0.3)' }}>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                          </svg>
+                        </div>
+                      )}
+                      <div className={`px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-wrap
+                        ${msg.role === 'user' ? 'rounded-2xl rounded-tr-sm max-w-[75%]' : 'rounded-2xl rounded-tl-sm max-w-[85%]'}`}
+                        style={msg.role === 'user'
+                          ? { background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', color: '#fff', boxShadow: '0 4px 15px rgba(59,130,246,0.25)' }
+                          : msg.loading
+                            ? { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.3)' }
+                            : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)' }
+                        }>
+                        {msg.loading ? (
+                          <span className="flex items-center gap-1.5 py-0.5">
+                            {[0, 150, 300].map(delay => (
+                              <span key={delay} className="w-1.5 h-1.5 rounded-full animate-bounce"
+                                style={{ background: 'rgba(255,255,255,0.4)', animationDelay: `${delay}ms` }} />
+                            ))}
+                          </span>
+                        ) : msg.text}
+                      </div>
+                    </div>
+                  ))}
+                  <div ref={chatEndRef} />
+                </div>
+
+                {/* Suggested prompts */}
+                {aiMessages.length <= 1 && (
+                  <div className="px-5 pb-3 flex flex-col gap-1.5 flex-shrink-0">
+                    <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.2)' }}>Quick starts</p>
+                    {[
+                      '5 phishing simulations for the finance team, hard difficulty',
+                      'Mix of social engineering and insider threat for HR',
+                      'Test urgency response and authority bias for all staff',
+                    ].map((suggestion, i) => (
+                      <button key={i} onClick={() => setAiInput(suggestion)}
+                        className="text-left px-3 py-2 rounded-lg text-xs transition w-full"
+                        style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.07)' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; e.currentTarget.style.color = '#93c5fd'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)' }}>
+                        → {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Input */}
+                <div className="px-5 py-4 flex-shrink-0"
+                  style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                  <div className="flex items-end gap-3 rounded-xl px-4 py-3"
+                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+                    <textarea ref={inputRef} value={aiInput}
+                      onChange={e => { setAiInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 96) + 'px' }}
+                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAiSend() } }}
+                      placeholder="Tell ARIA what you need..."
+                      rows={1} disabled={aiLoading}
+                      className="flex-1 bg-transparent text-sm outline-none resize-none"
+                      style={{ color: 'rgba(255,255,255,0.85)', caretColor: '#3b82f6', minHeight: '20px', maxHeight: '96px', scrollbarWidth: 'none' }} />
+                    <button onClick={handleAiSend} disabled={aiLoading || !aiInput.trim()}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+                      style={aiLoading || !aiInput.trim()
+                        ? { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }
+                        : { background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', color: '#fff', boxShadow: '0 0 20px rgba(59,130,246,0.45)' }}>
+                      {aiLoading
+                        ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        : <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" /></svg>
+                      }
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>Enter to send · Shift+Enter for newline</p>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>Foresight metadata enabled</p>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             )}
-
-            {/* Input */}
-            <div className="px-5 py-4 flex-shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-end gap-3 rounded-xl px-4 py-3"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <textarea ref={inputRef} value={aiInput}
-                  onChange={e => { setAiInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 96) + 'px' }}
-                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAiSend() } }}
-                  placeholder="Tell ARIA what you need..."
-                  rows={1} disabled={aiLoading}
-                  className="flex-1 bg-transparent text-sm outline-none resize-none"
-                  style={{ color: 'rgba(255,255,255,0.85)', caretColor: '#7c3aed', minHeight: '20px', maxHeight: '96px', scrollbarWidth: 'none' }} />
-                <button onClick={handleAiSend} disabled={aiLoading || !aiInput.trim()}
-                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
-                  style={aiLoading || !aiInput.trim()
-                    ? { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }
-                    : { background: 'linear-gradient(135deg, #6d28d9, #4f46e5)', color: '#fff', boxShadow: '0 0 16px rgba(109,40,217,0.5)' }}>
-                  {aiLoading ? (
-                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-              <div className="flex items-center justify-between mt-2">
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>Enter to send · Shift+Enter for newline</p>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>Foresight metadata enabled</p>
-                </div>
-              </div>
-            </div>
           </div>
-        </div>
+        </>
       )}
 
     </div>
