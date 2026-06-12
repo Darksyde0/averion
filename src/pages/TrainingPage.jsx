@@ -1,4 +1,3 @@
-// TrainingPage.jsx
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/dashboard/Sidebar'
@@ -18,23 +17,27 @@ const categoryIcons = {
   'Mobile Security': <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" /></svg>,
   'Cloud Security': <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" /></svg>,
   'Zero-Day Awareness': <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" /></svg>,
+  'Office Safety': <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /></svg>,
 }
 
 const defaultIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0118 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
 
-const categoryColors = {
-  'Phishing Detection': '#3b82f6',
-  'Password Security': '#10b981',
-  'Social Engineering': '#ef4444',
-  'Data Privacy': '#8b5cf6',
-  'Network Security': '#06b6d4',
-  'Ransomware': '#f59e0b',
-  'USB & Physical Security': '#6b7280',
-  'Insider Threat': '#ec4899',
-  'Email Security': '#3b82f6',
-  'Mobile Security': '#14b8a6',
-  'Cloud Security': '#0ea5e9',
-  'Zero-Day Awareness': '#f97316',
+const colorPalette = [
+  '#2563eb', '#059669', '#dc2626', '#7c3aed',
+  '#0891b2', '#d97706', '#475569', '#db2777',
+  '#0d9488', '#0284c7', '#ea580c', '#65a30d',
+  '#9333ea', '#0369a1', '#b45309', '#be185d',
+]
+
+function getModuleColor(id, index) {
+  const str = String(id)
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i)
+    hash |= 0
+  }
+  const combined = Math.abs(hash) + (index * 137)
+  return colorPalette[combined % colorPalette.length]
 }
 
 function statusStyle(status) {
@@ -83,9 +86,9 @@ function TrainingPage() {
         .select('module_id, quiz_completed').eq('user_id', user.id).in('module_id', moduleIds)
 
       const progressMap = {}
-        ; (progress || []).forEach(p => {
-          if (!progressMap[p.module_id] || p.quiz_completed === true) progressMap[p.module_id] = p.quiz_completed
-        })
+      ;(progress || []).forEach(p => {
+        if (!progressMap[p.module_id] || p.quiz_completed === true) progressMap[p.module_id] = p.quiz_completed
+      })
 
       const completedIds = Object.entries(progressMap).filter(([, done]) => done === true).map(([id]) => id)
       const inProgressIds = Object.entries(progressMap).filter(([, done]) => done === false).map(([id]) => id)
@@ -94,11 +97,11 @@ function TrainingPage() {
       setInProgressCount(inProgressIds.length)
       setTotalPoints(completedIds.length * 100)
 
-      setModules(modulesData.map(m => ({
+      setModules(modulesData.map((m, index) => ({
         id: m.id, title: m.name, description: m.description,
         category: m.category, estimatedTime: m.estimated_time,
         status: completedIds.includes(m.id) ? 'completed' : inProgressIds.includes(m.id) ? 'in-progress' : 'new',
-        color: categoryColors[m.category] || '#3b82f6',
+        color: getModuleColor(m.id, index),
         icon: categoryIcons[m.category] || defaultIcon,
       })))
     } catch (err) {
@@ -133,9 +136,12 @@ function TrainingPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
             <div className="bg-white border border-gray-100 rounded-xl px-4 py-3">
               <p className="text-gray-400 text-xs mb-1.5">Overall Progress</p>
-              <p className="text-gray-900 text-2xl font-bold mb-1.5">{completionPercent}<span className="text-gray-400 text-sm font-medium ml-0.5">%</span></p>
+              <p className="text-gray-900 text-2xl font-bold mb-1.5">
+                {completionPercent}<span className="text-gray-400 text-sm font-medium ml-0.5">%</span>
+              </p>
               <div className="w-full bg-gray-100 rounded-full h-1">
-                <div className="bg-blue-500 h-1 rounded-full transition-all duration-500" style={{ width: `${completionPercent}%` }} />
+                <div className="bg-blue-500 h-1 rounded-full transition-all duration-500"
+                  style={{ width: `${completionPercent}%` }} />
               </div>
             </div>
             <div className="bg-white border border-gray-100 rounded-xl px-4 py-3">
@@ -181,7 +187,7 @@ function TrainingPage() {
               <p className="text-gray-400 text-sm">
                 {filter === 'all' ? 'No modules available yet.'
                   : filter === 'new' ? 'No unstarted modules.'
-                    : `No ${filter.replace('-', ' ')} modules.`}
+                  : `No ${filter.replace('-', ' ')} modules.`}
               </p>
             </div>
           ) : (
@@ -191,7 +197,10 @@ function TrainingPage() {
                 return (
                   <div key={mod.id}
                     className="rounded-xl p-5 flex flex-col gap-3 hover:shadow-md transition cursor-pointer"
-                    style={{ background: `linear-gradient(135deg, ${mod.color}22 0%, ${mod.color}11 100%)`, border: `1px solid ${mod.color}22` }}
+                    style={{
+                      background: `linear-gradient(135deg, ${mod.color}18 0%, ${mod.color}08 100%)`,
+                      border: `1px solid ${mod.color}35`,
+                    }}
                     onClick={() => mod.status !== 'completed' && navigate(`/training/${mod.id}`)}>
 
                     {/* Top */}
@@ -209,21 +218,24 @@ function TrainingPage() {
                     {/* Info */}
                     <div className="flex-1">
                       <p className="text-gray-800 text-sm font-semibold mb-0.5 leading-snug">{mod.title}</p>
-                      <p className="text-gray-400 text-xs line-clamp-2 leading-relaxed">{mod.description}</p>
+                      <p className="text-gray-500 text-xs line-clamp-2 leading-relaxed">{mod.description}</p>
                     </div>
 
                     {/* Footer */}
-                    <div className="flex items-center justify-between pt-2" style={{ borderTop: `1px solid ${mod.color}20` }}>
+                    <div className="flex items-center justify-between pt-2"
+                      style={{ borderTop: `1px solid ${mod.color}25` }}>
                       <div className="flex items-center gap-3">
-                        <span className="text-gray-400 text-xs">{mod.estimatedTime}m</span>
+                        <span className="text-gray-500 text-xs">{mod.estimatedTime}m</span>
                         <span className="text-gray-300">·</span>
-                        <span className="text-gray-400 text-xs truncate">{mod.category}</span>
+                        <span className="text-gray-500 text-xs truncate">{mod.category}</span>
                       </div>
                       {mod.status === 'completed' ? (
                         <span className="text-xs font-medium" style={{ color: mod.color }}>✓ Done</span>
                       ) : (
-                        <button onClick={e => { e.stopPropagation(); navigate(`/training/${mod.id}`) }}
-                          className="text-xs font-medium transition" style={{ color: mod.color }}>
+                        <button
+                          onClick={e => { e.stopPropagation(); navigate(`/training/${mod.id}`) }}
+                          className="text-xs font-semibold transition hover:opacity-80"
+                          style={{ color: mod.color }}>
                           {mod.status === 'in-progress' ? 'Continue →' : 'Start →'}
                         </button>
                       )}
