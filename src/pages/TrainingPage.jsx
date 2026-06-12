@@ -83,9 +83,9 @@ function TrainingPage() {
         .select('module_id, quiz_completed').eq('user_id', user.id).in('module_id', moduleIds)
 
       const progressMap = {}
-      ;(progress || []).forEach(p => {
-        if (!progressMap[p.module_id] || p.quiz_completed === true) progressMap[p.module_id] = p.quiz_completed
-      })
+        ; (progress || []).forEach(p => {
+          if (!progressMap[p.module_id] || p.quiz_completed === true) progressMap[p.module_id] = p.quiz_completed
+        })
 
       const completedIds = Object.entries(progressMap).filter(([, done]) => done === true).map(([id]) => id)
       const inProgressIds = Object.entries(progressMap).filter(([, done]) => done === false).map(([id]) => id)
@@ -181,7 +181,7 @@ function TrainingPage() {
               <p className="text-gray-400 text-sm">
                 {filter === 'all' ? 'No modules available yet.'
                   : filter === 'new' ? 'No unstarted modules.'
-                  : `No ${filter.replace('-', ' ')} modules.`}
+                    : `No ${filter.replace('-', ' ')} modules.`}
               </p>
             </div>
           ) : (
@@ -190,13 +190,14 @@ function TrainingPage() {
                 const ss = statusStyle(mod.status)
                 return (
                   <div key={mod.id}
-                    className="bg-white border border-gray-100 rounded-xl p-4 hover:border-gray-200 hover:shadow-sm transition cursor-pointer flex flex-col gap-3"
+                    className="rounded-xl p-5 flex flex-col gap-3 hover:shadow-md transition cursor-pointer"
+                    style={{ background: `linear-gradient(135deg, ${mod.color}22 0%, ${mod.color}11 100%)`, border: `1px solid ${mod.color}22` }}
                     onClick={() => mod.status !== 'completed' && navigate(`/training/${mod.id}`)}>
 
                     {/* Top */}
                     <div className="flex items-start justify-between gap-2">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-100"
-                        style={{ color: mod.color }}>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: `${mod.color}20`, color: mod.color }}>
                         {mod.icon}
                       </div>
                       <span className="text-xs font-medium px-2 py-0.5 rounded-md flex-shrink-0"
@@ -212,17 +213,17 @@ function TrainingPage() {
                     </div>
 
                     {/* Footer */}
-                    <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                    <div className="flex items-center justify-between pt-2" style={{ borderTop: `1px solid ${mod.color}20` }}>
                       <div className="flex items-center gap-3">
                         <span className="text-gray-400 text-xs">{mod.estimatedTime}m</span>
                         <span className="text-gray-300">·</span>
                         <span className="text-gray-400 text-xs truncate">{mod.category}</span>
                       </div>
                       {mod.status === 'completed' ? (
-                        <span className="text-emerald-500 text-xs font-medium">✓ Done</span>
+                        <span className="text-xs font-medium" style={{ color: mod.color }}>✓ Done</span>
                       ) : (
                         <button onClick={e => { e.stopPropagation(); navigate(`/training/${mod.id}`) }}
-                          className="text-xs font-medium text-gray-500 hover:text-gray-800 transition">
+                          className="text-xs font-medium transition" style={{ color: mod.color }}>
                           {mod.status === 'in-progress' ? 'Continue →' : 'Start →'}
                         </button>
                       )}
