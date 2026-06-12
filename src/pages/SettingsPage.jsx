@@ -470,7 +470,7 @@ function SettingsPage() {
                       <div className="flex items-center justify-between py-2.5 border-b border-gray-50 opacity-40">
                         <div>
                           <p className="text-gray-700 text-xs font-medium">Show my progress to admin</p>
-                          <p className="text-gray-400 text-xs mt-0.5">Cannot be changed — always visible to your administrator</p>
+                          <p className="text-gray-400 text-xs mt-0.5">Cannot be changed, always visible to your administrator</p>
                         </div>
                         <LockedToggle on={true} />
                       </div>
