@@ -47,7 +47,7 @@ function Sidebar({ isOpen }) {
         {isOpen ? (
           <img src="/images/logo.svg" alt="Averion" className="h-7 w-auto" />
         ) : (
-          <img src="/images/logo.png" alt="Averion" className="h-6 w-6 object-contain" />
+          <img src="/images/favicon.svg" alt="A" className="h-7 w-7 object-contain" />
         )}
       </div>
 

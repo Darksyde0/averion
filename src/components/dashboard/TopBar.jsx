@@ -9,8 +9,7 @@ function TopBar({ onMenuClick }) {
 
       {/* Hamburger */}
       <button onClick={onMenuClick}
-        className="text-gray-500 hover:text-white transition p-1.5 rounded-lg"
-        style={{ ':hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
+        className="text-gray-500 hover:text-white transition p-1.5 rounded-lg">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
         </svg>
@@ -22,7 +21,13 @@ function TopBar({ onMenuClick }) {
           <p className="text-white text-xs font-medium leading-tight">
             {profile?.full_name || 'Loading...'}
           </p>
-          <p className="text-gray-500 text-xs leading-tight">User</p>
+          <div className="flex items-center justify-end gap-1.5 mt-0.5">
+            <div className="relative flex items-center justify-center w-2.5 h-2.5 flex-shrink-0">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-60 animate-ping" />
+              <span className="relative inline-flex w-1.5 h-1.5 rounded-full bg-green-400" />
+            </div>
+            <p className="text-gray-500 text-xs leading-tight">User</p>
+          </div>
         </div>
         <div className="w-7 h-7 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center flex-shrink-0"
           style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
