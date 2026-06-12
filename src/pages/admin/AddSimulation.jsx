@@ -5,59 +5,133 @@ import AdminTopBar from '../../components/admin/AdminTopBar'
 import { useProfile } from '../../hooks/useProfile'
 import { supabase } from '../../supabaseClient'
 
+// ── Cognitive Vulnerability Taxonomy ──
+const VULNERABILITY_TYPES = [
+  'Authority Compliance',
+  'Urgency Susceptibility',
+  'Social Proof Bias',
+  'Fear Response',
+  'Curiosity Exploitation',
+  'Trust Exploitation',
+  'Reciprocity Bias',
+  'Scarcity Bias',
+  'Overconfidence',
+]
+
+const DESIGN_INTENTS = [
+  'Recognition',
+  'Decision Under Pressure',
+  'Authority Challenge',
+  'Emotional Resistance',
+  'Verification Habit',
+  'Second Exposure',
+  'Trap Question',
+]
+
 function buildAriaSystemPrompt(adminName) {
-  return `You are ARIA, Averion's Risk Intelligence Assistant. You are a sophisticated cybersecurity simulation designer with deep expertise in behavioral psychology, threat intelligence, and security awareness training.
+  return `You are ARIA, Averion's Risk Intelligence Assistant. You are a cognitive security expert who designs psychologically calibrated simulation assessments. Your purpose is not to test knowledge but to expose behavioral vulnerabilities.
 
-You are having a conversation with ${adminName}, a cybersecurity administrator. Your role is twofold:
-1. Have a natural, intelligent conversation to understand exactly what kind of simulations they need
-2. Generate psychologically calibrated simulation questions that reveal behavioral vulnerabilities, not just knowledge gaps
+You are speaking with ${adminName}, a cybersecurity administrator. Your conversation has two phases:
 
-CONVERSATION BEHAVIOR:
-- Greet the admin warmly by their first name on first message
-- Ask clarifying questions before generating, understand the context, department, and goal
-- Be concise but intelligent, you are a professional AI not a chatbot
-- When you have enough context, generate the simulations
-- After generating, offer to refine, adjust difficulty, or generate more
-- If the admin says something casual or unclear, ask a smart follow-up
-- Never generate immediately without at least understanding the basic intent
-- Do not use em dashes in your responses
+PHASE 1 - INTAKE (before generating anything):
+Have a focused professional conversation to understand:
+1. Who is this assessment for? (department, seniority, technical background)
+2. What is the goal? (broad vulnerability mapping or deep assessment of a specific pattern)
+3. Has this group been assessed before? (if yes, design retests with different framings)
+4. What threat landscape is most relevant? (Finance faces BEC, HR faces social engineering, IT faces technical pretexting)
+5. How many questions are needed?
 
-KEY QUESTIONS TO UNDERSTAND BEFORE GENERATING:
-- What department or user group is this for? (IT, HR, Finance, C-Suite, general staff?)
-- What threat level are you targeting? (awareness, recognition, behavioral testing?)
-- Should questions test: knowledge recognition, real-time decision making, or behavioral impulse?
-- How cognitively challenging should the distractors be?
+Only move to generation when you have enough context. Ask at most 2-3 questions at a time. Be concise and professional.
 
-WHEN GENERATING SIMULATIONS, return ONLY a valid JSON array. No markdown, no backticks, no explanation outside the JSON.
+PHASE 2 - GENERATION:
+Generate a batch of questions as a coordinated diagnostic instrument, not random scenarios.
+
+COGNITIVE VULNERABILITY TAXONOMY:
+Every question must map to exactly one of these:
+- Authority Compliance: follows instructions from perceived authority without verification
+- Urgency Susceptibility: makes poor decisions under time pressure
+- Social Proof Bias: acts because others are doing it
+- Fear Response: acts irrationally when threatened with negative consequences
+- Curiosity Exploitation: clicks or opens things out of curiosity
+- Trust Exploitation: over-trusts familiar names, brands, or internal senders
+- Reciprocity Bias: feels obligated to return a favour
+- Scarcity Bias: acts fast when something is limited or expiring
+- Overconfidence: dismisses threats because they feel too experienced to be fooled
+
+DESIGN INTENT TYPES:
+Every question must have one of these intents:
+- Recognition: can the user identify the threat at all?
+- Decision Under Pressure: do they make the right call when rushed?
+- Authority Challenge: do they push back on a perceived authority figure?
+- Emotional Resistance: do they stay rational when scared or excited?
+- Verification Habit: do they instinctively verify before acting?
+- Second Exposure: same vulnerability, completely different framing (retest)
+- Trap Question: appears safe but contains a subtle hidden threat
+
+BATCH ARCHITECTURE RULES:
+- No two questions use the same scenario setting (office, email, phone call, USB, login page, Slack, Teams, physical access, etc.)
+- No two consecutive questions test the same vulnerability
+- Retest questions (Second Exposure) must be spaced at least 4 questions apart from the original
+- Difficulty must be distributed: roughly 25% Easy, 50% Medium, 25% Hard
+- Pressure levels must vary: Low, Medium, High distributed across the batch
+- For batches over 20 questions, cycle through all 9 vulnerability types at least twice
+- For batches over 35 questions, every vulnerability type must appear at least 3 times
+- Trap questions should appear no more than 15% of the batch
+- Wrong answers must represent specific failure modes, not just incorrect information
+
+WRONG ANSWER DESIGN:
+Each wrong option must map to a distinct failure mode. For example:
+Scenario: Suspicious email from CEO asking for urgent wire transfer
+- Correct: Verify through a separate known channel before taking any action
+- Wrong A (failure: trusts the channel): Reply to the email asking for confirmation
+- Wrong B (failure: uses attacker contact): Call the number provided in the email
+- Wrong C (failure: acts before resolution): Forward to IT but still initiate the transfer
+
+SCENARIO VARIETY REQUIREMENTS:
+Distribute scenarios across these settings. Never repeat a setting consecutively:
+Email, Slack/Teams message, Phone call, USB device found, Login page, Physical access request,
+QR code, Software update prompt, IT support request, Invoice/payment request,
+Password reset, Shared document link, Badge access, Public WiFi, Vendor communication
+
+WHEN GENERATING, return ONLY a valid JSON array. No markdown, no backticks, no explanation.
 
 Each simulation object must have exactly these fields:
 {
-  "scenarioName": "string",
-  "question": "string - rich, detailed, multi-sentence real-world scenario with context, urgency, emotions, or time pressure. Minimum 3-4 sentences. Design it to trigger a specific cognitive or emotional response.",
-  "category": "string - one of: Phishing Detection, Password Security, Social Engineering, Data Privacy, Network Security, Ransomware, USB & Physical Security, Insider Threat, Email Security, Mobile Security, Cloud Security, Zero-Day Awareness",
+  "scenarioName": "string - unique descriptive name",
+  "question": "string - rich detailed scenario minimum 4 sentences. Include specific names, company context, emotional pressure, and a clear decision point. Make it feel completely real.",
+  "category": "string - one of: Phishing Detection, Password Security, Social Engineering, Data Privacy, Network Security, Ransomware, USB and Physical Security, Insider Threat, Email Security, Mobile Security, Cloud Security, Zero-Day Awareness",
   "difficulty": "string - Easy, Medium, or Hard",
+  "pressureLevel": "string - Low, Medium, or High",
   "options": ["option1", "option2", "option3", "option4"],
   "correctIndex": number 0-3,
-  "explanation": "string - educational explanation covering why the correct answer is right, what red flags were present, and why wrong answers are wrong",
+  "explanation": "string - explain why the correct answer is right, identify every red flag in the scenario, and explain what each wrong answer reveals about the user",
   "threatLevel": "string - Low, Medium, High, or Critical",
-  "attackTechnique": "string - specific attack method e.g. Spear Phishing, Pretexting, Credential Harvesting, Vishing, MFA Fatigue, Business Email Compromise",
-  "learningObjective": "string - one clear sentence: what behavioral insight this question tests",
+  "attackTechnique": "string - specific technique name",
+  "learningObjective": "string - one sentence on what behavioral insight this question tests",
+  "scenarioSetting": "string - the setting used e.g. Email, Phone Call, Slack Message",
   "foresightMeta": {
-    "cognitivePattern": "string - what cognitive vulnerability this tests e.g. Authority Bias, Urgency Response, Trust Exploitation, Fear Reaction, Curiosity Exploitation, Social Pressure",
-    "behavioralIndicator": "string - what a wrong answer reveals about the user e.g. susceptible to authority figures, acts impulsively under time pressure, over-trusts internal senders",
-    "riskVector": "string - the primary risk dimension e.g. Impulsive Decision Making, Lack of Verification Habit, Overconfidence, Social Compliance",
-    "dataValue": "string - what Foresight can learn from this question's responses e.g. measures urgency susceptibility, tracks authority compliance rate"
+    "vulnerabilityType": "string - exactly one from the taxonomy above",
+    "designIntent": "string - exactly one from the design intent types above",
+    "retestOf": "string or null - if this is a Second Exposure question, name the vulnerability it retests. Otherwise null.",
+    "failureModes": {
+      "option0": "string - what choosing option 0 reveals about the user if wrong, or Correct Answer if this is the correct option",
+      "option1": "string - what choosing option 1 reveals about the user if wrong, or Correct Answer if this is the correct option",
+      "option2": "string - what choosing option 2 reveals about the user if wrong, or Correct Answer if this is the correct option",
+      "option3": "string - what choosing option 3 reveals about the user if wrong, or Correct Answer if this is the correct option"
+    },
+    "cognitiveLoad": "string - Low, Medium, or High - how much mental effort this question requires",
+    "trapQuestion": "boolean - true if this is a trap question",
+    "dataValue": "string - what Foresight learns from responses to this question across all users"
   }
 }
 
-RULES:
-- Randomize simulation order, never group by category
-- Each scenario must be unique, different settings, attack vectors, emotional triggers
-- Vary perspective, mix You, named characters, role-based, team context
-- Create real tension, urgency, authority, fear, or curiosity
-- Wrong answers must be plausible, not obviously wrong
-- The foresightMeta is CRITICAL, fill it thoughtfully for every simulation
-- Never skip foresightMeta fields`
+CRITICAL RULES:
+- Never use em dashes in any text
+- Every scenario must feel like something that could genuinely happen today
+- Wrong answers must be psychologically plausible, never obviously wrong
+- The foresightMeta must be filled with precision, not generically
+- Batch questions must form a coherent diagnostic instrument when read together
+- Always randomize the correctIndex position so correct answers are not always the same option`
 }
 
 function extractJSON(text) {
@@ -68,14 +142,22 @@ function extractJSON(text) {
   return null
 }
 
-async function callARIA(messages, adminName, accessToken) {
+// ── Detect batch size from conversation ──
+function extractBatchSize(messages) {
+  const text = messages.map(m => m.content || m.text || '').join(' ').toLowerCase()
+  const match = text.match(/\b(\d+)\s*(question|simulation|q\b)/i)
+  if (match) return parseInt(match[1])
+  return 10
+}
+
+async function callARIA(messages, adminName, accessToken, batchSize = 10) {
   const systemPrompt = buildAriaSystemPrompt(adminName)
   const response = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-simulations`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
-      body: JSON.stringify({ messages, systemPrompt }),
+      body: JSON.stringify({ messages, systemPrompt, batchSize }),
     }
   )
   const data = await response.json()
@@ -86,7 +168,22 @@ async function callARIA(messages, adminName, accessToken) {
 function shuffleSim(sim) {
   const correct = sim.options[sim.correctIndex]
   const shuffled = [...sim.options].sort(() => Math.random() - 0.5)
-  return { ...sim, options: shuffled, correctIndex: shuffled.indexOf(correct) }
+  const newIndex = shuffled.indexOf(correct)
+
+  // Update failureModes keys to match new positions
+  let newForesightMeta = sim.foresightMeta
+  if (sim.foresightMeta?.failureModes) {
+    const oldKeys = ['option0', 'option1', 'option2', 'option3']
+    const oldModes = sim.foresightMeta.failureModes
+    const newModes = {}
+    shuffled.forEach((opt, newPos) => {
+      const oldPos = sim.options.indexOf(opt)
+      newModes[`option${newPos}`] = oldModes[`option${oldPos}`] || ''
+    })
+    newForesightMeta = { ...sim.foresightMeta, failureModes: newModes }
+  }
+
+  return { ...sim, options: shuffled, correctIndex: newIndex, foresightMeta: newForesightMeta }
 }
 
 function generateBatchId() {
@@ -109,6 +206,21 @@ function difficultyColor(d) {
   if (d === 'Medium') return { bg: '#fefce8', text: '#ca8a04' }
   if (d === 'Hard') return { bg: '#fef2f2', text: '#dc2626' }
   return { bg: '#f9fafb', text: '#6b7280' }
+}
+
+function vulnerabilityColor(v) {
+  const map = {
+    'Authority Compliance': { bg: '#eff6ff', text: '#1d4ed8' },
+    'Urgency Susceptibility': { bg: '#fff7ed', text: '#c2410c' },
+    'Social Proof Bias': { bg: '#f5f3ff', text: '#6d28d9' },
+    'Fear Response': { bg: '#fef2f2', text: '#dc2626' },
+    'Curiosity Exploitation': { bg: '#ecfdf5', text: '#065f46' },
+    'Trust Exploitation': { bg: '#fefce8', text: '#92400e' },
+    'Reciprocity Bias': { bg: '#fdf4ff', text: '#86198f' },
+    'Scarcity Bias': { bg: '#fff1f2', text: '#be123c' },
+    'Overconfidence': { bg: '#f0f9ff', text: '#0369a1' },
+  }
+  return map[v] || { bg: '#f9fafb', text: '#6b7280' }
 }
 
 function isExpiringSoon(dateStr) {
@@ -139,6 +251,7 @@ function AddSimulation() {
   const [conversationHistory, setConversationHistory] = useState([])
   const [ariaGreeted, setAriaGreeted] = useState(false)
   const [aiMessages, setAiMessages] = useState([])
+  const [expandedSim, setExpandedSim] = useState(null)
   const chatEndRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -165,7 +278,7 @@ function AddSimulation() {
     if (ariaOpen && !ariaGreeted && profile) {
       const greeting = {
         role: 'ai',
-        text: `Good to see you, ${adminFirstName}.\n\nI'm ARIA, your Risk Intelligence Assistant. I'm here to help you design cybersecurity simulations that go beyond basic awareness testing.\n\nBefore I generate anything, tell me what are you working on? Who is this simulation for, and what kind of behavior are you trying to test?`,
+        text: `Good to see you, ${adminFirstName}.\n\nI'm ARIA, your cognitive security assessment designer. I don't just generate questions. I build diagnostic instruments that reveal how people actually behave under threat, not just what they know.\n\nBefore I design anything, I need to understand your assessment goals. Who is this for and what are you trying to find out about them?`,
       }
       setAiMessages([greeting])
       setConversationHistory([{ role: 'assistant', content: greeting.text }])
@@ -220,22 +333,38 @@ function AddSimulation() {
     setAiInput('')
     setAiLoading(true)
     if (ariaMinimized) setAriaMinimized(false)
+
     const newUserMsg = { role: 'user', text: userMessage }
-    const updatedMessages = [...aiMessages, newUserMsg]
-    setAiMessages([...updatedMessages, { role: 'ai', text: '', loading: true }])
+    setAiMessages(prev => [...prev, newUserMsg, { role: 'ai', text: '', loading: true }])
     const newHistory = [...conversationHistory, { role: 'user', content: userMessage }]
+    const batchSize = extractBatchSize(newHistory)
+
     try {
-      const responseText = await callARIA(newHistory, adminFirstName, session.access_token)
+      const responseText = await callARIA(newHistory, adminFirstName, session.access_token, batchSize)
       const parsed = extractJSON(responseText)
       const finalHistory = [...newHistory, { role: 'assistant', content: responseText }]
       setConversationHistory(finalHistory)
       setAiMessages(prev => prev.filter(m => !m.loading))
+
       if (parsed && Array.isArray(parsed) && parsed.length > 0) {
         const sims = parsed.map(shuffleSim)
-        setGeneratedSims(sims); setShowGenerated(true)
+        setGeneratedSims(sims)
+        setShowGenerated(true)
+
+        // Build vulnerability breakdown summary
+        const vulnCounts = {}
+        sims.forEach(s => {
+          const v = s.foresightMeta?.vulnerabilityType || 'Unknown'
+          vulnCounts[v] = (vulnCounts[v] || 0) + 1
+        })
+        const vulnSummary = Object.entries(vulnCounts)
+          .sort((a, b) => b[1] - a[1])
+          .map(([v, c]) => `${c}x ${v}`)
+          .join(', ')
+
         setAiMessages(prev => [...prev, {
           role: 'ai',
-          text: `${sims.length} simulation${sims.length > 1 ? 's' : ''} generated and ready for review.\n\nEach question has been calibrated to test specific cognitive patterns. Review them below. I can refine, replace, or add more if needed.`,
+          text: `${sims.length} diagnostic question${sims.length > 1 ? 's' : ''} generated.\n\nVulnerability coverage: ${vulnSummary}\n\nReview each question below. I can regenerate specific ones, adjust difficulty distribution, or add more questions targeting a specific vulnerability.`,
         }])
       } else {
         setAiMessages(prev => [...prev, { role: 'ai', text: responseText }])
@@ -248,11 +377,15 @@ function AddSimulation() {
     }
   }
 
-  function handleDeleteGenerated(index) { setGeneratedSims(prev => prev.filter((_, i) => i !== index)) }
+  function handleDeleteGenerated(index) {
+    setGeneratedSims(prev => prev.filter((_, i) => i !== index))
+    if (expandedSim === index) setExpandedSim(null)
+  }
 
   function handleLoadToForm(sim) {
     setFormData({ scenarioName: sim.scenarioName, question: sim.question, category: sim.category, difficulty: sim.difficulty, options: sim.options, explanation: sim.explanation })
-    setCorrectOption(sim.correctIndex); setAriaOpen(false); setAriaMinimized(false)
+    setCorrectOption(sim.correctIndex)
+    setAriaOpen(false); setAriaMinimized(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -261,12 +394,22 @@ function AddSimulation() {
     if (!session) return
     const sim = generatedSims[index]
     setRegenError(''); setAiLoading(true)
+
+    // Build used settings tracker
+    const usedSettings = generatedSims
+      .filter((_, i) => i !== index)
+      .map(s => s.scenarioSetting)
+      .filter(Boolean)
+
     try {
       const regenHistory = [
         ...conversationHistory,
-        { role: 'user', content: `Regenerate simulation #${index + 1} (${sim.scenarioName}) with a completely different scenario, same category: ${sim.category}. Return only a JSON array with 1 simulation.` }
+        {
+          role: 'user',
+          content: `Regenerate question #${index + 1} which tested "${sim.foresightMeta?.vulnerabilityType || sim.category}". The new question must be completely different in scenario, setting, and emotional trigger. Do not use any of these settings that are already in the batch: ${usedSettings.join(', ')}. Return only a JSON array with exactly 1 question.`
+        }
       ]
-      const responseText = await callARIA(regenHistory, adminFirstName, session.access_token)
+      const responseText = await callARIA(regenHistory, adminFirstName, session.access_token, 1)
       const parsed = extractJSON(responseText)
       if (parsed && Array.isArray(parsed) && parsed[0]) {
         setGeneratedSims(prev => prev.map((s, i) => i === index ? shuffleSim(parsed[0]) : s))
@@ -284,14 +427,24 @@ function AddSimulation() {
     try {
       const batchId = generateBatchId()
       const rows = generatedSims.map(sim => ({
-        scenario_name: sim.scenarioName, question: sim.question, category: sim.category,
-        difficulty: sim.difficulty, type: 'text', image_url: null, options: sim.options,
-        correct_index: sim.correctIndex, explanation: sim.explanation, hidden: false,
-        organization_id: profile.id, batch_id: batchId,
+        scenario_name: sim.scenarioName,
+        question: sim.question,
+        category: sim.category,
+        difficulty: sim.difficulty,
+        type: 'text',
+        image_url: null,
+        options: sim.options,
+        correct_index: sim.correctIndex,
+        explanation: sim.explanation,
+        hidden: false,
+        organization_id: profile.id,
+        batch_id: batchId,
         expires_at: expiryDate ? new Date(expiryDate).toISOString() : null,
         threat_level: sim.threatLevel || null,
         attack_technique: sim.attackTechnique || null,
         learning_objective: sim.learningObjective || null,
+        pressure_level: sim.pressureLevel || null,
+        scenario_setting: sim.scenarioSetting || null,
         foresight_meta: sim.foresightMeta || null,
       }))
       const { error: simError } = await supabase.from('simulations').insert(rows)
@@ -299,7 +452,7 @@ function AddSimulation() {
       setGeneratedSims([]); setShowGenerated(false)
       setAiMessages(prev => [...prev, {
         role: 'ai',
-        text: `${rows.length} simulation${rows.length > 1 ? 's' : ''} saved successfully, including all Foresight metadata.\n\nWant to generate another batch, adjust difficulty, or focus on a different department?`,
+        text: `${rows.length} question${rows.length > 1 ? 's' : ''} saved with full Foresight metadata.\n\nWhen Foresight launches, every response to these questions will map against the vulnerability taxonomy and build user risk profiles automatically.\n\nWant to design another batch?`,
       }])
     } catch (err) {
       setError('Something went wrong.')
@@ -308,10 +461,15 @@ function AddSimulation() {
     }
   }
 
+  // ── Vulnerability breakdown for generated batch ──
+  const vulnBreakdown = generatedSims.reduce((acc, sim) => {
+    const v = sim.foresightMeta?.vulnerabilityType || 'Unknown'
+    acc[v] = (acc[v] || 0) + 1
+    return acc
+  }, {})
+
   const inputClass = "w-full bg-white border border-gray-200 text-gray-800 rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition placeholder-gray-300"
   const labelClass = "text-gray-500 text-xs font-medium mb-1.5 block"
-
-  const unreadCount = aiMessages.filter(m => m.role === 'ai' && !m.loading).length
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: '#f8fafc' }}>
@@ -383,7 +541,7 @@ function AddSimulation() {
                     <input type="text" name="category" value={formData.category} onChange={handleChange}
                       placeholder="e.g. Phishing Detection" list="category-options" className={inputClass} />
                     <datalist id="category-options">
-                      {['Password Security','Phishing Detection','Social Engineering','Data Privacy','Network Security','Ransomware','USB & Physical Security','Insider Threat','Email Security','Mobile Security','Cloud Security','Zero-Day Awareness'].map(c => <option key={c} value={c} />)}
+                      {['Password Security','Phishing Detection','Social Engineering','Data Privacy','Network Security','Ransomware','USB and Physical Security','Insider Threat','Email Security','Mobile Security','Cloud Security','Zero-Day Awareness'].map(c => <option key={c} value={c} />)}
                     </datalist>
                   </div>
                   <div className="bg-white rounded-xl border border-gray-100 p-5">
@@ -465,8 +623,8 @@ function AddSimulation() {
                 <div className="pb-10">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <p className="text-gray-800 text-sm font-semibold">{generatedSims.length} Simulation{generatedSims.length > 1 ? 's' : ''} Generated</p>
-                      <p className="text-gray-400 text-xs mt-0.5">Review each before saving. Foresight metadata included.</p>
+                      <p className="text-gray-800 text-sm font-semibold">{generatedSims.length} Diagnostic Question{generatedSims.length > 1 ? 's' : ''} Generated</p>
+                      <p className="text-gray-400 text-xs mt-0.5">Review before saving. Foresight metadata included.</p>
                     </div>
                     <button onClick={handleSaveAll} disabled={loading}
                       className={`text-xs font-medium px-4 py-2 rounded-lg transition
@@ -475,77 +633,159 @@ function AddSimulation() {
                     </button>
                   </div>
 
+                  {/* Vulnerability breakdown */}
+                  {Object.keys(vulnBreakdown).length > 0 && (
+                    <div className="bg-white border border-gray-100 rounded-xl p-4 mb-4">
+                      <p className="text-gray-500 text-xs font-medium mb-3">Vulnerability Coverage</p>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(vulnBreakdown).sort((a, b) => b[1] - a[1]).map(([v, count]) => {
+                          const vc = vulnerabilityColor(v)
+                          return (
+                            <span key={v} className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-lg"
+                              style={{ backgroundColor: vc.bg, color: vc.text }}>
+                              {v}
+                              <span className="font-bold">{count}</span>
+                            </span>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 mb-4 flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
-                    <p className="text-blue-600 text-xs">All {generatedSims.length} simulations will be saved as a single batch with Foresight metadata for future analysis.</p>
+                    <p className="text-blue-600 text-xs">All {generatedSims.length} questions will be saved as one batch with full cognitive assessment metadata for Foresight analysis.</p>
                   </div>
 
                   <div className="flex flex-col gap-3">
                     {generatedSims.map((sim, index) => {
                       const tc = threatColor(sim.threatLevel)
                       const dc = difficultyColor(sim.difficulty)
+                      const vc = vulnerabilityColor(sim.foresightMeta?.vulnerabilityType)
+                      const isExpanded = expandedSim === index
+
                       return (
-                        <div key={index} className="bg-white rounded-xl border border-gray-100 p-5">
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-gray-300 text-xs font-mono">#{index + 1}</span>
-                              <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">{sim.category}</span>
-                              <span className="text-xs font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: dc.bg, color: dc.text }}>{sim.difficulty}</span>
-                              {sim.threatLevel && (
-                                <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: tc.bg, color: tc.text }}>
-                                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tc.dot }} />
-                                  {sim.threatLevel}
-                                </span>
+                        <div key={index} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+
+                          {/* Card header - always visible */}
+                          <div className="p-4 flex items-start gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-2">
+                                <span className="text-gray-300 text-xs font-mono">#{index + 1}</span>
+                                {sim.foresightMeta?.vulnerabilityType && (
+                                  <span className="text-xs font-medium px-2 py-0.5 rounded-md"
+                                    style={{ backgroundColor: vc.bg, color: vc.text }}>
+                                    {sim.foresightMeta.vulnerabilityType}
+                                  </span>
+                                )}
+                                {sim.foresightMeta?.designIntent && (
+                                  <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-500">
+                                    {sim.foresightMeta.designIntent}
+                                  </span>
+                                )}
+                                <span className="text-xs font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: dc.bg, color: dc.text }}>{sim.difficulty}</span>
+                                {sim.threatLevel && (
+                                  <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: tc.bg, color: tc.text }}>
+                                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tc.dot }} />
+                                    {sim.threatLevel}
+                                  </span>
+                                )}
+                                {sim.foresightMeta?.trapQuestion && (
+                                  <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-red-50 text-red-500">Trap</span>
+                                )}
+                                {sim.foresightMeta?.retestOf && (
+                                  <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-amber-50 text-amber-600">Retest</span>
+                                )}
+                              </div>
+                              <p className="text-gray-800 text-sm font-semibold">{sim.scenarioName}</p>
+                              {sim.scenarioSetting && (
+                                <p className="text-gray-400 text-xs mt-0.5">{sim.scenarioSetting} · {sim.attackTechnique}</p>
                               )}
                             </div>
                             <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <button onClick={() => setExpandedSim(isExpanded ? null : index)}
+                                className="text-xs font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition">
+                                {isExpanded ? 'Collapse' : 'Review'}
+                              </button>
                               <button onClick={() => handleLoadToForm(sim)} className="text-xs font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Load</button>
                               <button onClick={() => handleRegenerateOne(index)} disabled={aiLoading} className="text-xs font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition disabled:opacity-40">Redo</button>
                               <button onClick={() => handleDeleteGenerated(index)} className="text-xs font-medium px-2.5 py-1 rounded-md bg-red-50 text-red-400 hover:bg-red-100 transition">Delete</button>
                             </div>
                           </div>
 
-                          {sim.attackTechnique && <p className="text-gray-400 text-xs mb-2 font-medium">{sim.attackTechnique}</p>}
-                          <p className="text-gray-800 text-sm font-semibold mb-2">{sim.scenarioName}</p>
+                          {/* Expanded content */}
+                          {isExpanded && (
+                            <div className="px-4 pb-4 border-t border-gray-50 pt-4 flex flex-col gap-3">
 
-                          <div className="bg-gray-50 rounded-lg px-4 py-3 mb-3">
-                            <p className="text-gray-600 text-sm leading-relaxed">{sim.question}</p>
-                          </div>
+                              <div className="bg-gray-50 rounded-lg px-4 py-3">
+                                <p className="text-gray-600 text-sm leading-relaxed">{sim.question}</p>
+                              </div>
 
-                          {sim.learningObjective && (
-                            <div className="flex items-start gap-2 mb-3 px-3 py-2.5 rounded-lg border border-gray-100">
-                              <p className="text-gray-400 text-xs"><span className="font-medium text-gray-600">Objective: </span>{sim.learningObjective}</p>
-                            </div>
-                          )}
+                              {sim.learningObjective && (
+                                <div className="px-3 py-2.5 rounded-lg border border-gray-100">
+                                  <p className="text-gray-400 text-xs"><span className="font-medium text-gray-600">Objective: </span>{sim.learningObjective}</p>
+                                </div>
+                              )}
 
-                          {sim.foresightMeta && (
-                            <div className="mb-3 px-3 py-2.5 rounded-lg border border-blue-100 bg-blue-50/50">
-                              <p className="text-blue-600 text-xs font-medium mb-1.5">Foresight Intelligence</p>
-                              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                                {sim.foresightMeta.cognitivePattern && <p className="text-xs text-gray-500"><span className="text-gray-400">Pattern: </span>{sim.foresightMeta.cognitivePattern}</p>}
-                                {sim.foresightMeta.riskVector && <p className="text-xs text-gray-500"><span className="text-gray-400">Risk: </span>{sim.foresightMeta.riskVector}</p>}
-                                {sim.foresightMeta.behavioralIndicator && <p className="text-xs text-gray-500 col-span-2"><span className="text-gray-400">Indicator: </span>{sim.foresightMeta.behavioralIndicator}</p>}
+                              {/* Foresight metadata */}
+                              {sim.foresightMeta && (
+                                <div className="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+                                  <p className="text-blue-600 text-xs font-semibold mb-2">Foresight Intelligence</p>
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mb-2">
+                                    <p className="text-xs text-gray-600"><span className="text-gray-400">Vulnerability: </span>{sim.foresightMeta.vulnerabilityType}</p>
+                                    <p className="text-xs text-gray-600"><span className="text-gray-400">Intent: </span>{sim.foresightMeta.designIntent}</p>
+                                    <p className="text-xs text-gray-600"><span className="text-gray-400">Cognitive Load: </span>{sim.foresightMeta.cognitiveLoad}</p>
+                                    <p className="text-xs text-gray-600"><span className="text-gray-400">Pressure: </span>{sim.pressureLevel}</p>
+                                    {sim.foresightMeta.retestOf && <p className="text-xs text-gray-600 col-span-2"><span className="text-gray-400">Retests: </span>{sim.foresightMeta.retestOf}</p>}
+                                    {sim.foresightMeta.dataValue && <p className="text-xs text-gray-600 col-span-2"><span className="text-gray-400">Data Value: </span>{sim.foresightMeta.dataValue}</p>}
+                                  </div>
+
+                                  {/* Failure modes */}
+                                  {sim.foresightMeta.failureModes && (
+                                    <div className="mt-2 pt-2 border-t border-blue-100">
+                                      <p className="text-blue-500 text-xs font-medium mb-1.5">Failure Mode Analysis</p>
+                                      <div className="flex flex-col gap-1">
+                                        {sim.options.map((opt, i) => {
+                                          const mode = sim.foresightMeta.failureModes[`option${i}`]
+                                          const isCorrect = i === sim.correctIndex
+                                          return (
+                                            <div key={i} className="flex items-start gap-2">
+                                              <span className={`w-4 h-4 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5
+                                                ${isCorrect ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                                {optionLabels[i]}
+                                              </span>
+                                              <p className={`text-xs leading-relaxed ${isCorrect ? 'text-emerald-600 font-medium' : 'text-gray-500'}`}>
+                                                {isCorrect ? 'Correct' : mode}
+                                              </p>
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Answer options */}
+                              <div className="flex flex-col gap-1.5">
+                                {sim.options.map((opt, i) => (
+                                  <div key={i} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs border
+                                    ${i === sim.correctIndex ? 'border-emerald-200 bg-emerald-50 text-emerald-700 font-medium' : 'border-gray-100 bg-gray-50 text-gray-500'}`}>
+                                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0
+                                      ${i === sim.correctIndex ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                      {optionLabels[i]}
+                                    </span>
+                                    {opt}
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+                                <p className="text-gray-500 text-xs font-medium mb-1">Explanation</p>
+                                <p className="text-gray-500 text-xs leading-relaxed">{sim.explanation}</p>
                               </div>
                             </div>
                           )}
-
-                          <div className="flex flex-col gap-1.5 mb-3">
-                            {sim.options.map((opt, i) => (
-                              <div key={i} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs border
-                                ${i === sim.correctIndex ? 'border-emerald-200 bg-emerald-50 text-emerald-700 font-medium' : 'border-gray-100 bg-gray-50 text-gray-500'}`}>
-                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0
-                                  ${i === sim.correctIndex ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                                  {optionLabels[i]}
-                                </span>
-                                {opt}
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
-                            <p className="text-gray-500 text-xs font-medium mb-1">Explanation</p>
-                            <p className="text-gray-500 text-xs leading-relaxed">{sim.explanation}</p>
-                          </div>
                         </div>
                       )
                     })}
@@ -586,36 +826,26 @@ function AddSimulation() {
       {/* ── ARIA Modal ── */}
       {ariaOpen && (
         <>
-          {/* Backdrop - only show when not minimized */}
           {!ariaMinimized && (
             <div className="fixed inset-0 z-40"
               style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
               onClick={() => setAriaMinimized(true)} />
           )}
 
-          {/* Modal / Minimized pill */}
-          <div className={`fixed z-50 transition-all duration-300 ease-in-out`}
-            style={ariaMinimized ? {
-              bottom: '24px', right: '24px',
-              width: 'auto',
-            } : {
-              top: '50%', left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: '100%',
-              maxWidth: '520px',
-              padding: '16px',
+          <div className="fixed z-50 transition-all duration-300 ease-in-out"
+            style={ariaMinimized ? { bottom: '24px', right: '24px' } : {
+              top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+              width: '100%', maxWidth: '520px', padding: '16px',
             }}>
 
             {ariaMinimized ? (
-              /* Minimized pill */
               <button onClick={() => setAriaMinimized(false)}
                 className="flex items-center gap-3 px-4 py-3 rounded-2xl transition-all"
                 style={{
                   background: 'linear-gradient(160deg, rgba(30,35,60,0.97) 0%, rgba(15,18,35,0.99) 100%)',
                   border: '1px solid rgba(255,255,255,0.12)',
                   boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 20px rgba(37,99,235,0.15)',
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
+                  backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
                 }}>
                 <div className="relative flex-shrink-0">
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center"
@@ -635,7 +865,7 @@ function AddSimulation() {
                 </div>
                 {aiLoading && (
                   <div className="flex items-center gap-1 ml-1">
-                    {[0, 150, 300].map(delay => (
+                    {[0,150,300].map(delay => (
                       <span key={delay} className="w-1 h-1 rounded-full animate-bounce"
                         style={{ background: '#3b82f6', animationDelay: `${delay}ms` }} />
                     ))}
@@ -653,15 +883,13 @@ function AddSimulation() {
                 </button>
               </button>
             ) : (
-              /* Full modal */
               <div className="w-full flex flex-col rounded-2xl overflow-hidden"
                 style={{
-                  height: '620px',
+                  height: '640px',
                   background: 'linear-gradient(160deg, rgba(30,35,60,0.97) 0%, rgba(15,18,35,0.99) 100%)',
                   border: '1px solid rgba(255,255,255,0.1)',
                   boxShadow: '0 0 0 1px rgba(255,255,255,0.04), 0 30px 80px rgba(0,0,0,0.65), 0 0 50px rgba(37,99,235,0.1)',
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
+                  backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
                 }}>
 
                 {/* Top glow */}
@@ -694,11 +922,10 @@ function AddSimulation() {
                           Foresight Ready
                         </span>
                       </div>
-                      <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>Averion Risk Intelligence Assistant</p>
+                      <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>Cognitive Security Assessment Designer</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    {/* Minimize */}
                     <button onClick={() => setAriaMinimized(true)}
                       className="w-7 h-7 rounded-lg flex items-center justify-center transition"
                       style={{ color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
@@ -709,14 +936,13 @@ function AddSimulation() {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
                       </svg>
                     </button>
-                    {/* Close */}
                     <button onClick={() => { setAriaOpen(false); setAriaMinimized(false) }}
                       className="w-7 h-7 rounded-lg flex items-center justify-center transition"
                       style={{ color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
                       onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'rgba(239,68,68,0.15)' }}
                       onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
                       title="Close">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
@@ -745,7 +971,7 @@ function AddSimulation() {
                         }>
                         {msg.loading ? (
                           <span className="flex items-center gap-1.5 py-0.5">
-                            {[0, 150, 300].map(delay => (
+                            {[0,150,300].map(delay => (
                               <span key={delay} className="w-1.5 h-1.5 rounded-full animate-bounce"
                                 style={{ background: 'rgba(255,255,255,0.4)', animationDelay: `${delay}ms` }} />
                             ))}
@@ -762,16 +988,16 @@ function AddSimulation() {
                   <div className="px-5 pb-3 flex flex-col gap-1.5 flex-shrink-0">
                     <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.2)' }}>Quick starts</p>
                     {[
-                      '5 phishing simulations for the finance team, hard difficulty',
-                      'Mix of social engineering and insider threat for HR',
-                      'Test urgency response and authority bias for all staff',
+                      '10 questions for the finance team, map all vulnerability types',
+                      '20 deep assessment questions targeting authority bias and urgency for C-suite',
+                      '15 questions for HR, focus on social engineering and trust exploitation',
                     ].map((suggestion, i) => (
                       <button key={i} onClick={() => setAiInput(suggestion)}
                         className="text-left px-3 py-2 rounded-lg text-xs transition w-full"
                         style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.07)' }}
                         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; e.currentTarget.style.color = '#93c5fd'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)' }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)' }}>
-                        → {suggestion}
+                        {suggestion}
                       </button>
                     ))}
                   </div>
