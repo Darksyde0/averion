@@ -5,33 +5,47 @@ import AdminTopBar from '../../components/admin/AdminTopBar'
 import { useProfile } from '../../hooks/useProfile'
 import { supabase } from '../../supabaseClient'
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid,
+  ComposedChart, Area, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts'
 
 function CustomBarTooltip({ active, payload, label }) {
   if (!active || !payload || !payload.length) return null
-  const score = payload[0]?.value
-  if (score == null) return null
+
+  const sim = payload.find(p => p.dataKey === 'score')
+  const pass = payload.find(p => p.dataKey === 'passRate')
+  const risk = payload.find(p => p.dataKey === 'atRisk')
+  const users = payload.find(p => p.dataKey === 'activeUsers')
+
+  const rows = [
+    sim && { label: 'Avg Score', value: `${sim.value}%`, color: '#2563eb' },
+    pass && { label: 'Pass Rate', value: `${pass.value}%`, color: '#22c55e' },
+    risk && { label: 'At Risk', value: `${risk.value}%`, color: '#ef4444' },
+    users && { label: 'Active Users', value: users.value, color: '#94a3b8' },
+  ].filter(Boolean)
 
   return (
     <div style={{
-      backgroundColor: '#0f172a',
+      backgroundColor: '#1e2d4f',
       border: '1px solid rgba(255,255,255,0.08)',
       borderRadius: '14px',
-      padding: '12px 16px',
-      boxShadow: '0 16px 40px rgba(0,0,0,0.3)',
-      minWidth: '150px',
+      padding: '14px 18px',
+      boxShadow: '0 20px 48px rgba(0,0,0,0.35)',
+      minWidth: '180px',
     }}>
-      <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '11px', marginBottom: '10px', fontWeight: 600 }}>
+      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', fontWeight: 600, marginBottom: '12px' }}>
         {label}
       </p>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e' }} />
-          <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: '12px' }}>Avg Score</span>
-        </div>
-        <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>{score}%</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {rows.map((row, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: row.color, flexShrink: 0 }} />
+              <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>{row.label}</span>
+            </div>
+            <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>{row.value}</span>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -118,14 +132,18 @@ function AdminDashboard() {
           simResults.forEach(r => {
             const date = new Date(r.completed_at)
             const key = `${date.getFullYear()}-${date.getMonth()}`
-            if (!grouped[key]) grouped[key] = { scores: [], month: monthNames[date.getMonth()], date }
+            if (!grouped[key]) grouped[key] = { scores: [], users: new Set(), month: monthNames[date.getMonth()], date }
             grouped[key].scores.push(r.score)
+            grouped[key].users.add(r.user_id)
           })
           allBarData = Object.values(grouped)
             .sort((a, b) => a.date - b.date)
             .map(m => ({
               month: m.month,
               score: Math.round(m.scores.reduce((a, b) => a + b, 0) / m.scores.length),
+              passRate: Math.round((m.scores.filter(s => s >= 80).length / m.scores.length) * 100),
+              atRisk: Math.round((m.scores.filter(s => s < 50).length / m.scores.length) * 100),
+              activeUsers: m.users.size,
               date: m.date,
             }))
         }
@@ -292,12 +310,12 @@ function AdminDashboard() {
   function getFilteredData() {
     if (allBarData.length === 0) return []
     const now = new Date()
-    if (view === '30D') {
-      const c = new Date(now); c.setDate(c.getDate() - 30)
+    if (view === '7D') {
+      const c = new Date(now); c.setDate(c.getDate() - 7)
       return allBarData.filter(d => new Date(d.date) >= c)
     }
-    if (view === '3M') {
-      const c = new Date(now); c.setMonth(c.getMonth() - 3)
+    if (view === '1M') {
+      const c = new Date(now); c.setMonth(c.getMonth() - 1)
       return allBarData.filter(d => new Date(d.date) >= c)
     }
     if (view === '6M') return allBarData.slice(-6)
@@ -306,7 +324,6 @@ function AdminDashboard() {
   }
 
   const barData = getFilteredData()
-  const peakScore = barData.length > 0 ? Math.max(...barData.map(d => d.score)) : 0
 
   const donutData = [
     { name: 'Completed', value: stats.completedCount, color: '#22c55e' },
@@ -379,13 +396,13 @@ function AdminDashboard() {
             {/* Area chart */}
             <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="px-6 pt-5 pb-4 border-b border-gray-50">
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-gray-800 text-sm font-bold">Average Performance</h2>
                     <p className="text-gray-400 text-xs mt-0.5">Monthly simulation scores across all users</p>
                   </div>
                   <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
-                    {['30D', '3M', '6M', '1Y'].map(v => (
+                    {['7D', '1M', '6M', '1Y'].map(v => (
                       <button key={v} onClick={() => setView(v)}
                         className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition
                           ${view === v ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>
@@ -395,59 +412,48 @@ function AdminDashboard() {
                   </div>
                 </div>
 
+                {/* Legend */}
                 {!loading && barData.length > 0 && (
-                  <div className="mt-4">
-                    <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
-                      <div className="flex-1">
-                        <p className="text-gray-400 text-xs mb-1">Overall Avg</p>
-                        <div className="flex items-baseline gap-0.5 mb-1.5">
-                          <p className="text-gray-900 text-xl font-extrabold">{stats.avgScore}</p>
-                          <p className="text-gray-400 text-xs font-semibold">%</p>
-                        </div>
-                        <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full rounded-full transition-all duration-700"
-                            style={{ width: `${stats.avgScore}%`, background: stats.avgScore >= 80 ? '#16a34a' : stats.avgScore >= 50 ? '#d97706' : '#dc2626' }} />
-                        </div>
+                  <div className="flex items-center gap-5 mt-4 flex-wrap">
+                    {[
+                      { color: '#2563eb', label: 'Avg Score', type: 'solid' },
+                      { color: '#22c55e', label: 'Pass Rate', type: 'dashed' },
+                      { color: '#ef4444', label: 'At Risk', type: 'dashed' },
+                      { color: '#cbd5e1', label: 'Active Users', type: 'bar' },
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        {item.type === 'bar' ? (
+                          <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: item.color }} />
+                        ) : item.type === 'solid' ? (
+                          <div className="flex items-center gap-0.5">
+                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                            <div className="w-4 h-0.5" style={{ backgroundColor: item.color }} />
+                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-0.5">
+                            <div className="w-1.5 h-0.5 rounded-full" style={{ backgroundColor: item.color }} />
+                            <div className="w-0.5 h-0.5" />
+                            <div className="w-1.5 h-0.5 rounded-full" style={{ backgroundColor: item.color }} />
+                            <div className="w-0.5 h-0.5" />
+                            <div className="w-1.5 h-0.5 rounded-full" style={{ backgroundColor: item.color }} />
+                          </div>
+                        )}
+                        <span className="text-gray-500 text-xs font-medium">{item.label}</span>
                       </div>
-                      <div className="w-px h-10 bg-gray-200 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-gray-400 text-xs mb-1">Peak Month</p>
-                        <div className="flex items-baseline gap-0.5 mb-1.5">
-                          <p className="text-gray-900 text-xl font-extrabold">{peakScore}</p>
-                          <p className="text-gray-400 text-xs font-semibold">%</p>
-                        </div>
-                        <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-blue-400 rounded-full transition-all duration-700"
-                            style={{ width: `${peakScore}%` }} />
-                        </div>
-                      </div>
-                      <div className="w-px h-10 bg-gray-200 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="text-gray-400 text-xs mb-1">Data Points</p>
-                        <div className="flex items-baseline gap-0.5 mb-1.5">
-                          <p className="text-gray-900 text-xl font-extrabold">{barData.length}</p>
-                          <p className="text-gray-400 text-xs font-semibold">mo</p>
-                        </div>
-                        <div className="flex gap-0.5">
-                          {Array.from({ length: Math.min(barData.length, 7) }).map((_, i) => (
-                            <div key={i} className="h-1.5 flex-1 rounded-full"
-                              style={{ backgroundColor: '#93c5fd', opacity: 0.5 + (i / Math.max(barData.length, 1)) * 0.5 }} />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 )}
               </div>
 
-              {/* ── Chart ── */}
-              <div className="px-4 py-4">
+              {/* Chart */}
+              <div className="px-2 py-4">
                 {loading ? (
-                  <div className="flex items-center justify-center h-48">
-                    <div className="w-6 h-6 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                  <div className="flex items-center justify-center h-56">
+                    <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : barData.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-48 gap-2">
+                  <div className="flex flex-col items-center justify-center h-56 gap-2">
                     <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
@@ -457,67 +463,99 @@ function AdminDashboard() {
                     <p className="text-gray-300 text-xs">Try a longer time range</p>
                   </div>
                 ) : (
-                  <>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <AreaChart data={barData} margin={{ top: 10, right: 10, left: -22, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#22c55e" stopOpacity={0.2} />
-                            <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <ComposedChart data={barData} margin={{ top: 10, right: 50, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="simGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#2563eb" stopOpacity={0.18} />
+                          <stop offset="100%" stopColor="#2563eb" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
 
-                        <CartesianGrid stroke="#f3f4f6" vertical={false} strokeDasharray="0" />
+                      <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" vertical={false} />
 
-                        <XAxis
-                          dataKey="month"
-                          tick={{ fontSize: 11, fill: '#9ca3af', fontWeight: 500 }}
-                          axisLine={false}
-                          tickLine={false}
-                          dy={8}
-                        />
+                      <XAxis
+                        dataKey="month"
+                        tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: 500 }}
+                        axisLine={false}
+                        tickLine={false}
+                        dy={8}
+                      />
 
-                        <YAxis
-                          domain={[0, 100]}
-                          tick={{ fontSize: 11, fill: '#9ca3af' }}
-                          axisLine={false}
-                          tickLine={false}
-                          tickFormatter={v => `${v}%`}
-                          ticks={[0, 25, 50, 75, 100]}
-                        />
+                      <YAxis
+                        yAxisId="score"
+                        domain={[0, 100]}
+                        tick={{ fontSize: 11, fill: '#94a3b8' }}
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={v => `${v}%`}
+                        ticks={[0, 25, 50, 75, 100]}
+                      />
 
-                        <Tooltip
-                          content={<CustomBarTooltip />}
-                          cursor={{ stroke: 'rgba(255,255,255,0)', fill: 'rgba(34,197,94,0.04)' }}
-                        />
+                      <YAxis
+                        yAxisId="users"
+                        orientation="right"
+                        tick={{ fontSize: 11, fill: '#94a3b8' }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
 
-                        <Area
-                          type="monotone"
-                          dataKey="score"
-                          stroke="#16a34a"
-                          strokeWidth={2.5}
-                          fill="url(#areaGrad)"
-                          dot={(props) => {
-                            const { cx, cy, payload } = props
-                            if (payload.score == null) return null
-                            return (
-                              <g key={`dot-${cx}-${cy}`}>
-                                <circle cx={cx} cy={cy} r={9} fill="#22c55e" fillOpacity={0.12} />
-                                <circle cx={cx} cy={cy} r={4} fill="#fff" stroke="#16a34a" strokeWidth={2.5} />
-                              </g>
-                            )
-                          }}
-                          activeDot={{ r: 6, fill: '#16a34a', stroke: '#fff', strokeWidth: 3 }}
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
+                      <Tooltip
+                        content={<CustomBarTooltip />}
+                        cursor={{ stroke: 'rgba(37,99,235,0.08)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                      />
 
-                    {/* Legend */}
-                    <div className="flex items-center gap-2 px-2 pt-2">
-                      <div className="w-2 h-2 rounded-full bg-green-500" />
-                      <p className="text-gray-400 text-xs">Monthly avg score across all users</p>
-                    </div>
-                  </>
+                      {/* Active users bars — behind everything */}
+                      <Bar
+                        yAxisId="users"
+                        dataKey="activeUsers"
+                        fill="#e2e8f0"
+                        radius={[3, 3, 0, 0]}
+                        maxBarSize={28}
+                        opacity={0.8}
+                      />
+
+                      {/* Avg simulation score — filled area */}
+                      <Area
+                        yAxisId="score"
+                        type="monotone"
+                        dataKey="score"
+                        stroke="#2563eb"
+                        strokeWidth={2.5}
+                        fill="url(#simGrad)"
+                        connectNulls={false}
+                        dot={{ r: 4, fill: '#fff', stroke: '#2563eb', strokeWidth: 2.5 }}
+                        activeDot={{ r: 6, fill: '#2563eb', stroke: '#fff', strokeWidth: 2.5 }}
+                      />
+
+                      {/* Pass rate — dashed green */}
+                      <Line
+                        yAxisId="score"
+                        type="monotone"
+                        dataKey="passRate"
+                        stroke="#22c55e"
+                        strokeWidth={2}
+                        strokeDasharray="6 4"
+                        dot={{ r: 3.5, fill: '#fff', stroke: '#22c55e', strokeWidth: 2 }}
+                        activeDot={{ r: 5, fill: '#22c55e', stroke: '#fff', strokeWidth: 2 }}
+                        connectNulls={false}
+                      />
+
+                      {/* At risk — dashed red */}
+                      <Line
+                        yAxisId="score"
+                        type="monotone"
+                        dataKey="atRisk"
+                        stroke="#ef4444"
+                        strokeWidth={2}
+                        strokeDasharray="6 4"
+                        dot={{ r: 3.5, fill: '#fff', stroke: '#ef4444', strokeWidth: 2 }}
+                        activeDot={{ r: 5, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }}
+                        connectNulls={false}
+                      />
+
+                    </ComposedChart>
+                  </ResponsiveContainer>
                 )}
               </div>
             </div>
@@ -705,7 +743,7 @@ function AdminDashboard() {
                       <p className="text-gray-300 text-xs text-center">No one is below 50% — great work</p>
                     </div>
                   ) : (
-                    atRiskList.map((user, i) => (
+                    atRiskList.map((user) => (
                       <div key={user.userId} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
                         <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse flex-shrink-0" />
                         {user.avatar ? (
