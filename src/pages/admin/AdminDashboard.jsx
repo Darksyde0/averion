@@ -23,12 +23,9 @@ function CustomTooltip({ active, payload, label }) {
   ].filter(Boolean)
   return (
     <div style={{
-      backgroundColor: '#111827',
-      border: '1px solid rgba(255,255,255,0.06)',
-      borderRadius: '10px',
-      padding: '12px 16px',
-      boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-      minWidth: '170px',
+      backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.06)',
+      borderRadius: '10px', padding: '12px 16px',
+      boxShadow: '0 20px 40px rgba(0,0,0,0.4)', minWidth: '170px',
     }}>
       <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', fontWeight: 500, marginBottom: '10px', letterSpacing: '0.02em' }}>{label}</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
@@ -46,6 +43,23 @@ function CustomTooltip({ active, payload, label }) {
   )
 }
 
+// ── Custom donut label ──
+function DonutCenterLabel({ viewBox, value, label }) {
+  const { cx, cy } = viewBox
+  return (
+    <g>
+      <text x={cx} y={cy - 8} textAnchor="middle" dominantBaseline="middle"
+        style={{ fontSize: '22px', fontWeight: 700, fill: '#111827' }}>
+        {value}
+      </text>
+      <text x={cx} y={cy + 14} textAnchor="middle" dominantBaseline="middle"
+        style={{ fontSize: '10px', fontWeight: 500, fill: '#9ca3af', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+        {label}
+      </text>
+    </g>
+  )
+}
+
 function timeAgo(dateStr) {
   const now = new Date()
   const date = new Date(dateStr)
@@ -57,15 +71,19 @@ function timeAgo(dateStr) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+const scoreColor = (s) => s >= 80 ? '#10b981' : s >= 50 ? '#f59e0b' : '#ef4444'
+
 function AdminDashboard() {
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [view, setView] = useState('6M')
   const profile = useProfile()
+  const [error, setError] = useState('')
 
   const [stats, setStats] = useState({
     totalUsers: 0, avgScore: 0, completionRate: 0, atRiskUsers: 0,
     completedCount: 0, inProgressCount: 0, notStartedCount: 0,
+    totalCompletedModules: 0, totalPossibleModules: 0,
   })
   const [allBarData, setAllBarData] = useState([])
   const [recentActivity, setRecentActivity] = useState([])
@@ -74,6 +92,7 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [activityLoading, setActivityLoading] = useState(true)
   const [leaderboardLoading, setLeaderboardLoading] = useState(true)
+  const [activeDonutIndex, setActiveDonutIndex] = useState(null)
 
   useEffect(() => {
     async function checkAuth() {
@@ -94,6 +113,7 @@ function AdminDashboard() {
   async function fetchStats() {
     if (!profile?.id) return
     setLoading(true)
+    setError('')
     try {
       const { data: users } = await supabase
         .from('users').select('id, full_name')
@@ -101,7 +121,7 @@ function AdminDashboard() {
 
       const totalUsers = users?.length || 0
       const userIds = users?.map(u => u.id) || []
-      let avgScore = 0, atRiskUsers = 0, allBarData = []
+      let avgScore = 0, atRiskUsers = 0, computedBarData = []
 
       if (userIds.length > 0) {
         const { data: simResults } = await supabase
@@ -125,7 +145,7 @@ function AdminDashboard() {
             grouped[key].scores.push(r.score)
             grouped[key].users.add(r.user_id)
           })
-          allBarData = Object.values(grouped).sort((a, b) => a.date - b.date).map(m => ({
+          computedBarData = Object.values(grouped).sort((a, b) => a.date - b.date).map(m => ({
             month: m.month,
             score: Math.round(m.scores.reduce((a, b) => a + b, 0) / m.scores.length),
             passRate: Math.round((m.scores.filter(s => s >= 80).length / m.scores.length) * 100),
@@ -136,21 +156,36 @@ function AdminDashboard() {
         }
       }
 
+      // ── Fixed completion logic ──
       let completedCount = 0, inProgressCount = 0, notStartedCount = 0
-      const { data: allModules } = await supabase.from('modules').select('id').eq('hidden', false).eq('organization_id', profile.id)
+      let totalCompletedModules = 0, totalPossibleModules = 0
+
+      const { data: allModules } = await supabase.from('modules')
+        .select('id').eq('hidden', false).eq('organization_id', profile.id)
       const totalModules = allModules?.length || 0
 
       if (userIds.length > 0 && totalModules > 0) {
         const moduleIds = allModules.map(m => m.id)
+        totalPossibleModules = userIds.length * totalModules
+
         const { data: progress } = await supabase.from('module_progress')
-          .select('user_id, module_id, quiz_completed').in('user_id', userIds).in('module_id', moduleIds)
+          .select('user_id, module_id, quiz_completed')
+          .in('user_id', userIds).in('module_id', moduleIds)
+
         const userModuleMap = {}
-        userIds.forEach(id => { userModuleMap[id] = { completedModules: new Set(), startedModules: new Set() } })
-          ; (progress || []).forEach(p => {
-            if (!userModuleMap[p.user_id]) return
-            if (p.quiz_completed === true) userModuleMap[p.user_id].completedModules.add(p.module_id)
-            else userModuleMap[p.user_id].startedModules.add(p.module_id)
-          })
+        userIds.forEach(id => {
+          userModuleMap[id] = { completedModules: new Set(), startedModules: new Set() }
+        })
+        ;(progress || []).forEach(p => {
+          if (!userModuleMap[p.user_id]) return
+          if (p.quiz_completed === true) {
+            userModuleMap[p.user_id].completedModules.add(p.module_id)
+            totalCompletedModules++
+          } else {
+            userModuleMap[p.user_id].startedModules.add(p.module_id)
+          }
+        })
+
         userIds.forEach(id => {
           const completed = userModuleMap[id].completedModules.size
           const started = userModuleMap[id].startedModules.size
@@ -162,11 +197,19 @@ function AdminDashboard() {
         notStartedCount = totalUsers
       }
 
-      const completionRate = totalUsers > 0 ? Math.round((completedCount / totalUsers) * 100) : 0
-      setStats({ totalUsers, avgScore, completionRate, atRiskUsers, completedCount, inProgressCount, notStartedCount })
-      setAllBarData(allBarData)
+      const completionRate = totalPossibleModules > 0
+        ? Math.round((totalCompletedModules / totalPossibleModules) * 100)
+        : 0
+
+      setStats({
+        totalUsers, avgScore, completionRate, atRiskUsers,
+        completedCount, inProgressCount, notStartedCount,
+        totalCompletedModules, totalPossibleModules,
+      })
+      setAllBarData(computedBarData)
     } catch (err) {
       console.error('fetchStats error:', err)
+      setError('Failed to load dashboard data. Please refresh.')
     } finally {
       setLoading(false)
     }
@@ -254,9 +297,9 @@ function AdminDashboard() {
     { name: 'Completed', value: stats.completedCount, color: '#10b981' },
     { name: 'In Progress', value: stats.inProgressCount, color: '#3b82f6' },
     { name: 'Not Started', value: stats.notStartedCount, color: '#e5e7eb' },
-  ]
+  ].filter(d => d.value > 0)
 
-  const scoreColor = (s) => s >= 80 ? '#10b981' : s >= 50 ? '#f59e0b' : '#ef4444'
+  const donutTotal = stats.totalUsers
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: '#f8fafc' }}>
@@ -267,15 +310,22 @@ function AdminDashboard() {
 
         <div className="flex-1 p-6">
 
-          {/* Header */}
           <div className="mb-6">
             <h1 className="text-gray-900 text-2xl font-bold">
               {profile?.full_name?.split(' ')[0] ? `Good day, ${profile.full_name.split(' ')[0]}` : 'Dashboard'}
             </h1>
-            <p className="text-gray-400 text-xs mt-0.5">Security training overview · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+            <p className="text-gray-400 text-xs mt-0.5">
+              Security training overview · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
           </div>
 
-          {/* Stat cards — compact horizontal */}
+          {error && (
+            <div className="bg-red-50 border border-red-100 rounded-lg px-4 py-3 mb-4">
+              <p className="text-red-500 text-sm">{error}</p>
+            </div>
+          )}
+
+          {/* Stat cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             {[
               {
@@ -286,15 +336,19 @@ function AdminDashboard() {
                 label: 'Avg Score',
                 value: loading ? '—' : stats.avgScore > 0 ? `${stats.avgScore}%` : '—',
                 sub: 'all simulations',
-                valueColor: loading ? '#111827' : scoreColor(stats.avgScore),
+                valueColor: loading || stats.avgScore === 0 ? '#111827' : scoreColor(stats.avgScore),
               },
               {
-                label: 'Completion', value: loading ? '—' : `${stats.completionRate}%`,
-                sub: `${stats.completedCount} of ${stats.totalUsers} users`, valueColor: '#111827',
+                label: 'Completion',
+                value: loading ? '—' : `${stats.completionRate}%`,
+                sub: loading ? '' : `${stats.totalCompletedModules} of ${stats.totalPossibleModules} modules done`,
+                valueColor: '#111827',
               },
               {
-                label: 'At Risk', value: loading ? '—' : stats.atRiskUsers,
-                sub: 'below 50%', valueColor: stats.atRiskUsers > 0 ? '#ef4444' : '#111827',
+                label: 'At Risk',
+                value: loading ? '—' : stats.atRiskUsers,
+                sub: 'below 50%',
+                valueColor: stats.atRiskUsers > 0 ? '#ef4444' : '#111827',
               },
             ].map((card, i) => (
               <div key={i} className="bg-white rounded-xl px-5 py-4 border border-gray-100">
@@ -315,7 +369,7 @@ function AdminDashboard() {
               <div className="px-5 pt-4 pb-3 flex items-center justify-between border-b border-gray-50">
                 <div>
                   <p className="text-gray-800 text-sm font-semibold">Performance</p>
-                  <p className="text-gray-400 text-xs mt-0.5">Simulation scores, pass rate & risk over time</p>
+                  <p className="text-gray-400 text-xs mt-0.5">Simulation scores, pass rate and risk over time</p>
                 </div>
                 <div className="flex items-center gap-0.5 bg-gray-50 border border-gray-100 rounded-lg p-0.5">
                   {['7D', '1M', '6M', '1Y'].map(v => (
@@ -328,7 +382,6 @@ function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Legend */}
               {!loading && barData.length > 0 && (
                 <div className="px-5 pt-3 flex items-center gap-4 flex-wrap">
                   {[
@@ -388,53 +441,127 @@ function AdminDashboard() {
               </div>
             </div>
 
-            {/* Training status */}
+            {/* Training Status — redesigned donut */}
             <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
               <div className="px-5 pt-4 pb-3 border-b border-gray-50">
                 <p className="text-gray-800 text-sm font-semibold">Training Status</p>
-                <p className="text-gray-400 text-xs mt-0.5">Module completion breakdown</p>
+                <p className="text-gray-400 text-xs mt-0.5">Module completion by user</p>
               </div>
-              <div className="px-5 py-4">
+
+              <div className="px-5 py-5">
                 {loading ? (
-                  <div className="flex items-center justify-center h-40">
+                  <div className="flex items-center justify-center h-52">
                     <div className="w-5 h-5 border-2 border-gray-200 border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : stats.totalUsers === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-40 gap-1">
+                  <div className="flex flex-col items-center justify-center h-52 gap-1">
                     <p className="text-gray-400 text-sm">No users yet</p>
                     <p className="text-gray-300 text-xs">Add users to see breakdown</p>
                   </div>
                 ) : (
                   <>
-                    <div className="relative mb-4">
-                      <ResponsiveContainer width="100%" height={120}>
+                    {/* Donut chart */}
+                    <div className="relative flex items-center justify-center mb-5">
+                      <ResponsiveContainer width="100%" height={160}>
                         <PieChart>
-                          <Tooltip formatter={(v, n) => [`${v} users`, n]}
-                            contentStyle={{ backgroundColor: '#111827', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px' }} />
-                          <Pie data={donutData} cx="50%" cy="50%" innerRadius={35} outerRadius={52} dataKey="value" strokeWidth={0}>
-                            {donutData.map((e, i) => <Cell key={i} fill={e.color} />)}
+                          <defs>
+                            <filter id="donutShadow" x="-20%" y="-20%" width="140%" height="140%">
+                              <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.08" />
+                            </filter>
+                          </defs>
+                          <Pie
+                            data={donutData.length > 0 ? donutData : [{ name: 'Empty', value: 1, color: '#f3f4f6' }]}
+                            cx="50%" cy="50%"
+                            innerRadius={48} outerRadius={68}
+                            dataKey="value"
+                            strokeWidth={0}
+                            paddingAngle={donutData.length > 1 ? 3 : 0}
+                            onMouseEnter={(_, index) => setActiveDonutIndex(index)}
+                            onMouseLeave={() => setActiveDonutIndex(null)}
+                          >
+                            {(donutData.length > 0 ? donutData : [{ color: '#f3f4f6' }]).map((entry, index) => (
+                              <Cell
+                                key={index}
+                                fill={entry.color}
+                                opacity={activeDonutIndex === null || activeDonutIndex === index ? 1 : 0.4}
+                                style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
+                              />
+                            ))}
                           </Pie>
+                          {donutData.length > 0 && (
+                            <Tooltip
+                              content={({ active, payload }) => {
+                                if (!active || !payload?.length) return null
+                                const d = payload[0].payload
+                                const pct = donutTotal > 0 ? Math.round((d.value / donutTotal) * 100) : 0
+                                return (
+                                  <div style={{
+                                    background: '#111827', border: '1px solid rgba(255,255,255,0.08)',
+                                    borderRadius: '8px', padding: '8px 12px',
+                                    boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                                  }}>
+                                    <p style={{ color: entry?.color || d.color, fontSize: '11px', fontWeight: 600, marginBottom: '2px' }}>{d.name}</p>
+                                    <p style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>{d.value} user{d.value !== 1 ? 's' : ''}</p>
+                                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>{pct}% of total</p>
+                                  </div>
+                                )
+                              }}
+                            />
+                          )}
                         </PieChart>
                       </ResponsiveContainer>
+
+                      {/* Center label overlay */}
                       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <p className="text-gray-900 text-base font-bold">{stats.totalUsers}</p>
-                        <p className="text-gray-400 text-xs">users</p>
+                        <p className="text-gray-900 font-bold" style={{ fontSize: '22px', lineHeight: 1 }}>
+                          {activeDonutIndex !== null && donutData[activeDonutIndex]
+                            ? donutData[activeDonutIndex].value
+                            : donutTotal}
+                        </p>
+                        <p className="text-gray-400 font-medium mt-1" style={{ fontSize: '10px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                          {activeDonutIndex !== null && donutData[activeDonutIndex]
+                            ? donutData[activeDonutIndex].name
+                            : 'Total Users'}
+                        </p>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2.5">
-                      {donutData.map((item, i) => {
-                        const pct = stats.totalUsers > 0 ? Math.round((item.value / stats.totalUsers) * 100) : 0
+
+                    {/* Legend rows */}
+                    <div className="flex flex-col gap-3">
+                      {[
+                        { name: 'Completed', value: stats.completedCount, color: '#10b981', bg: '#f0fdf4' },
+                        { name: 'In Progress', value: stats.inProgressCount, color: '#3b82f6', bg: '#eff6ff' },
+                        { name: 'Not Started', value: stats.notStartedCount, color: '#9ca3af', bg: '#f9fafb' },
+                      ].map((item, i) => {
+                        const pct = donutTotal > 0 ? Math.round((item.value / donutTotal) * 100) : 0
                         return (
                           <div key={i} className="flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-                            <p className="text-gray-500 text-xs flex-1">{item.name}</p>
-                            <div className="w-16 h-1 bg-gray-100 rounded-full overflow-hidden flex-shrink-0">
-                              <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: item.color }} />
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: item.bg }}>
+                              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
                             </div>
-                            <p className="text-gray-700 text-xs font-semibold w-5 text-right flex-shrink-0">{item.value}</p>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-gray-600 text-xs font-medium">{item.name}</p>
+                                <p className="text-gray-700 text-xs font-semibold">{item.value}</p>
+                              </div>
+                              <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${pct}%`, backgroundColor: item.color }}
+                                />
+                              </div>
+                            </div>
+                            <p className="text-gray-400 text-xs w-8 text-right flex-shrink-0">{pct}%</p>
                           </div>
                         )
                       })}
+                    </div>
+
+                    {/* Completion rate footer */}
+                    <div className="mt-4 pt-3 border-t border-gray-50 flex items-center justify-between">
+                      <p className="text-gray-400 text-xs">Module completion rate</p>
+                      <p className="text-gray-800 text-xs font-bold">{stats.completionRate}%</p>
                     </div>
                   </>
                 )}
