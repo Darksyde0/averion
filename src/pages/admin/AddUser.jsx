@@ -130,7 +130,7 @@ function AddUser() {
 
         <div className="flex-1 p-6">
           {!submitted ? (
-            <div className="max-w-4xl">
+            <div className="max-w-full">
 
               {/* Header */}
               <div className="mb-6">
