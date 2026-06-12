@@ -38,8 +38,7 @@ function Sidebar({ isOpen }) {
   ]
 
   return (
-    <div className={`fixed top-0 left-0 h-screen flex flex-col z-50 transition-all duration-300
-      ${isOpen ? 'w-60' : 'w-16'}`}
+    <div className={`fixed top-0 left-0 h-screen flex flex-col z-50 transition-all duration-300 ${isOpen ? 'w-60' : 'w-16'}`}
       style={{ background: 'linear-gradient(180deg, #0a0e1a 0%, #0d1117 100%)', borderRight: '1px solid rgba(255,255,255,0.04)' }}>
 
       {/* Logo */}
@@ -47,11 +46,26 @@ function Sidebar({ isOpen }) {
         {isOpen ? (
           <img src="/images/logo.svg" alt="Averion" className="h-7 w-auto" />
         ) : (
-          <img src="/images/favicon.svg" alt="A" className="h-7 w-7 object-contain" />
+          <div className="w-8 h-8 flex items-center justify-center relative">
+            <img
+              src="/images/favicon.svg"
+              alt="A"
+              className="h-8 w-8 object-contain"
+              onError={e => {
+                e.currentTarget.style.display = 'none'
+                e.currentTarget.nextSibling.style.display = 'flex'
+              }}
+            />
+            <div
+              style={{ display: 'none' }}
+              className="absolute inset-0 rounded-lg bg-blue-600 items-center justify-center text-white text-sm font-bold">
+              A
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Thin separator */}
+      {/* Separator */}
       <div className="mx-3 mb-2" style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.04)' }} />
 
       {/* Nav */}
@@ -67,17 +81,18 @@ function Sidebar({ isOpen }) {
                   justifyContent: isOpen ? 'flex-start' : 'center',
                   gap: isOpen ? '10px' : '0',
                   backgroundColor: active ? 'rgba(59,130,246,0.12)' : 'transparent',
-                  color: active ? '#93c5fd' : '#6b7280',
                 }}>
                 {active && (
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-400 rounded-full" />
                 )}
-                <span style={{ color: active ? '#60a5fa' : '#4b5563' }}
-                  className="group-hover:text-gray-300 transition-colors duration-200 flex-shrink-0">
+                <span
+                  className="flex-shrink-0 transition-colors duration-200 group-hover:text-gray-300"
+                  style={{ color: active ? '#60a5fa' : '#4b5563' }}>
                   {item.icon}
                 </span>
                 {isOpen && (
-                  <span className="text-xs font-medium group-hover:text-gray-200 transition-colors duration-200"
+                  <span
+                    className="text-xs font-medium transition-colors duration-200 group-hover:text-gray-200"
                     style={{ color: active ? '#93c5fd' : '#6b7280' }}>
                     {item.label}
                   </span>
