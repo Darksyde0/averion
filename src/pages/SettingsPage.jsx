@@ -465,7 +465,7 @@ function SettingsPage() {
                       <div className="flex items-center justify-between py-2.5 border-b border-gray-50 opacity-40">
                         <div>
                           <p className="text-gray-700 text-xs font-medium">Show my progress to admin</p>
-                          <p className="text-gray-400 text-xs mt-0.5">Cannot be changed — always visible to your admin</p>
+                          <p className="text-gray-400 text-xs mt-0.5">Cannot be changed, always visible to your admin</p>
                         </div>
                         <div className="w-9 h-5 bg-gray-300 rounded-full relative cursor-not-allowed">
                           <div className="absolute top-0.5 left-0.5 bg-white rounded-full h-4 w-4" />
