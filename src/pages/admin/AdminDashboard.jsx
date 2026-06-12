@@ -10,21 +10,31 @@ import {
 } from 'recharts'
 
 function CustomBarTooltip({ active, payload, label }) {
-  if (active && payload && payload.length) {
-    return (
-      <div style={{
-        backgroundColor: '#fff', border: '1px solid #e5e7eb',
-        borderRadius: '10px', padding: '8px 14px',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-      }}>
-        <p style={{ color: '#6b7280', fontSize: '11px', marginBottom: '2px' }}>{label}</p>
-        <p style={{ color: '#111827', fontSize: '16px', fontWeight: '800' }}>
-          {payload[0].value}<span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 600 }}>%</span>
-        </p>
+  if (!active || !payload || !payload.length) return null
+  const score = payload[0]?.value
+  if (score == null) return null
+
+  return (
+    <div style={{
+      backgroundColor: '#0f172a',
+      border: '1px solid rgba(255,255,255,0.08)',
+      borderRadius: '14px',
+      padding: '12px 16px',
+      boxShadow: '0 16px 40px rgba(0,0,0,0.3)',
+      minWidth: '150px',
+    }}>
+      <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '11px', marginBottom: '10px', fontWeight: 600 }}>
+        {label}
+      </p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#22c55e' }} />
+          <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: '12px' }}>Avg Score</span>
+        </div>
+        <span style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>{score}%</span>
       </div>
-    )
-  }
-  return null
+    </div>
+  )
 }
 
 function timeAgo(dateStr) {
@@ -123,7 +133,6 @@ function AdminDashboard() {
 
       let completedCount = 0, inProgressCount = 0, notStartedCount = 0
 
-      // ── FIXED: filter modules by organization_id ──
       const { data: allModules } = await supabase
         .from('modules')
         .select('id')
@@ -431,6 +440,7 @@ function AdminDashboard() {
                 )}
               </div>
 
+              {/* ── Chart ── */}
               <div className="px-4 py-4">
                 {loading ? (
                   <div className="flex items-center justify-center h-48">
@@ -447,22 +457,67 @@ function AdminDashboard() {
                     <p className="text-gray-300 text-xs">Try a longer time range</p>
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={200}>
-                    <AreaChart data={barData} margin={{ top: 10, right: 0, left: -22, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#22c55e" stopOpacity={0.3} />
-                          <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="2 2" stroke="#f3f4f6" vertical={false} />
-                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} dy={6} />
-                      <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} />
-                      <Tooltip content={<CustomBarTooltip />} cursor={{ stroke: '#22c55e', strokeWidth: 1, strokeDasharray: '4 4' }} />
-                      <Area type="monotone" dataKey="score" stroke="#16a34a" strokeWidth={2} fill="url(#areaGrad)"
-                        dot={false} activeDot={{ r: 6, fill: '#fff', stroke: '#16a34a', strokeWidth: 2.5 }} />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                  <>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <AreaChart data={barData} margin={{ top: 10, right: 10, left: -22, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#22c55e" stopOpacity={0.2} />
+                            <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+
+                        <CartesianGrid stroke="#f3f4f6" vertical={false} strokeDasharray="0" />
+
+                        <XAxis
+                          dataKey="month"
+                          tick={{ fontSize: 11, fill: '#9ca3af', fontWeight: 500 }}
+                          axisLine={false}
+                          tickLine={false}
+                          dy={8}
+                        />
+
+                        <YAxis
+                          domain={[0, 100]}
+                          tick={{ fontSize: 11, fill: '#9ca3af' }}
+                          axisLine={false}
+                          tickLine={false}
+                          tickFormatter={v => `${v}%`}
+                          ticks={[0, 25, 50, 75, 100]}
+                        />
+
+                        <Tooltip
+                          content={<CustomBarTooltip />}
+                          cursor={{ stroke: 'rgba(255,255,255,0)', fill: 'rgba(34,197,94,0.04)' }}
+                        />
+
+                        <Area
+                          type="monotone"
+                          dataKey="score"
+                          stroke="#16a34a"
+                          strokeWidth={2.5}
+                          fill="url(#areaGrad)"
+                          dot={(props) => {
+                            const { cx, cy, payload } = props
+                            if (payload.score == null) return null
+                            return (
+                              <g key={`dot-${cx}-${cy}`}>
+                                <circle cx={cx} cy={cy} r={9} fill="#22c55e" fillOpacity={0.12} />
+                                <circle cx={cx} cy={cy} r={4} fill="#fff" stroke="#16a34a" strokeWidth={2.5} />
+                              </g>
+                            )
+                          }}
+                          activeDot={{ r: 6, fill: '#16a34a', stroke: '#fff', strokeWidth: 3 }}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+
+                    {/* Legend */}
+                    <div className="flex items-center gap-2 px-2 pt-2">
+                      <div className="w-2 h-2 rounded-full bg-green-500" />
+                      <p className="text-gray-400 text-xs">Monthly avg score across all users</p>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -493,8 +548,12 @@ function AdminDashboard() {
                     <div className="relative">
                       <ResponsiveContainer width="100%" height={130}>
                         <PieChart>
-                          <Tooltip formatter={(value, name) => [`${value} users`, name]}
-                            contentStyle={{ backgroundColor: '#0d1117', border: 'none', borderRadius: '10px', color: '#fff', fontSize: '12px' }} />
+                          <Tooltip
+                            formatter={(value, name) => [`${value} users`, name]}
+                            contentStyle={{
+                              backgroundColor: '#0d1117', border: 'none',
+                              borderRadius: '10px', color: '#fff', fontSize: '12px',
+                            }} />
                           <Pie data={donutData} cx="50%" cy="50%" innerRadius={38} outerRadius={58} dataKey="value" strokeWidth={0}>
                             {donutData.map((entry, index) => <Cell key={index} fill={entry.color} />)}
                           </Pie>
