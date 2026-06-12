@@ -1,3 +1,4 @@
+// SimulationResults.jsx
 import { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from '../components/dashboard/Sidebar'
@@ -10,132 +11,111 @@ function SimulationResults() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [authChecked, setAuthChecked] = useState(false)
 
-  // ── Auth guard ──
   useEffect(() => {
     async function checkAuth() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        navigate('/login')
-        return
-      }
+      if (!user) { navigate('/login'); return }
       setAuthChecked(true)
     }
     checkAuth()
   }, [navigate])
 
-  // ── Guard: must arrive from SimulationPage ──
   const state = location.state
   useEffect(() => {
-    if (authChecked && (!state || !state.simulations || state.simulations.length === 0)) {
-      navigate('/simulations')
-    }
+    if (authChecked && (!state || !state.simulations || state.simulations.length === 0)) navigate('/simulations')
   }, [authChecked, state, navigate])
 
   const { simulations = [], userAnswers = {}, score = 0, total = 0 } = state || {}
-
-  // ── Score is raw count — calculate percentage here ──
   const percentage = total > 0 ? Math.round((score / total) * 100) : 0
 
-  function getResultMessage() {
-    if (percentage >= 80) return { text: 'Excellent! You are security aware 🎉', color: 'text-green-500' }
-    if (percentage >= 50) return { text: 'Moderate risk — keep learning 💪', color: 'text-yellow-500' }
-    return { text: 'High risk — please review security training 📚', color: 'text-red-500' }
+  function scoreColor(s) {
+    if (s >= 80) return '#10b981'
+    if (s >= 50) return '#f59e0b'
+    return '#ef4444'
   }
 
-  const result = getResultMessage()
+  const sc = scoreColor(percentage)
+  const resultLabel = percentage >= 80 ? 'Excellent result' : percentage >= 50 ? 'Moderate — keep improving' : 'Needs attention'
 
-  // ── Don't render until auth confirmed ──
   if (!authChecked) {
     return (
-      <div className="flex min-h-screen bg-gray-100 items-center justify-center">
-        <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: '#f8fafc' }}>
+        <div className="w-5 h-5 border-2 border-gray-200 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
+    <div className="flex min-h-screen" style={{ backgroundColor: '#f8fafc' }}>
       <Sidebar isOpen={sidebarOpen} />
-
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-60' : 'ml-16'}`}>
         <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
-        <div className="flex-1 p-8">
+        <div className="flex-1 p-6">
 
-          <h1 className="text-gray-800 text-3xl font-bold mb-2">
-            Simulation Complete!
-          </h1>
-          <p className={`text-lg font-bold mb-6 ${result.color}`}>
-            {result.text}
-          </p>
+          <div className="mb-6">
+            <h1 className="text-gray-900 text-lg font-semibold">Simulation Complete</h1>
+            <p className="text-xs mt-0.5 font-medium" style={{ color: sc }}>{resultLabel}</p>
+          </div>
 
           {/* Score card */}
-          <div className="bg-white rounded-2xl shadow p-6 flex items-center gap-8 mb-8">
-            <div className="w-28 h-28 rounded-full border-8 border-blue-600 flex items-center justify-center flex-shrink-0">
+          <div className="bg-white border border-gray-100 rounded-xl p-5 flex items-center gap-6 mb-5">
+            <div className="w-20 h-20 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ border: `3px solid ${sc}` }}>
               <div className="text-center">
-                <p className="text-blue-600 text-3xl font-extrabold">{percentage}%</p>
+                <p className="text-2xl font-bold leading-tight" style={{ color: sc }}>{percentage}%</p>
                 <p className="text-gray-400 text-xs">Score</p>
               </div>
             </div>
             <div>
-              <p className="text-gray-700 text-lg font-semibold">
-                You got <span className="text-green-500 font-bold">{score}</span> out of{' '}
-                <span className="font-bold">{total}</span> correct
+              <p className="text-gray-700 text-sm font-medium mb-0.5">
+                <span className="font-bold" style={{ color: sc }}>{score}</span>
+                <span className="text-gray-400"> / {total} correct</span>
               </p>
-              <p className="text-gray-400 text-sm mt-1">
-                Your score has been sent to your admin
-              </p>
+              <p className="text-gray-400 text-xs">Your score has been sent to your administrator</p>
             </div>
           </div>
 
           {/* Answer review */}
-          <h2 className="text-gray-800 text-xl font-bold mb-4">Answer Review</h2>
+          <p className="text-gray-700 text-sm font-semibold mb-3">Answer Review</p>
 
-          <div className="flex flex-col gap-6 mb-8">
+          <div className="flex flex-col gap-3 mb-6">
             {simulations.map((sim, index) => {
               const userAnswer = userAnswers[index]
               const isCorrect = userAnswer === sim.correctIndex
-
               return (
-                <div key={sim.id} className="bg-white rounded-2xl shadow p-6">
-                  <p className="text-gray-800 font-semibold text-sm mb-4">
-                    Q{index + 1}: {sim.question}
-                  </p>
+                <div key={sim.id} className="bg-white border border-gray-100 rounded-xl p-5">
+                  <div className="flex items-start gap-2 mb-4">
+                    <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5
+                      ${isCorrect ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'}`}>
+                      {isCorrect ? '✓' : '✗'}
+                    </span>
+                    <p className="text-gray-700 text-sm leading-relaxed">{sim.question}</p>
+                  </div>
 
-                  <div className="flex flex-col gap-2 mb-4">
+                  <div className="flex flex-col gap-1.5 mb-4">
                     {sim.options.map((option, optIndex) => {
-                      let style = 'bg-gray-100 text-gray-700 border-gray-200'
-                      if (optIndex === sim.correctIndex) {
-                        style = 'bg-green-100 text-green-800 border-green-400'
-                      }
-                      if (optIndex === userAnswer && !isCorrect) {
-                        style = 'bg-red-100 text-red-800 border-red-400'
-                      }
-
+                      const isCorrectOpt = optIndex === sim.correctIndex
+                      const isUserWrong = optIndex === userAnswer && !isCorrect
                       return (
-                        <div
-                          key={optIndex}
-                          className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-sm ${style}`}>
-                          {optIndex === sim.correctIndex && (
-                            <span className="text-green-600 font-bold">✓</span>
-                          )}
-                          {optIndex === userAnswer && !isCorrect && (
-                            <span className="text-red-600 font-bold">✗</span>
-                          )}
-                          {optIndex !== sim.correctIndex && optIndex !== userAnswer && (
-                            <span className="w-4" />
-                          )}
+                        <div key={optIndex}
+                          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs border
+                            ${isCorrectOpt ? 'border-emerald-200 bg-emerald-50 text-emerald-700 font-medium'
+                              : isUserWrong ? 'border-red-100 bg-red-50 text-red-600'
+                              : 'border-gray-100 bg-gray-50 text-gray-500'}`}>
+                          <span className={`w-4 h-4 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0
+                            ${isCorrectOpt ? 'bg-emerald-500 text-white' : isUserWrong ? 'bg-red-400 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                            {isCorrectOpt ? '✓' : isUserWrong ? '✗' : ''}
+                          </span>
                           {option}
                         </div>
                       )
                     })}
                   </div>
 
-                  <div className="bg-[#0d1117] rounded-xl p-4">
-                    <p className="text-blue-400 font-bold text-sm mb-1">Explanation</p>
-                    <p className="text-gray-300 text-sm leading-relaxed">
-                      {sim.explanation}
-                    </p>
+                  <div className="bg-gray-900 rounded-lg px-4 py-3">
+                    <p className="text-gray-400 text-xs font-medium mb-1">Explanation</p>
+                    <p className="text-gray-300 text-xs leading-relaxed">{sim.explanation}</p>
                   </div>
                 </div>
               )
@@ -143,15 +123,13 @@ function SimulationResults() {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-4">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl transition">
+          <div className="flex gap-2 pb-6">
+            <button onClick={() => navigate('/dashboard')}
+              className="px-4 py-2.5 rounded-lg text-xs font-medium bg-gray-900 hover:bg-gray-800 text-white transition">
               Back to Dashboard
             </button>
-            <button
-              onClick={() => navigate('/simulations')}
-              className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 font-semibold px-6 py-3 rounded-xl transition">
+            <button onClick={() => navigate('/simulations')}
+              className="px-4 py-2.5 rounded-lg text-xs font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
               View All Simulations
             </button>
           </div>
