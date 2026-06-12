@@ -342,7 +342,7 @@ function SettingsPage() {
                       <div>
                         <label className={labelClass}>Department</label>
                         <select name="department" value={formData.department} onChange={handleChange} className={inputClass}>
-                          {['Engineering','Human Resources','Finance','Marketing','Operations','Management'].map(d => <option key={d}>{d}</option>)}
+                          {['Engineering', 'Human Resources', 'Finance', 'Marketing', 'Operations', 'Management'].map(d => <option key={d}>{d}</option>)}
                         </select>
                       </div>
                       <div>
@@ -481,14 +481,14 @@ function SettingsPage() {
                           <p className="text-gray-700 text-xs font-medium">Show my score on leaderboard</p>
                           <p className="text-gray-400 text-xs mt-0.5">Leaderboard visibility is managed by your administrator</p>
                         </div>
-                        <LockedToggle on={false} />
+                        <LockedToggle on={true} />
                       </div>
 
                       {/* Locked — data sharing off until Foresight launch */}
                       <div className="flex items-center justify-between py-2.5 opacity-40">
                         <div>
                           <p className="text-gray-700 text-xs font-medium">Help improve Averion</p>
-                          <p className="text-gray-400 text-xs mt-0.5">Anonymous data sharing — available in a future update</p>
+                          <p className="text-gray-400 text-xs mt-0.5">Anonymous data sharing, available in a future update</p>
                         </div>
                         <LockedToggle on={false} />
                       </div>
