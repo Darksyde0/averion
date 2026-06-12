@@ -48,7 +48,7 @@ function Sidebar({ isOpen }) {
         ) : (
           <div className="w-8 h-8 flex items-center justify-center relative">
             <img
-              src="/images/favicon.svg"
+              src="/images/favcon.svg"
               alt="A"
               className="h-8 w-8 object-contain"
               onError={e => {
