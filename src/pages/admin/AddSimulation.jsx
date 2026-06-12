@@ -5,58 +5,83 @@ import AdminTopBar from '../../components/admin/AdminTopBar'
 import { useProfile } from '../../hooks/useProfile'
 import { supabase } from '../../supabaseClient'
 
-function generateSimulationsPrompt(userMessage) {
-  return `You are ARIA — Averion Risk Intelligence Assistant. You help cybersecurity administrators create simulation questions for a cybersecurity awareness training platform called Averion.
+// ── ARIA conversational system prompt ──
+function buildAriaSystemPrompt(adminName) {
+  return `You are ARIA — Averion's Risk Intelligence Assistant. You are a sophisticated cybersecurity simulation designer with deep expertise in behavioral psychology, threat intelligence, and security awareness training.
 
-The admin has requested: "${userMessage}"
+You are having a conversation with ${adminName}, a cybersecurity administrator. Your role is twofold:
+1. Have a natural, intelligent conversation to understand exactly what kind of simulations they need
+2. Generate psychologically calibrated simulation questions that reveal behavioral vulnerabilities, not just knowledge gaps
 
-Generate cybersecurity simulation questions based on the request.
+CONVERSATION BEHAVIOR:
+- Greet the admin warmly by their first name on first message
+- Ask clarifying questions before generating — understand the context, department, and goal
+- Be concise but intelligent — you are a professional AI, not a chatbot
+- When you have enough context, generate the simulations
+- After generating, offer to refine, adjust difficulty, or generate more
+- If the admin says something casual or unclear, ask a smart follow-up
+- Never generate immediately without at least understanding the basic intent
 
-Return ONLY a valid JSON array with no markdown, no backticks, no explanation. Just the raw JSON array.
+KEY QUESTIONS TO UNDERSTAND BEFORE GENERATING:
+- What department or user group is this for? (IT, HR, Finance, C-Suite, general staff?)
+- What threat level are you targeting? (awareness, recognition, behavioral testing?)
+- Should questions test: knowledge recognition, real-time decision making, or behavioral impulse?
+- How cognitively challenging should the distractors be?
+
+WHEN GENERATING SIMULATIONS, return ONLY a valid JSON array. No markdown, no backticks, no explanation outside the JSON.
 
 Each simulation object must have exactly these fields:
 {
-  "scenarioName": "string - unique scenario name",
-  "question": "string - a rich, detailed, multi-sentence real-world scenario. Paint a vivid picture with context, urgency, emotions, or time pressure. The user must pause and think carefully before answering. Minimum 3-4 sentences.",
-  "category": "string - derive the most accurate category from the scenario. Use common cybersecurity categories like: Phishing Detection, Password Security, Social Engineering, Data Privacy, Network Security, Ransomware, USB & Physical Security, Insider Threat, Email Security, Mobile Security, Cloud Security, Zero-Day Awareness — or create a new accurate category if none fit",
-  "difficulty": "string - one of: Easy, Medium, Hard",
-  "threatLevel": "string - one of: Low, Medium, High, Critical — how dangerous this attack would be in real life if the user fell for it",
-  "attackTechnique": "string - the specific attack method e.g. Spear Phishing, Pretexting, Credential Harvesting, Vishing, Smishing, Baiting, Tailgating, Watering Hole, Ransomware Delivery, Business Email Compromise, MFA Fatigue, Quid Pro Quo",
-  "learningObjective": "string - one clear sentence: what the user should take away from this scenario",
+  "scenarioName": "string",
+  "question": "string - rich, detailed, multi-sentence real-world scenario with context, urgency, emotions, or time pressure. Minimum 3-4 sentences. Design it to trigger a specific cognitive or emotional response.",
+  "category": "string - one of: Phishing Detection, Password Security, Social Engineering, Data Privacy, Network Security, Ransomware, USB & Physical Security, Insider Threat, Email Security, Mobile Security, Cloud Security, Zero-Day Awareness",
+  "difficulty": "string - Easy, Medium, or Hard",
   "options": ["option1", "option2", "option3", "option4"],
-  "correctIndex": number between 0-3,
-  "explanation": "string - detailed explanation of why the correct answer is right, what red flags were present in the scenario, and why each wrong answer is incorrect"
+  "correctIndex": number 0-3,
+  "explanation": "string - educational explanation covering why the correct answer is right, what red flags were present, and why wrong answers are wrong",
+  "threatLevel": "string - Low, Medium, High, or Critical",
+  "attackTechnique": "string - specific attack method e.g. Spear Phishing, Pretexting, Credential Harvesting, Vishing, MFA Fatigue, Business Email Compromise",
+  "learningObjective": "string - one clear sentence: what behavioral insight this question tests",
+  "foresightMeta": {
+    "cognitivePattern": "string - what cognitive vulnerability this tests e.g. Authority Bias, Urgency Response, Trust Exploitation, Fear Reaction, Curiosity Exploitation, Social Pressure",
+    "behavioralIndicator": "string - what a wrong answer reveals about the user e.g. susceptible to authority figures, acts impulsively under time pressure, over-trusts internal senders",
+    "riskVector": "string - the primary risk dimension e.g. Impulsive Decision Making, Lack of Verification Habit, Overconfidence, Social Compliance",
+    "dataValue": "string - what Foresight can learn from this question's responses e.g. measures urgency susceptibility, tracks authority compliance rate"
+  }
 }
 
-Rules:
-- RANDOMIZE the order of simulations — do NOT group by category
-- Each scenario must be UNIQUE — different settings, attack vectors, and emotional triggers
-- VARY the perspective — mix "You", named characters, role-based, team context
-- Create real tension — use urgency, authority, fear, or curiosity
-- Mix difficulty levels naturally
-- Wrong answers must be plausible
-- NEVER force a category — always derive it accurately from the content
-- Respect the admin's requested types and quantities exactly
-- The explanation must be educational
-- threatLevel reflects real-world danger, not question difficulty
-- attackTechnique should be specific and accurate to the scenario`
+RULES:
+- Randomize simulation order — never group by category
+- Each scenario must be unique — different settings, attack vectors, emotional triggers
+- Vary perspective — mix You, named characters, role-based, team context
+- Create real tension — urgency, authority, fear, or curiosity
+- Wrong answers must be plausible — not obviously wrong
+- The foresightMeta is CRITICAL — fill it thoughtfully for every simulation
+- Never skip foresightMeta fields`
 }
 
-async function callAI(prompt, accessToken) {
+// ── Detect if the AI response contains a JSON array ──
+function extractJSON(text) {
+  try {
+    const match = text.match(/\[[\s\S]*\]/)
+    if (match) return JSON.parse(match[0])
+  } catch {}
+  return null
+}
+
+async function callARIA(messages, adminName, accessToken) {
+  const systemPrompt = buildAriaSystemPrompt(adminName)
   const response = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-simulations`,
     {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ prompt }),
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
+      body: JSON.stringify({ messages, systemPrompt }),
     }
   )
   const data = await response.json()
   if (data.error) throw new Error(data.error)
-  return Array.isArray(data) ? data : [data]
+  return data.content || data.text || (typeof data === 'string' ? data : JSON.stringify(data))
 }
 
 function shuffleSim(sim) {
@@ -105,27 +130,24 @@ function AddSimulation() {
   const [imagePreview, setImagePreview] = useState(null)
   const [imageFile, setImageFile] = useState(null)
   const [correctOption, setCorrectOption] = useState(null)
-  const [aiPanelOpen, setAiPanelOpen] = useState(false)
+  const [ariaOpen, setAriaOpen] = useState(false)
   const [expiryDate, setExpiryDate] = useState('')
-  const [aiMessages, setAiMessages] = useState([
-    {
-      role: 'ai',
-      text: `Hello — I'm ARIA, Averion's Risk Intelligence Assistant.\n\nDescribe what you need and I'll generate professional simulations instantly.\n\nExamples:\n· "3 phishing and 4 password security"\n· "5 social engineering, hard difficulty"\n· "Mix of 10 across any categories"\n\nEach simulation includes threat level, attack technique, and learning objective.`
-    }
-  ])
   const [aiInput, setAiInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
   const [generatedSims, setGeneratedSims] = useState([])
   const [showGenerated, setShowGenerated] = useState(false)
+  const [conversationHistory, setConversationHistory] = useState([])
+  const [ariaGreeted, setAriaGreeted] = useState(false)
   const chatEndRef = useRef(null)
+  const inputRef = useRef(null)
+
+  const adminFirstName = profile?.full_name?.split(' ')[0] || 'there'
+
+  const [aiMessages, setAiMessages] = useState([])
 
   const [formData, setFormData] = useState({
-    scenarioName: '',
-    question: '',
-    category: 'Password Security',
-    difficulty: '',
-    options: ['', '', '', ''],
-    explanation: '',
+    scenarioName: '', question: '', category: 'Password Security',
+    difficulty: '', options: ['', '', '', ''], explanation: '',
   })
 
   useEffect(() => {
@@ -140,20 +162,23 @@ function AddSimulation() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [aiMessages])
 
-  function handleChange(e) {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
-  }
+  // ── Greet when ARIA opens ──
+  useEffect(() => {
+    if (ariaOpen && !ariaGreeted && profile) {
+      const greeting = {
+        role: 'ai',
+        text: `Good to see you, ${adminFirstName}.\n\nI'm ARIA — your Risk Intelligence Assistant. I'm here to help you design cybersecurity simulations that go beyond basic awareness testing.\n\nBefore I generate anything, tell me — what are you working on? Who is this simulation for, and what kind of behavior are you trying to test?`,
+      }
+      setAiMessages([greeting])
+      setConversationHistory([{ role: 'assistant', content: greeting.text }])
+      setAriaGreeted(true)
+      setTimeout(() => inputRef.current?.focus(), 100)
+    }
+  }, [ariaOpen, profile, ariaGreeted])
 
-  function handleOptionChange(index, value) {
-    const updated = [...formData.options]
-    updated[index] = value
-    setFormData({ ...formData, options: updated })
-  }
-
-  function handleImageUpload(e) {
-    const file = e.target.files[0]
-    if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)) }
-  }
+  function handleChange(e) { setFormData({ ...formData, [e.target.name]: e.target.value }) }
+  function handleOptionChange(index, value) { const u = [...formData.options]; u[index] = value; setFormData({ ...formData, options: u }) }
+  function handleImageUpload(e) { const file = e.target.files[0]; if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)) } }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -172,24 +197,18 @@ function AddSimulation() {
       }
       const batchId = generateBatchId()
       const { error: simError } = await supabase.from('simulations').insert({
-        scenario_name: formData.scenarioName.trim(),
-        question: formData.question.trim(),
-        category: formData.category.trim(),
-        difficulty: formData.difficulty,
-        type: imageFile ? 'image' : 'text',
-        image_url: imageUrl,
-        options: formData.options,
-        correct_index: correctOption,
-        explanation: formData.explanation.trim(),
-        hidden: false,
-        organization_id: profile.id,
-        batch_id: batchId,
+        scenario_name: formData.scenarioName.trim(), question: formData.question.trim(),
+        category: formData.category.trim(), difficulty: formData.difficulty,
+        type: imageFile ? 'image' : 'text', image_url: imageUrl,
+        options: formData.options, correct_index: correctOption,
+        explanation: formData.explanation.trim(), hidden: false,
+        organization_id: profile.id, batch_id: batchId,
         expires_at: expiryDate ? new Date(expiryDate).toISOString() : null,
       })
       if (simError) { setError('Failed to save: ' + simError.message); setLoading(false); return }
       setSubmitted(true)
     } catch (err) {
-      setError('Something went wrong. Please try again.')
+      setError('Something went wrong.')
     } finally {
       setLoading(false)
     }
@@ -200,30 +219,49 @@ function AddSimulation() {
     const userMessage = aiInput.trim()
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
-    setAiInput(''); setAiLoading(true)
-    setAiMessages(prev => [...prev, { role: 'user', text: userMessage }])
-    setAiMessages(prev => [...prev, { role: 'ai', text: '', loading: true }])
+
+    setAiInput('')
+    setAiLoading(true)
+
+    const newUserMsg = { role: 'user', text: userMessage }
+    const updatedMessages = [...aiMessages, newUserMsg]
+    setAiMessages([...updatedMessages, { role: 'ai', text: '', loading: true }])
+
+    const newHistory = [...conversationHistory, { role: 'user', content: userMessage }]
+
     try {
-      const parsed = await callAI(generateSimulationsPrompt(userMessage), session.access_token)
-      const sims = (Array.isArray(parsed) ? parsed : [parsed]).map(shuffleSim)
-      setGeneratedSims(sims); setShowGenerated(true)
+      const responseText = await callARIA(newHistory, adminFirstName, session.access_token)
+      const parsed = extractJSON(responseText)
+
+      const finalHistory = [...newHistory, { role: 'assistant', content: responseText }]
+      setConversationHistory(finalHistory)
       setAiMessages(prev => prev.filter(m => !m.loading))
-      setAiMessages(prev => [...prev, { role: 'ai', text: `${sims.length} simulation${sims.length > 1 ? 's' : ''} generated — review below.` }])
+
+      if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+        const sims = parsed.map(shuffleSim)
+        setGeneratedSims(sims)
+        setShowGenerated(true)
+        setAiMessages(prev => [...prev, {
+          role: 'ai',
+          text: `${sims.length} simulation${sims.length > 1 ? 's' : ''} generated and ready for review.\n\nEach question has been calibrated to test specific cognitive patterns. Review them below — I can refine, replace, or add more if needed.`,
+        }])
+      } else {
+        setAiMessages(prev => [...prev, { role: 'ai', text: responseText }])
+      }
     } catch (err) {
       setAiMessages(prev => prev.filter(m => !m.loading))
-      setAiMessages(prev => [...prev, { role: 'ai', text: `Error: ${err.message || 'Something went wrong.'}` }])
+      setAiMessages(prev => [...prev, { role: 'ai', text: `Something went wrong: ${err.message || 'Please try again.'}` }])
     } finally {
       setAiLoading(false)
     }
   }
 
-  function handleDeleteGenerated(index) {
-    setGeneratedSims(prev => prev.filter((_, i) => i !== index))
-  }
+  function handleDeleteGenerated(index) { setGeneratedSims(prev => prev.filter((_, i) => i !== index)) }
 
   function handleLoadToForm(sim) {
     setFormData({ scenarioName: sim.scenarioName, question: sim.question, category: sim.category, difficulty: sim.difficulty, options: sim.options, explanation: sim.explanation })
-    setCorrectOption(sim.correctIndex); setAiPanelOpen(false)
+    setCorrectOption(sim.correctIndex)
+    setAriaOpen(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -233,10 +271,15 @@ function AddSimulation() {
     const sim = generatedSims[index]
     setRegenError(''); setAiLoading(true)
     try {
-      const prompt = generateSimulationsPrompt(`1 ${sim.category} simulation, completely different from: "${sim.scenarioName}".`)
-      const parsed = await callAI(prompt, session.access_token)
-      const raw = Array.isArray(parsed) ? parsed[0] : parsed
-      setGeneratedSims(prev => prev.map((s, i) => i === index ? shuffleSim(raw) : s))
+      const regenHistory = [
+        ...conversationHistory,
+        { role: 'user', content: `Regenerate simulation #${index + 1} (${sim.scenarioName}) with a completely different scenario, same category: ${sim.category}. Return only a JSON array with 1 simulation.` }
+      ]
+      const responseText = await callARIA(regenHistory, adminFirstName, session.access_token)
+      const parsed = extractJSON(responseText)
+      if (parsed && Array.isArray(parsed) && parsed[0]) {
+        setGeneratedSims(prev => prev.map((s, i) => i === index ? shuffleSim(parsed[0]) : s))
+      }
     } catch (err) {
       setRegenError('Failed to regenerate: ' + (err.message || 'Please try again.'))
     } finally {
@@ -255,12 +298,18 @@ function AddSimulation() {
         correct_index: sim.correctIndex, explanation: sim.explanation, hidden: false,
         organization_id: profile.id, batch_id: batchId,
         expires_at: expiryDate ? new Date(expiryDate).toISOString() : null,
+        threat_level: sim.threatLevel || null,
+        attack_technique: sim.attackTechnique || null,
+        learning_objective: sim.learningObjective || null,
+        foresight_meta: sim.foresightMeta || null,
       }))
       const { error: simError } = await supabase.from('simulations').insert(rows)
       if (simError) { setError('Failed to save: ' + simError.message); return }
       setGeneratedSims([]); setShowGenerated(false)
-      setAiMessages(prev => [...prev, { role: 'ai', text: `${rows.length} simulation${rows.length > 1 ? 's' : ''} saved successfully.` }])
-      setAiPanelOpen(true)
+      setAiMessages(prev => [...prev, {
+        role: 'ai',
+        text: `${rows.length} simulation${rows.length > 1 ? 's' : ''} saved successfully — including all Foresight metadata.\n\nWant to generate another batch, adjust difficulty, or focus on a different department?`,
+      }])
     } catch (err) {
       setError('Something went wrong.')
     } finally {
@@ -278,414 +327,429 @@ function AddSimulation() {
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-48' : 'ml-16'}`}>
         <AdminTopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
-        <div className="flex flex-1 overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-6">
-            {!submitted ? (
-              <div className="max-w-full">
+        <div className="flex-1 overflow-y-auto p-6">
+          {!submitted ? (
+            <div className="max-w-full">
 
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h1 className="text-gray-900 text-lg font-semibold">Add Simulation</h1>
-                    <p className="text-gray-400 text-xs mt-0.5">Create a new cybersecurity simulation question</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setAiPanelOpen(!aiPanelOpen)}
-                      className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg transition
-                        ${aiPanelOpen ? 'bg-violet-600 text-white' : 'bg-violet-50 text-violet-600 hover:bg-violet-100 border border-violet-200'}`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                      </svg>
-                      ARIA
-                    </button>
-                    <label className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-600 text-xs font-medium px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-50 transition">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                      </svg>
-                      Upload Image
-                      <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-                    </label>
-                  </div>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h1 className="text-gray-900 text-lg font-semibold">Add Simulation</h1>
+                  <p className="text-gray-400 text-xs mt-0.5">Create a new cybersecurity simulation question</p>
                 </div>
-
-                {error && (
-                  <div className="bg-red-50 border border-red-100 rounded-lg px-4 py-3 mb-4">
-                    <p className="text-red-500 text-sm">{error}</p>
-                  </div>
-                )}
-
-                {regenError && (
-                  <div className="bg-orange-50 border border-orange-100 rounded-lg px-4 py-3 mb-4">
-                    <p className="text-orange-500 text-sm">{regenError}</p>
-                  </div>
-                )}
-
-                {imagePreview && (
-                  <div className="mb-4 bg-white border border-gray-100 rounded-xl overflow-hidden">
-                    <img src={imagePreview} alt="Uploaded" className="w-full max-h-52 object-contain p-4" />
-                    <div className="px-4 pb-3 flex justify-between items-center border-t border-gray-50">
-                      <p className="text-gray-400 text-xs">Scenario image attached</p>
-                      <button type="button" onClick={() => { setImagePreview(null); setImageFile(null) }}
-                        className="text-red-400 hover:text-red-500 text-xs font-medium transition">Remove</button>
-                    </div>
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-
-                  {/* Scenario Name */}
-                  <div className="bg-white rounded-xl border border-gray-100 p-5">
-                    <label className={labelClass}>Scenario Name <span className="text-red-400">*</span></label>
-                    <input type="text" name="scenarioName" value={formData.scenarioName}
-                      onChange={handleChange} placeholder="e.g. Phishing Email from IT Department"
-                      className={inputClass} required />
-                  </div>
-
-                  {/* Scenario */}
-                  <div className="bg-white rounded-xl border border-gray-100 p-5">
-                    <label className={labelClass}>Scenario <span className="text-red-400">*</span></label>
-                    <textarea name="question" value={formData.question} onChange={handleChange}
-                      placeholder="Describe a realistic, detailed scenario. Include context, urgency, and a clear decision point..."
-                      rows={5} className={`${inputClass} resize-none`} required />
-                    <p className="text-gray-300 text-xs mt-2">The richer the scenario, the more effective the training.</p>
-                  </div>
-
-                  {/* Category + Difficulty */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white rounded-xl border border-gray-100 p-5">
-                      <label className={labelClass}>Category</label>
-                      <input type="text" name="category" value={formData.category} onChange={handleChange}
-                        placeholder="e.g. Phishing Detection" list="category-options" className={inputClass} />
-                      <datalist id="category-options">
-                        {['Password Security','Phishing Detection','Social Engineering','Data Privacy','Network Security','Ransomware','USB & Physical Security','Insider Threat','Email Security','Mobile Security','Cloud Security','Zero-Day Awareness'].map(c => (
-                          <option key={c} value={c} />
-                        ))}
-                      </datalist>
-                      <p className="text-gray-300 text-xs mt-2">Type any category</p>
-                    </div>
-                    <div className="bg-white rounded-xl border border-gray-100 p-5">
-                      <label className={labelClass}>Difficulty <span className="text-red-400">*</span></label>
-                      <select name="difficulty" value={formData.difficulty} onChange={handleChange}
-                        className={inputClass} required>
-                        <option value="">Select level</option>
-                        <option>Easy</option>
-                        <option>Medium</option>
-                        <option>Hard</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Expiry */}
-                  <div className="bg-white rounded-xl border border-gray-100 p-5">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className={labelClass.replace('mb-1.5', '')}>Expiry Date</label>
-                      <span className="text-gray-300 text-xs">Optional</span>
-                    </div>
-                    <input type="datetime-local" value={expiryDate}
-                      onChange={e => setExpiryDate(e.target.value)}
-                      min={new Date().toISOString().slice(0, 16)}
-                      className={inputClass} />
-                    {expiryDate && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isExpiringSoon(expiryDate) ? 'bg-red-400' : 'bg-emerald-400'}`} />
-                        <p className={`text-xs flex-1 ${isExpiringSoon(expiryDate) ? 'text-red-400' : 'text-gray-400'}`}>
-                          {isExpiringSoon(expiryDate) ? 'Expiring very soon' : `Expires ${new Date(expiryDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`}
-                        </p>
-                        <button type="button" onClick={() => setExpiryDate('')}
-                          className="text-gray-300 hover:text-red-400 text-xs transition">Clear</button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Answer Options */}
-                  <div className="bg-white rounded-xl border border-gray-100 p-5">
-                    <div className="flex items-center justify-between mb-4">
-                      <label className="text-gray-500 text-xs font-medium">Answer Options <span className="text-red-400">*</span></label>
-                      <p className="text-gray-300 text-xs">Click a row to mark correct</p>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      {formData.options.map((option, index) => (
-                        <div key={index} onClick={() => setCorrectOption(index)}
-                          className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition cursor-pointer
-                            ${correctOption === index ? 'border-blue-200 bg-blue-50' : 'border-gray-100 bg-gray-50 hover:border-gray-200'}`}>
-                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition text-xs font-semibold
-                            ${correctOption === index ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 bg-white text-gray-400'}`}>
-                            {correctOption === index
-                              ? <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-                              : optionLabels[index]}
-                          </div>
-                          <input type="text" value={option}
-                            onChange={e => { e.stopPropagation(); handleOptionChange(index, e.target.value) }}
-                            onClick={e => e.stopPropagation()}
-                            placeholder={`Option ${optionLabels[index]}`}
-                            className="flex-1 bg-transparent text-gray-700 placeholder-gray-300 text-sm outline-none"
-                            required />
-                          {correctOption === index && (
-                            <span className="text-blue-500 text-xs font-medium flex-shrink-0">Correct</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Explanation */}
-                  <div className="bg-white rounded-xl border border-gray-100 p-5">
-                    <label className={labelClass}>Explanation <span className="text-red-400">*</span></label>
-                    <textarea name="explanation" value={formData.explanation} onChange={handleChange}
-                      placeholder="Explain why the correct answer is right and what red flags were present..."
-                      rows={4} className={`${inputClass} resize-none`} required />
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center justify-between pt-1 pb-6">
-                    <button type="button" onClick={() => navigate('/admin/simulations')}
-                      className="px-4 py-2.5 rounded-lg text-xs font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
-                      Cancel
-                    </button>
-                    <button type="submit" disabled={loading}
-                      className={`px-6 py-2.5 rounded-lg text-xs font-medium transition
-                        ${loading ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-900 hover:bg-gray-800 text-white'}`}>
-                      {loading ? 'Saving...' : 'Save Simulation'}
-                    </button>
-                  </div>
-                </form>
-
-                {/* Generated Simulations */}
-                {showGenerated && generatedSims.length > 0 && (
-                  <div className="pb-10">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <p className="text-gray-800 text-sm font-semibold">{generatedSims.length} Simulation{generatedSims.length > 1 ? 's' : ''} Generated</p>
-                        <p className="text-gray-400 text-xs mt-0.5">Review each before saving</p>
-                      </div>
-                      <button onClick={handleSaveAll} disabled={loading}
-                        className={`text-xs font-medium px-4 py-2 rounded-lg transition
-                          ${loading ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-900 hover:bg-gray-800 text-white'}`}>
-                        {loading ? 'Saving...' : `Save All ${generatedSims.length}`}
-                      </button>
-                    </div>
-
-                    <div className="bg-violet-50 border border-violet-100 rounded-lg px-4 py-3 mb-4 flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-violet-400 flex-shrink-0" />
-                      <p className="text-violet-600 text-xs">All {generatedSims.length} simulations will be saved as a single batch in this randomized order.</p>
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                      {generatedSims.map((sim, index) => {
-                        const tc = threatColor(sim.threatLevel)
-                        const dc = difficultyColor(sim.difficulty)
-                        return (
-                          <div key={index} className="bg-white rounded-xl border border-gray-100 p-5">
-                            <div className="flex items-start justify-between mb-3">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-gray-300 text-xs font-mono">#{index + 1}</span>
-                                <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">{sim.category}</span>
-                                <span className="text-xs font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: dc.bg, color: dc.text }}>{sim.difficulty}</span>
-                                {sim.threatLevel && (
-                                  <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: tc.bg, color: tc.text }}>
-                                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tc.dot }} />
-                                    {sim.threatLevel}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1.5 flex-shrink-0">
-                                <button onClick={() => handleLoadToForm(sim)}
-                                  className="text-xs font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Load</button>
-                                <button onClick={() => handleRegenerateOne(index)} disabled={aiLoading}
-                                  className="text-xs font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition disabled:opacity-40">Redo</button>
-                                <button onClick={() => handleDeleteGenerated(index)}
-                                  className="text-xs font-medium px-2.5 py-1 rounded-md bg-red-50 text-red-400 hover:bg-red-100 transition">Delete</button>
-                              </div>
-                            </div>
-
-                            {sim.attackTechnique && (
-                              <p className="text-gray-400 text-xs mb-2 font-medium">{sim.attackTechnique}</p>
-                            )}
-
-                            <p className="text-gray-800 text-sm font-semibold mb-2">{sim.scenarioName}</p>
-
-                            <div className="bg-gray-50 rounded-lg px-4 py-3 mb-3">
-                              <p className="text-gray-600 text-sm leading-relaxed">{sim.question}</p>
-                            </div>
-
-                            {sim.learningObjective && (
-                              <div className="flex items-start gap-2 mb-3 px-3 py-2.5 rounded-lg border border-gray-100">
-                                <p className="text-gray-400 text-xs"><span className="font-medium text-gray-600">Objective: </span>{sim.learningObjective}</p>
-                              </div>
-                            )}
-
-                            <div className="flex flex-col gap-1.5 mb-3">
-                              {sim.options.map((opt, i) => (
-                                <div key={i} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs border
-                                  ${i === sim.correctIndex ? 'border-emerald-200 bg-emerald-50 text-emerald-700 font-medium' : 'border-gray-100 bg-gray-50 text-gray-500'}`}>
-                                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0
-                                    ${i === sim.correctIndex ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
-                                    {optionLabels[i]}
-                                  </span>
-                                  {opt}
-                                </div>
-                              ))}
-                            </div>
-
-                            <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
-                              <p className="text-gray-500 text-xs font-medium mb-1">Explanation</p>
-                              <p className="text-gray-500 text-xs leading-relaxed">{sim.explanation}</p>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            ) : (
-              <div className="max-w-sm mx-auto mt-16">
-                <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
-                  <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setAriaOpen(true)}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg transition bg-violet-50 text-violet-600 hover:bg-violet-100 border border-violet-200">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                     </svg>
-                  </div>
-                  <p className="text-gray-800 text-base font-semibold mb-1">Simulation saved</p>
-                  <p className="text-gray-400 text-xs mb-5">{formData.scenarioName}</p>
-                  <div className="bg-gray-50 rounded-lg p-4 text-left mb-5 border border-gray-100">
-                    <div className="flex flex-col gap-2">
-                      {[
-                        { label: 'Category', value: formData.category },
-                        { label: 'Difficulty', value: formData.difficulty },
-                        { label: 'Correct Answer', value: `Option ${optionLabels[correctOption]}` },
-                        { label: 'Expires', value: expiryDate ? new Date(expiryDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Never' },
-                      ].map((item, i) => (
-                        <div key={i} className="flex items-center justify-between">
-                          <p className="text-gray-400 text-xs">{item.label}</p>
-                          <p className="text-gray-700 text-xs font-medium">{item.value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => {
-                      setFormData({ scenarioName: '', question: '', category: 'Password Security', difficulty: '', options: ['', '', '', ''], explanation: '' })
-                      setCorrectOption(null); setImagePreview(null); setImageFile(null)
-                      setSubmitted(false); setError(''); setRegenError(''); setExpiryDate('')
-                    }} className="flex-1 py-2.5 rounded-lg text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-600 transition">
-                      Add Another
-                    </button>
-                    <button onClick={() => navigate('/admin/simulations')}
-                      className="flex-1 py-2.5 rounded-lg text-xs font-medium bg-gray-900 hover:bg-gray-800 text-white transition">
-                      View All
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ARIA Panel */}
-          {aiPanelOpen && (
-            <div className="fixed right-0 top-[49px] h-[calc(100vh-49px)] w-96 flex flex-col z-30 overflow-hidden"
-              style={{ background: 'linear-gradient(180deg, #0a0a0f 0%, #0d0d1a 100%)' }}>
-              <div className="h-px w-full flex-shrink-0"
-                style={{ background: 'linear-gradient(90deg, transparent, #7c3aed, transparent)' }} />
-              <div className="flex items-center justify-between px-5 py-4 flex-shrink-0"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                <div className="flex items-center gap-3">
-                  <div className="relative flex-shrink-0">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                      style={{ background: 'linear-gradient(135deg, #6d28d9, #4f46e5)' }}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                      </svg>
-                    </div>
-                    <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 border-2"
-                      style={{ borderColor: '#0a0a0f' }} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-white text-sm font-semibold">ARIA</p>
-                      <span className="px-1.5 py-0.5 rounded text-xs font-medium"
-                        style={{ background: 'rgba(109,40,217,0.3)', color: '#a78bfa' }}>GPT-4o</span>
-                    </div>
-                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Risk Intelligence Assistant</p>
-                  </div>
-                </div>
-                <button onClick={() => setAiPanelOpen(false)}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center transition"
-                  style={{ color: 'rgba(255,255,255,0.3)' }}
-                  onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
-                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4" style={{ scrollbarWidth: 'none' }}>
-                {aiMessages.map((msg, index) => (
-                  <div key={index} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    {msg.role === 'ai' && (
-                      <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                        style={{ background: 'linear-gradient(135deg, #6d28d9, #4f46e5)' }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                        </svg>
-                      </div>
-                    )}
-                    <div className={`max-w-[240px] px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-wrap
-                      ${msg.role === 'user' ? 'rounded-2xl rounded-tr-sm' : 'rounded-2xl rounded-tl-sm'}`}
-                      style={msg.role === 'user'
-                        ? { background: 'linear-gradient(135deg, #6d28d9, #4f46e5)', color: '#fff' }
-                        : msg.loading
-                          ? { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.3)' }
-                          : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.06)' }
-                      }>
-                      {msg.loading ? (
-                        <span className="flex items-center gap-1.5 py-0.5">
-                          {[0, 150, 300].map(delay => (
-                            <span key={delay} className="w-1.5 h-1.5 rounded-full animate-bounce"
-                              style={{ background: 'rgba(255,255,255,0.4)', animationDelay: `${delay}ms` }} />
-                          ))}
-                        </span>
-                      ) : msg.text}
-                    </div>
-                  </div>
-                ))}
-                <div ref={chatEndRef} />
-              </div>
-
-              <div className="px-5 py-4 flex-shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                <div className="flex items-end gap-3 rounded-xl px-4 py-3"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <textarea value={aiInput}
-                    onChange={e => { setAiInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 96) + 'px' }}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAiSend() } }}
-                    placeholder="Describe the simulations you need..."
-                    rows={1} disabled={aiLoading}
-                    className="flex-1 bg-transparent text-sm outline-none resize-none"
-                    style={{ color: 'rgba(255,255,255,0.85)', caretColor: '#7c3aed', minHeight: '20px', maxHeight: '96px', scrollbarWidth: 'none' }} />
-                  <button onClick={handleAiSend} disabled={aiLoading || !aiInput.trim()}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
-                    style={aiLoading || !aiInput.trim()
-                      ? { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }
-                      : { background: 'linear-gradient(135deg, #6d28d9, #4f46e5)', color: '#fff', boxShadow: '0 0 12px rgba(109,40,217,0.4)' }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+                    Ask ARIA
+                  </button>
+                  <label className="flex items-center gap-1.5 bg-white border border-gray-200 text-gray-600 text-xs font-medium px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                     </svg>
+                    Upload Image
+                    <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                  </label>
+                </div>
+              </div>
+
+              {error && <div className="bg-red-50 border border-red-100 rounded-lg px-4 py-3 mb-4"><p className="text-red-500 text-sm">{error}</p></div>}
+              {regenError && <div className="bg-orange-50 border border-orange-100 rounded-lg px-4 py-3 mb-4"><p className="text-orange-500 text-sm">{regenError}</p></div>}
+
+              {imagePreview && (
+                <div className="mb-4 bg-white border border-gray-100 rounded-xl overflow-hidden">
+                  <img src={imagePreview} alt="Uploaded" className="w-full max-h-52 object-contain p-4" />
+                  <div className="px-4 pb-3 flex justify-between items-center border-t border-gray-50">
+                    <p className="text-gray-400 text-xs">Scenario image attached</p>
+                    <button type="button" onClick={() => { setImagePreview(null); setImageFile(null) }}
+                      className="text-red-400 hover:text-red-500 text-xs font-medium transition">Remove</button>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+
+                <div className="bg-white rounded-xl border border-gray-100 p-5">
+                  <label className={labelClass}>Scenario Name <span className="text-red-400">*</span></label>
+                  <input type="text" name="scenarioName" value={formData.scenarioName} onChange={handleChange}
+                    placeholder="e.g. Phishing Email from IT Department" className={inputClass} required />
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-100 p-5">
+                  <label className={labelClass}>Scenario <span className="text-red-400">*</span></label>
+                  <textarea name="question" value={formData.question} onChange={handleChange}
+                    placeholder="Describe a realistic, detailed scenario. Include context, urgency, and a clear decision point..."
+                    rows={5} className={`${inputClass} resize-none`} required />
+                  <p className="text-gray-300 text-xs mt-2">The richer the scenario, the more effective the training.</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white rounded-xl border border-gray-100 p-5">
+                    <label className={labelClass}>Category</label>
+                    <input type="text" name="category" value={formData.category} onChange={handleChange}
+                      placeholder="e.g. Phishing Detection" list="category-options" className={inputClass} />
+                    <datalist id="category-options">
+                      {['Password Security','Phishing Detection','Social Engineering','Data Privacy','Network Security','Ransomware','USB & Physical Security','Insider Threat','Email Security','Mobile Security','Cloud Security','Zero-Day Awareness'].map(c => <option key={c} value={c} />)}
+                    </datalist>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-100 p-5">
+                    <label className={labelClass}>Difficulty <span className="text-red-400">*</span></label>
+                    <select name="difficulty" value={formData.difficulty} onChange={handleChange} className={inputClass} required>
+                      <option value="">Select level</option>
+                      <option>Easy</option><option>Medium</option><option>Hard</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-100 p-5">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-gray-500 text-xs font-medium">Expiry Date</label>
+                    <span className="text-gray-300 text-xs">Optional</span>
+                  </div>
+                  <input type="datetime-local" value={expiryDate} onChange={e => setExpiryDate(e.target.value)}
+                    min={new Date().toISOString().slice(0, 16)} className={inputClass} />
+                  {expiryDate && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isExpiringSoon(expiryDate) ? 'bg-red-400' : 'bg-emerald-400'}`} />
+                      <p className={`text-xs flex-1 ${isExpiringSoon(expiryDate) ? 'text-red-400' : 'text-gray-400'}`}>
+                        {isExpiringSoon(expiryDate) ? 'Expiring very soon' : `Expires ${new Date(expiryDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`}
+                      </p>
+                      <button type="button" onClick={() => setExpiryDate('')} className="text-gray-300 hover:text-red-400 text-xs transition">Clear</button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-100 p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <label className="text-gray-500 text-xs font-medium">Answer Options <span className="text-red-400">*</span></label>
+                    <p className="text-gray-300 text-xs">Click a row to mark correct</p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {formData.options.map((option, index) => (
+                      <div key={index} onClick={() => setCorrectOption(index)}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-lg border transition cursor-pointer
+                          ${correctOption === index ? 'border-blue-200 bg-blue-50' : 'border-gray-100 bg-gray-50 hover:border-gray-200'}`}>
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition text-xs font-semibold
+                          ${correctOption === index ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-200 bg-white text-gray-400'}`}>
+                          {correctOption === index
+                            ? <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                            : optionLabels[index]}
+                        </div>
+                        <input type="text" value={option}
+                          onChange={e => { e.stopPropagation(); handleOptionChange(index, e.target.value) }}
+                          onClick={e => e.stopPropagation()}
+                          placeholder={`Option ${optionLabels[index]}`}
+                          className="flex-1 bg-transparent text-gray-700 placeholder-gray-300 text-sm outline-none" required />
+                        {correctOption === index && <span className="text-blue-500 text-xs font-medium flex-shrink-0">Correct</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-xl border border-gray-100 p-5">
+                  <label className={labelClass}>Explanation <span className="text-red-400">*</span></label>
+                  <textarea name="explanation" value={formData.explanation} onChange={handleChange}
+                    placeholder="Explain why the correct answer is right and what red flags were present..."
+                    rows={4} className={`${inputClass} resize-none`} required />
+                </div>
+
+                <div className="flex items-center justify-between pt-1 pb-6">
+                  <button type="button" onClick={() => navigate('/admin/simulations')}
+                    className="px-4 py-2.5 rounded-lg text-xs font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={loading}
+                    className={`px-6 py-2.5 rounded-lg text-xs font-medium transition
+                      ${loading ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-900 hover:bg-gray-800 text-white'}`}>
+                    {loading ? 'Saving...' : 'Save Simulation'}
                   </button>
                 </div>
-                <div className="flex items-center justify-between mt-2">
-                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>Enter to send · Shift+Enter for newline</p>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>Secure</p>
+              </form>
+
+              {/* Generated Simulations */}
+              {showGenerated && generatedSims.length > 0 && (
+                <div className="pb-10">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-gray-800 text-sm font-semibold">{generatedSims.length} Simulation{generatedSims.length > 1 ? 's' : ''} Generated</p>
+                      <p className="text-gray-400 text-xs mt-0.5">Review each before saving — Foresight metadata included</p>
+                    </div>
+                    <button onClick={handleSaveAll} disabled={loading}
+                      className={`text-xs font-medium px-4 py-2 rounded-lg transition
+                        ${loading ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-900 hover:bg-gray-800 text-white'}`}>
+                      {loading ? 'Saving...' : `Save All ${generatedSims.length}`}
+                    </button>
                   </div>
+
+                  <div className="bg-violet-50 border border-violet-100 rounded-lg px-4 py-3 mb-4 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-violet-400 flex-shrink-0" />
+                    <p className="text-violet-600 text-xs">All {generatedSims.length} simulations will be saved as a single batch with Foresight metadata for future analysis.</p>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    {generatedSims.map((sim, index) => {
+                      const tc = threatColor(sim.threatLevel)
+                      const dc = difficultyColor(sim.difficulty)
+                      return (
+                        <div key={index} className="bg-white rounded-xl border border-gray-100 p-5">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-gray-300 text-xs font-mono">#{index + 1}</span>
+                              <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">{sim.category}</span>
+                              <span className="text-xs font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: dc.bg, color: dc.text }}>{sim.difficulty}</span>
+                              {sim.threatLevel && (
+                                <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: tc.bg, color: tc.text }}>
+                                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: tc.dot }} />
+                                  {sim.threatLevel}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <button onClick={() => handleLoadToForm(sim)}
+                                className="text-xs font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition">Load</button>
+                              <button onClick={() => handleRegenerateOne(index)} disabled={aiLoading}
+                                className="text-xs font-medium px-2.5 py-1 rounded-md bg-gray-100 text-gray-600 hover:bg-gray-200 transition disabled:opacity-40">Redo</button>
+                              <button onClick={() => handleDeleteGenerated(index)}
+                                className="text-xs font-medium px-2.5 py-1 rounded-md bg-red-50 text-red-400 hover:bg-red-100 transition">Delete</button>
+                            </div>
+                          </div>
+
+                          {sim.attackTechnique && <p className="text-gray-400 text-xs mb-2 font-medium">{sim.attackTechnique}</p>}
+                          <p className="text-gray-800 text-sm font-semibold mb-2">{sim.scenarioName}</p>
+
+                          <div className="bg-gray-50 rounded-lg px-4 py-3 mb-3">
+                            <p className="text-gray-600 text-sm leading-relaxed">{sim.question}</p>
+                          </div>
+
+                          {sim.learningObjective && (
+                            <div className="flex items-start gap-2 mb-3 px-3 py-2.5 rounded-lg border border-gray-100">
+                              <p className="text-gray-400 text-xs"><span className="font-medium text-gray-600">Objective: </span>{sim.learningObjective}</p>
+                            </div>
+                          )}
+
+                          {/* Foresight metadata preview */}
+                          {sim.foresightMeta && (
+                            <div className="mb-3 px-3 py-2.5 rounded-lg border border-violet-100 bg-violet-50/50">
+                              <p className="text-violet-600 text-xs font-medium mb-1.5">Foresight Intelligence</p>
+                              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                {sim.foresightMeta.cognitivePattern && (
+                                  <p className="text-xs text-gray-500"><span className="text-gray-400">Pattern: </span>{sim.foresightMeta.cognitivePattern}</p>
+                                )}
+                                {sim.foresightMeta.riskVector && (
+                                  <p className="text-xs text-gray-500"><span className="text-gray-400">Risk: </span>{sim.foresightMeta.riskVector}</p>
+                                )}
+                                {sim.foresightMeta.behavioralIndicator && (
+                                  <p className="text-xs text-gray-500 col-span-2"><span className="text-gray-400">Indicator: </span>{sim.foresightMeta.behavioralIndicator}</p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex flex-col gap-1.5 mb-3">
+                            {sim.options.map((opt, i) => (
+                              <div key={i} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-xs border
+                                ${i === sim.correctIndex ? 'border-emerald-200 bg-emerald-50 text-emerald-700 font-medium' : 'border-gray-100 bg-gray-50 text-gray-500'}`}>
+                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0
+                                  ${i === sim.correctIndex ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                                  {optionLabels[i]}
+                                </span>
+                                {opt}
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-100">
+                            <p className="text-gray-500 text-xs font-medium mb-1">Explanation</p>
+                            <p className="text-gray-500 text-xs leading-relaxed">{sim.explanation}</p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          ) : (
+            <div className="max-w-sm mx-auto mt-16">
+              <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
+                <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                </div>
+                <p className="text-gray-800 text-base font-semibold mb-1">Simulation saved</p>
+                <p className="text-gray-400 text-xs mb-5">{formData.scenarioName}</p>
+                <div className="flex gap-2">
+                  <button onClick={() => {
+                    setFormData({ scenarioName: '', question: '', category: 'Password Security', difficulty: '', options: ['', '', '', ''], explanation: '' })
+                    setCorrectOption(null); setImagePreview(null); setImageFile(null)
+                    setSubmitted(false); setError(''); setRegenError(''); setExpiryDate('')
+                  }} className="flex-1 py-2.5 rounded-lg text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-600 transition">
+                    Add Another
+                  </button>
+                  <button onClick={() => navigate('/admin/simulations')}
+                    className="flex-1 py-2.5 rounded-lg text-xs font-medium bg-gray-900 hover:bg-gray-800 text-white transition">
+                    View All
+                  </button>
                 </div>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* ── ARIA Centered Modal ── */}
+      {ariaOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setAriaOpen(false) }}>
+
+          <div className="w-full max-w-lg flex flex-col rounded-2xl overflow-hidden shadow-2xl"
+            style={{
+              background: 'linear-gradient(180deg, #0a0a0f 0%, #0d0d1a 100%)',
+              border: '1px solid rgba(124,58,237,0.3)',
+              height: '620px',
+              boxShadow: '0 0 60px rgba(109,40,217,0.2), 0 25px 60px rgba(0,0,0,0.5)',
+            }}>
+
+            {/* Top glow line */}
+            <div className="h-px w-full flex-shrink-0"
+              style={{ background: 'linear-gradient(90deg, transparent, #7c3aed, #4f46e5, transparent)' }} />
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 flex-shrink-0"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center gap-3">
+                <div className="relative flex-shrink-0">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg, #6d28d9, #4f46e5)', boxShadow: '0 0 20px rgba(109,40,217,0.4)' }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                    </svg>
+                  </div>
+                  <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2"
+                    style={{ borderColor: '#0a0a0f' }} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-white text-sm font-semibold tracking-wide">ARIA</p>
+                    <span className="px-1.5 py-0.5 rounded text-xs font-medium"
+                      style={{ background: 'rgba(109,40,217,0.3)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.2)' }}>
+                      GPT-4o
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-xs font-medium"
+                      style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)' }}>
+                      Foresight Ready
+                    </span>
+                  </div>
+                  <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>Averion Risk Intelligence Assistant</p>
+                </div>
+              </div>
+              <button onClick={() => setAriaOpen(false)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center transition"
+                style={{ color: 'rgba(255,255,255,0.3)' }}
+                onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.7)'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4" style={{ scrollbarWidth: 'none' }}>
+              {aiMessages.map((msg, index) => (
+                <div key={index} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {msg.role === 'ai' && (
+                    <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                      style={{ background: 'linear-gradient(135deg, #6d28d9, #4f46e5)' }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className={`px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-wrap
+                    ${msg.role === 'user' ? 'rounded-2xl rounded-tr-sm max-w-[75%]' : 'rounded-2xl rounded-tl-sm max-w-[85%]'}`}
+                    style={msg.role === 'user'
+                      ? { background: 'linear-gradient(135deg, #6d28d9, #4f46e5)', color: '#fff' }
+                      : msg.loading
+                        ? { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.3)' }
+                        : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.75)', border: '1px solid rgba(255,255,255,0.06)' }
+                    }>
+                    {msg.loading ? (
+                      <span className="flex items-center gap-1.5 py-0.5">
+                        {[0, 150, 300].map(delay => (
+                          <span key={delay} className="w-1.5 h-1.5 rounded-full animate-bounce"
+                            style={{ background: 'rgba(255,255,255,0.4)', animationDelay: `${delay}ms` }} />
+                        ))}
+                      </span>
+                    ) : msg.text}
+                  </div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Suggested prompts — show only when no user messages yet */}
+            {aiMessages.length <= 1 && (
+              <div className="px-5 pb-3 flex flex-col gap-1.5 flex-shrink-0">
+                <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.2)' }}>Quick starts</p>
+                {[
+                  '5 phishing simulations for the finance team, hard difficulty',
+                  'Mix of social engineering and insider threat for HR',
+                  'Test urgency response and authority bias for all staff',
+                ].map((suggestion, i) => (
+                  <button key={i} onClick={() => setAiInput(suggestion)}
+                    className="text-left px-3 py-2 rounded-lg text-xs transition w-full"
+                    style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.45)', border: '1px solid rgba(255,255,255,0.06)' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(109,40,217,0.15)'; e.currentTarget.style.color = '#a78bfa' }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(255,255,255,0.45)' }}>
+                    → {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Input */}
+            <div className="px-5 py-4 flex-shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-end gap-3 rounded-xl px-4 py-3"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <textarea ref={inputRef} value={aiInput}
+                  onChange={e => { setAiInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 96) + 'px' }}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAiSend() } }}
+                  placeholder="Tell ARIA what you need..."
+                  rows={1} disabled={aiLoading}
+                  className="flex-1 bg-transparent text-sm outline-none resize-none"
+                  style={{ color: 'rgba(255,255,255,0.85)', caretColor: '#7c3aed', minHeight: '20px', maxHeight: '96px', scrollbarWidth: 'none' }} />
+                <button onClick={handleAiSend} disabled={aiLoading || !aiInput.trim()}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+                  style={aiLoading || !aiInput.trim()
+                    ? { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }
+                    : { background: 'linear-gradient(135deg, #6d28d9, #4f46e5)', color: '#fff', boxShadow: '0 0 16px rgba(109,40,217,0.5)' }}>
+                  {aiLoading ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>Enter to send · Shift+Enter for newline</p>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.18)' }}>Foresight metadata enabled</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
