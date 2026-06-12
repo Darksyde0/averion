@@ -44,7 +44,6 @@ function SettingsPage() {
   const [notifSaving, setNotifSaving] = useState(false)
   const [notifSuccess, setNotifSuccess] = useState(false)
 
-  const [privacy, setPrivacy] = useState({ showOnLeaderboard: true, allowDataSharing: true })
   const [privacySaving, setPrivacySaving] = useState(false)
   const [privacySuccess, setPrivacySuccess] = useState(false)
 
@@ -62,7 +61,6 @@ function SettingsPage() {
       setFormData({ firstName: nameParts[0] || '', lastName: nameParts.slice(1).join(' ') || '', email: profile.email || '', phone: profile.phone || '', department: profile.department || '', jobTitle: profile.job_title || '', employeeId: profile.employee_id || '' })
       if (profile.avatar_url) setAvatarUrl(profile.avatar_url)
       if (profile.notification_preferences) setNotifications(profile.notification_preferences)
-      if (profile.privacy_preferences) setPrivacy(profile.privacy_preferences)
     }
   }, [profile])
 
@@ -160,7 +158,7 @@ function SettingsPage() {
   async function handlePrivacySave() {
     if (!profile?.id) return
     setPrivacySaving(true); setPrivacySuccess(false)
-    const { error } = await supabase.from('users').update({ privacy_preferences: privacy }).eq('id', profile.id)
+    const { error } = await supabase.from('users').update({ privacy_preferences: { showOnLeaderboard: false, allowDataSharing: false } }).eq('id', profile.id)
     setPrivacySaving(false)
     if (error) { console.error('Privacy save error:', error); return }
     setPrivacySuccess(true); setTimeout(() => setPrivacySuccess(false), 3000)
@@ -181,6 +179,13 @@ function SettingsPage() {
         <input type="checkbox" checked={checked} onChange={onChange} className="sr-only peer" />
         <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:bg-blue-500 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
       </label>
+    )
+  }
+  function LockedToggle({ on = false }) {
+    return (
+      <div className={`w-9 h-5 rounded-full relative cursor-not-allowed ${on ? 'bg-blue-300' : 'bg-gray-200'}`}>
+        <div className={`absolute top-0.5 bg-white rounded-full h-4 w-4 transition-all ${on ? 'left-4' : 'left-0.5'}`} />
+      </div>
     )
   }
   function SaveButton({ loading, label, loadingLabel, onClick, type = 'button' }) {
@@ -284,7 +289,6 @@ function SettingsPage() {
                   <p className="text-gray-800 text-sm font-semibold mb-1">Profile Information</p>
                   <p className="text-gray-400 text-xs mb-5">Update your personal and professional details</p>
 
-                  {/* Avatar */}
                   <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-50">
                     <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
                       {avatarUrl ? (
@@ -461,32 +465,45 @@ function SettingsPage() {
                   {privacySuccess && <SuccessBanner msg="Privacy settings saved" />}
                   <div className="border border-gray-100 rounded-xl p-5 mb-5">
                     <div className="flex flex-col gap-3">
-                      {/* Read-only item */}
+
+                      {/* Locked — admin always sees progress */}
                       <div className="flex items-center justify-between py-2.5 border-b border-gray-50 opacity-40">
                         <div>
                           <p className="text-gray-700 text-xs font-medium">Show my progress to admin</p>
-                          <p className="text-gray-400 text-xs mt-0.5">Cannot be changed, always visible to your admin</p>
+                          <p className="text-gray-400 text-xs mt-0.5">Cannot be changed — always visible to your administrator</p>
                         </div>
-                        <div className="w-9 h-5 bg-gray-300 rounded-full relative cursor-not-allowed">
-                          <div className="absolute top-0.5 left-0.5 bg-white rounded-full h-4 w-4" />
-                        </div>
+                        <LockedToggle on={true} />
                       </div>
-                      {[
-                        { key: 'showOnLeaderboard', label: 'Show my score on leaderboard', desc: 'Display your score on the company leaderboard' },
-                        { key: 'allowDataSharing', label: 'Allow anonymous data sharing', desc: 'Help improve Averion by sharing anonymous usage data' },
-                      ].map(item => (
-                        <div key={item.key} className="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0">
-                          <div>
-                            <p className="text-gray-700 text-xs font-medium">{item.label}</p>
-                            <p className="text-gray-400 text-xs mt-0.5">{item.desc}</p>
-                          </div>
-                          <Toggle checked={privacy[item.key]} onChange={() => setPrivacy({ ...privacy, [item.key]: !privacy[item.key] })} />
+
+                      {/* Locked — leaderboard managed by admin */}
+                      <div className="flex items-center justify-between py-2.5 border-b border-gray-50 opacity-40">
+                        <div>
+                          <p className="text-gray-700 text-xs font-medium">Show my score on leaderboard</p>
+                          <p className="text-gray-400 text-xs mt-0.5">Leaderboard visibility is managed by your administrator</p>
                         </div>
-                      ))}
+                        <LockedToggle on={false} />
+                      </div>
+
+                      {/* Locked — data sharing off until Foresight launch */}
+                      <div className="flex items-center justify-between py-2.5 opacity-40">
+                        <div>
+                          <p className="text-gray-700 text-xs font-medium">Help improve Averion</p>
+                          <p className="text-gray-400 text-xs mt-0.5">Anonymous data sharing — available in a future update</p>
+                        </div>
+                        <LockedToggle on={false} />
+                      </div>
+
                     </div>
                   </div>
-                  <div className="flex justify-end">
-                    <SaveButton loading={privacySaving} label="Save Privacy Settings" loadingLabel="Saving..." onClick={handlePrivacySave} />
+
+                  {/* Info note */}
+                  <div className="border border-gray-100 rounded-xl px-4 py-3 flex items-start gap-2.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                    </svg>
+                    <p className="text-gray-400 text-xs leading-relaxed">
+                      Privacy controls will expand in a future update. Data sharing features will require your explicit opt-in before any collection begins.
+                    </p>
                   </div>
                 </div>
               )}
