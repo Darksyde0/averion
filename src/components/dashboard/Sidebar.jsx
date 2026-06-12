@@ -65,7 +65,7 @@ function Sidebar({ isOpen }) {
         )}
       </div>
 
-      {/* Separator */}
+      {/* Separators */}
       <div className="mx-3 mb-2" style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.04)' }} />
 
       {/* Nav */}
