@@ -116,7 +116,7 @@ function AdminDashboard() {
               userScores[r.user_id] = { score: r.score, date: r.completed_at }
           })
           atRiskUsers = Object.values(userScores).filter(s => s.score < 50).length
-          const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
           const grouped = {}
           simResults.forEach(r => {
             const date = new Date(r.completed_at)
@@ -146,11 +146,11 @@ function AdminDashboard() {
           .select('user_id, module_id, quiz_completed').in('user_id', userIds).in('module_id', moduleIds)
         const userModuleMap = {}
         userIds.forEach(id => { userModuleMap[id] = { completedModules: new Set(), startedModules: new Set() } })
-        ;(progress || []).forEach(p => {
-          if (!userModuleMap[p.user_id]) return
-          if (p.quiz_completed === true) userModuleMap[p.user_id].completedModules.add(p.module_id)
-          else userModuleMap[p.user_id].startedModules.add(p.module_id)
-        })
+          ; (progress || []).forEach(p => {
+            if (!userModuleMap[p.user_id]) return
+            if (p.quiz_completed === true) userModuleMap[p.user_id].completedModules.add(p.module_id)
+            else userModuleMap[p.user_id].startedModules.add(p.module_id)
+          })
         userIds.forEach(id => {
           const completed = userModuleMap[id].completedModules.size
           const started = userModuleMap[id].startedModules.size
@@ -269,7 +269,7 @@ function AdminDashboard() {
 
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-gray-900 text-lg font-semibold">
+            <h1 className="text-gray-900 text-2xl font-bold">
               {profile?.full_name?.split(' ')[0] ? `Good day, ${profile.full_name.split(' ')[0]}` : 'Dashboard'}
             </h1>
             <p className="text-gray-400 text-xs mt-0.5">Security training overview · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>
@@ -457,7 +457,7 @@ function AdminDashboard() {
               <div className="px-5 py-2">
                 {leaderboardLoading ? (
                   <div className="flex flex-col gap-3 py-3">
-                    {[1,2,3].map(i => (
+                    {[1, 2, 3].map(i => (
                       <div key={i} className="animate-pulse flex items-center gap-3">
                         <div className="w-7 h-7 rounded-full bg-gray-100 flex-shrink-0" />
                         <div className="flex-1">
@@ -476,7 +476,7 @@ function AdminDashboard() {
                   <div key={user.userId} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
                     <span className="text-gray-300 text-xs font-mono w-4 flex-shrink-0">{String(i + 1).padStart(2, '0')}</span>
                     {user.avatar ? (
-                      <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full object-cover flex-shrink-0" onError={e => e.target.style.display='none'} />
+                      <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full object-cover flex-shrink-0" onError={e => e.target.style.display = 'none'} />
                     ) : (
                       <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-gray-500">
                         {user.name.charAt(0).toUpperCase()}
@@ -511,7 +511,7 @@ function AdminDashboard() {
               <div className="px-5 py-2">
                 {leaderboardLoading ? (
                   <div className="flex flex-col gap-3 py-3">
-                    {[1,2,3].map(i => (
+                    {[1, 2, 3].map(i => (
                       <div key={i} className="animate-pulse flex items-center gap-3">
                         <div className="w-7 h-7 rounded-full bg-gray-100 flex-shrink-0" />
                         <div className="flex-1">
@@ -535,7 +535,7 @@ function AdminDashboard() {
                   <div key={user.userId} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
                     <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
                     {user.avatar ? (
-                      <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full object-cover flex-shrink-0" onError={e => e.target.style.display='none'} />
+                      <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full object-cover flex-shrink-0" onError={e => e.target.style.display = 'none'} />
                     ) : (
                       <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-gray-500">
                         {user.name.charAt(0).toUpperCase()}
@@ -568,7 +568,7 @@ function AdminDashboard() {
               <div className="px-3 py-1">
                 {activityLoading ? (
                   <div className="flex flex-col gap-2 py-3">
-                    {[1,2,3].map(i => (
+                    {[1, 2, 3].map(i => (
                       <div key={i} className="animate-pulse flex items-center gap-3 px-2 py-2">
                         <div className="w-6 h-6 rounded-full bg-gray-100 flex-shrink-0" />
                         <div className="flex-1">
@@ -586,7 +586,7 @@ function AdminDashboard() {
                 ) : recentActivity.map((item) => (
                   <div key={item.id} className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-gray-50 transition">
                     {item.avatar ? (
-                      <img src={item.avatar} alt={item.user} className="w-6 h-6 rounded-full object-cover flex-shrink-0" onError={e => e.target.style.display='none'} />
+                      <img src={item.avatar} alt={item.user} className="w-6 h-6 rounded-full object-cover flex-shrink-0" onError={e => e.target.style.display = 'none'} />
                     ) : (
                       <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-gray-500">
                         {item.user.charAt(0).toUpperCase()}
