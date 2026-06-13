@@ -269,7 +269,7 @@ function AddSimulation() {
     if (ariaOpen && !ariaGreeted && profile) {
       const greeting = {
         role: 'ai',
-        text: `Hi ${adminFirstName}! I'm ARIA, your simulation assistant.\n\nI'll help you create security awareness questions for your team. Just answer a few quick questions and I'll generate everything for you.\n\nFirst, which team or department are these questions for?`,
+        text: `Hi ${adminFirstName}! I'm ARIA, your simulation assistant.\n\nI'll help you create security awareness questions for your team. Just answer a few quick questions and I'll generate everything for you.\n\nFirst, which team or department are these questions for? You can pick a specific one like Finance, HR, or IT, or say "all departments" to cover everyone.`,
       }
       setAiMessages([greeting])
       setConversationHistory([{ role: 'assistant', content: greeting.text }])
