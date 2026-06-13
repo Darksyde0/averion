@@ -110,7 +110,6 @@ Each simulation object must have exactly these fields:
 }`
 }
 
-// ── Bug 7 fix: non-greedy JSON extraction ──
 function extractJSON(text) {
   try {
     const start = text.indexOf('[')
@@ -122,7 +121,6 @@ function extractJSON(text) {
   }
 }
 
-// ── Bug 2 fix: consistent message format for batch size detection ──
 function extractBatchSize(conversationHistory, currentMessage) {
   const text = [
     ...conversationHistory.map(m => m.content || ''),
@@ -148,7 +146,6 @@ async function callARIA(messages, adminName, accessToken, batchSize = 10) {
   return data.content || data.text || (typeof data === 'string' ? data : JSON.stringify(data))
 }
 
-// ── Bug 1 fix: index-based shuffle, not value-based ──
 function shuffleSim(sim) {
   const indices = [0, 1, 2, 3].sort(() => Math.random() - 0.5)
   const shuffledOptions = indices.map(i => sim.options[i])
@@ -171,7 +168,6 @@ function generateBatchId() {
   })
 }
 
-// ── Bug 3 fix: sanitize foresightMeta before saving ──
 function sanitizeForesightMeta(meta) {
   if (!meta) return null
   return {
@@ -239,7 +235,6 @@ function AddSimulation() {
   const [expiryDate, setExpiryDate] = useState('')
   const [aiInput, setAiInput] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
-  // ── Bug 6 fix: per-item regen loading ──
   const [regenLoadingIndex, setRegenLoadingIndex] = useState(null)
   const [generatedSims, setGeneratedSims] = useState([])
   const [showGenerated, setShowGenerated] = useState(false)
@@ -282,7 +277,6 @@ function AddSimulation() {
     }
   }, [ariaOpen, profile, ariaGreeted])
 
-  // ── Bug 5 fix: full reset on close ──
   function closeAria() {
     setAriaOpen(false)
     setAriaMinimized(false)
@@ -347,8 +341,6 @@ function AddSimulation() {
     const newUserMsg = { role: 'user', text: userMessage }
     setAiMessages(prev => [...prev, newUserMsg, { role: 'ai', text: '', loading: true }])
     const newHistory = [...conversationHistory, { role: 'user', content: userMessage }]
-
-    // ── Bug 2 fix: pass both history and current message ──
     const batchSize = extractBatchSize(conversationHistory, userMessage)
 
     try {
@@ -388,7 +380,6 @@ function AddSimulation() {
     }
   }
 
-  // ── Bug 4 + 9 fix: index-aware deletion, hide panel when empty ──
   function handleDeleteGenerated(index) {
     setGeneratedSims(prev => {
       const updated = prev.filter((_, i) => i !== index)
@@ -414,7 +405,6 @@ function AddSimulation() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  // ── Bug 6 fix: per-item regen loading ──
   async function handleRegenerateOne(index) {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
@@ -468,7 +458,6 @@ function AddSimulation() {
         learning_objective: sim.learningObjective || null,
         pressure_level: sim.pressureLevel || null,
         scenario_setting: sim.scenarioSetting || null,
-        // ── Bug 3 fix: sanitize before saving ──
         foresight_meta: sanitizeForesightMeta(sim.foresightMeta),
       }))
       const { error: simError } = await supabase.from('simulations').insert(rows)
@@ -877,7 +866,7 @@ function AddSimulation() {
         </div>
       </div>
 
-      {/* ARIA Modal */}
+      {/* ── ARIA Modal ── */}
       {ariaOpen && (
         <>
           {!ariaMinimized && (
@@ -888,8 +877,8 @@ function AddSimulation() {
 
           <div className="fixed z-50 transition-all duration-300 ease-in-out"
             style={ariaMinimized ? { bottom: '24px', right: '24px' } : {
-              top: '50%', right: '24px', transform: 'translateY(-50%)',
-              width: '420px', padding: '0',
+              top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+              width: '400px',
             }}>
 
             {ariaMinimized ? (
@@ -939,9 +928,9 @@ function AddSimulation() {
             ) : (
               <div className="w-full flex flex-col rounded-2xl overflow-hidden"
                 style={{
-                  height: '78vh',
-                  maxHeight: '720px',
-                  minHeight: '560px',
+                  height: '82vh',
+                  maxHeight: '780px',
+                  minHeight: '580px',
                   background: 'linear-gradient(160deg, rgba(30,35,60,0.97) 0%, rgba(15,18,35,0.99) 100%)',
                   border: '1px solid rgba(255,255,255,0.1)',
                   boxShadow: '0 0 0 1px rgba(255,255,255,0.04), 0 30px 80px rgba(0,0,0,0.65), 0 0 50px rgba(37,99,235,0.1)',
