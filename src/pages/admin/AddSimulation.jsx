@@ -866,22 +866,12 @@ function AddSimulation() {
         </div>
       </div>
 
-      {/* ── ARIA Modal ── */}
+      {/* ── ARIA Panel ── */}
       {ariaOpen && (
         <>
-          {!ariaMinimized && (
-            <div className="fixed inset-0 z-40"
-              style={{ backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)' }}
-              onClick={() => setAriaMinimized(true)} />
-          )}
-
-          <div className="fixed z-50 transition-all duration-300 ease-in-out"
-            style={ariaMinimized ? { bottom: '24px', right: '24px' } : {
-              top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-              width: '400px',
-            }}>
-
-            {ariaMinimized ? (
+          {/* Minimized pill */}
+          {ariaMinimized && (
+            <div className="fixed z-50 bottom-6 right-6">
               <button onClick={() => setAriaMinimized(false)}
                 className="flex items-center gap-3 px-4 py-3 rounded-2xl transition-all"
                 style={{
@@ -925,162 +915,169 @@ function AddSimulation() {
                   </svg>
                 </button>
               </button>
-            ) : (
-              <div className="w-full flex flex-col rounded-2xl overflow-hidden"
-                style={{
-                  height: '82vh',
-                  maxHeight: '780px',
-                  minHeight: '580px',
-                  background: 'linear-gradient(160deg, rgba(30,35,60,0.97) 0%, rgba(15,18,35,0.99) 100%)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  boxShadow: '0 0 0 1px rgba(255,255,255,0.04), 0 30px 80px rgba(0,0,0,0.65), 0 0 50px rgba(37,99,235,0.1)',
-                  backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-                }}>
+            </div>
+          )}
 
-                <div className="h-px w-full flex-shrink-0"
-                  style={{ background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.8), rgba(99,102,241,0.5), transparent)' }} />
+          {/* Full side panel */}
+          {!ariaMinimized && (
+            <div className="fixed right-0 z-50 flex flex-col"
+              style={{
+                top: '48px',
+                height: 'calc(100vh - 48px)',
+                width: '380px',
+                background: 'linear-gradient(160deg, rgba(30,35,60,0.97) 0%, rgba(15,18,35,0.99) 100%)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRight: 'none',
+                boxShadow: '-8px 0 32px rgba(0,0,0,0.4), 0 0 40px rgba(37,99,235,0.08)',
+              }}>
 
-                <div className="flex items-center justify-between px-5 py-4 flex-shrink-0"
-                  style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                  <div className="flex items-center gap-3">
-                    <div className="relative flex-shrink-0">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                        style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', boxShadow: '0 0 20px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              {/* Top glow */}
+              <div className="h-px w-full flex-shrink-0"
+                style={{ background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.8), rgba(99,102,241,0.5), transparent)' }} />
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 flex-shrink-0"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                <div className="flex items-center gap-3">
+                  <div className="relative flex-shrink-0">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                      style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', boxShadow: '0 0 20px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.15)' }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                      </svg>
+                    </div>
+                    <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2"
+                      style={{ borderColor: '#0f1223' }} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-white text-sm font-semibold tracking-wide">ARIA</p>
+                      <span className="px-1.5 py-0.5 rounded text-xs font-medium"
+                        style={{ background: 'rgba(59,130,246,0.2)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.25)' }}>
+                        GPT-4o
+                      </span>
+                      <span className="px-1.5 py-0.5 rounded text-xs font-medium"
+                        style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)' }}>
+                        Foresight Ready
+                      </span>
+                    </div>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>Cognitive Security Assessment Designer</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button onClick={() => setAriaMinimized(true)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center transition"
+                    style={{ color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                    title="Minimize">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
+                    </svg>
+                  </button>
+                  <button onClick={closeAria}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center transition"
+                    style={{ color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'rgba(239,68,68,0.15)' }}
+                    onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                    title="Close">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4" style={{ scrollbarWidth: 'none' }}>
+                {aiMessages.map((msg, index) => (
+                  <div key={index} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    {msg.role === 'ai' && (
+                      <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                        style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', boxShadow: '0 0 10px rgba(59,130,246,0.3)' }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
                         </svg>
                       </div>
-                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2"
-                        style={{ borderColor: '#0f1223' }} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-white text-sm font-semibold tracking-wide">ARIA</p>
-                        <span className="px-1.5 py-0.5 rounded text-xs font-medium"
-                          style={{ background: 'rgba(59,130,246,0.2)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.25)' }}>
-                          GPT-4o
+                    )}
+                    <div className={`px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-wrap
+                      ${msg.role === 'user' ? 'rounded-2xl rounded-tr-sm max-w-[75%]' : 'rounded-2xl rounded-tl-sm max-w-[85%]'}`}
+                      style={msg.role === 'user'
+                        ? { background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', color: '#fff', boxShadow: '0 4px 15px rgba(59,130,246,0.25)' }
+                        : msg.loading
+                          ? { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.3)' }
+                          : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)' }
+                      }>
+                      {msg.loading ? (
+                        <span className="flex items-center gap-1.5 py-0.5">
+                          {[0, 150, 300].map(delay => (
+                            <span key={delay} className="w-1.5 h-1.5 rounded-full animate-bounce"
+                              style={{ background: 'rgba(255,255,255,0.4)', animationDelay: `${delay}ms` }} />
+                          ))}
                         </span>
-                        <span className="px-1.5 py-0.5 rounded text-xs font-medium"
-                          style={{ background: 'rgba(16,185,129,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)' }}>
-                          Foresight Ready
-                        </span>
-                      </div>
-                      <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>Cognitive Security Assessment Designer</p>
+                      ) : msg.text}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <button onClick={() => setAriaMinimized(true)}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition"
-                      style={{ color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
-                      onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
-                      onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                      title="Minimize">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
-                      </svg>
-                    </button>
-                    <button onClick={closeAria}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center transition"
-                      style={{ color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
-                      onMouseEnter={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.8)'; e.currentTarget.style.background = 'rgba(239,68,68,0.15)' }}
-                      onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                      title="Close">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4" style={{ scrollbarWidth: 'none' }}>
-                  {aiMessages.map((msg, index) => (
-                    <div key={index} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      {msg.role === 'ai' && (
-                        <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                          style={{ background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', boxShadow: '0 0 10px rgba(59,130,246,0.3)' }}>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
-                          </svg>
-                        </div>
-                      )}
-                      <div className={`px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-wrap
-                        ${msg.role === 'user' ? 'rounded-2xl rounded-tr-sm max-w-[75%]' : 'rounded-2xl rounded-tl-sm max-w-[85%]'}`}
-                        style={msg.role === 'user'
-                          ? { background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', color: '#fff', boxShadow: '0 4px 15px rgba(59,130,246,0.25)' }
-                          : msg.loading
-                            ? { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.3)' }
-                            : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.8)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)' }
-                        }>
-                        {msg.loading ? (
-                          <span className="flex items-center gap-1.5 py-0.5">
-                            {[0, 150, 300].map(delay => (
-                              <span key={delay} className="w-1.5 h-1.5 rounded-full animate-bounce"
-                                style={{ background: 'rgba(255,255,255,0.4)', animationDelay: `${delay}ms` }} />
-                            ))}
-                          </span>
-                        ) : msg.text}
-                      </div>
-                    </div>
-                  ))}
-                  <div ref={chatEndRef} />
-                </div>
-
-                {aiMessages.length <= 1 && (
-                  <div className="px-5 pb-3 flex flex-col gap-1.5 flex-shrink-0">
-                    <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.2)' }}>Quick starts</p>
-                    {[
-                      '10 questions for the finance team, map all vulnerability types',
-                      '20 deep assessment questions targeting authority bias and urgency for C-suite',
-                      '15 questions for HR, focus on social engineering and trust exploitation',
-                    ].map((suggestion, i) => (
-                      <button key={i} onClick={() => setAiInput(suggestion)}
-                        className="text-left px-3 py-2 rounded-lg text-xs transition w-full"
-                        style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.07)' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; e.currentTarget.style.color = '#93c5fd'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)' }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)' }}>
-                        {suggestion}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <div className="px-5 py-4 flex-shrink-0"
-                  style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                  <div className="flex items-end gap-3 rounded-xl px-4 py-3"
-                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' }}>
-                    <textarea ref={inputRef} value={aiInput}
-                      onChange={e => { setAiInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 96) + 'px' }}
-                      onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAiSend() } }}
-                      placeholder="Tell ARIA what you need..."
-                      rows={1} disabled={aiLoading}
-                      className="flex-1 bg-transparent text-sm outline-none resize-none"
-                      style={{ color: 'rgba(255,255,255,0.85)', caretColor: '#3b82f6', minHeight: '20px', maxHeight: '96px', scrollbarWidth: 'none' }} />
-                    <button onClick={handleAiSend} disabled={aiLoading || !aiInput.trim()}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
-                      style={aiLoading || !aiInput.trim()
-                        ? { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }
-                        : { background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', color: '#fff', boxShadow: '0 0 20px rgba(59,130,246,0.45)' }}>
-                      {aiLoading
-                        ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        : <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" /></svg>
-                      }
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>Enter to send · Shift+Enter for newline</p>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                      <p className="text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>Foresight metadata enabled</p>
-                    </div>
-                  </div>
-                </div>
-
+                ))}
+                <div ref={chatEndRef} />
               </div>
-            )}
-          </div>
+
+              {/* Quick starts */}
+              {aiMessages.length <= 1 && (
+                <div className="px-5 pb-3 flex flex-col gap-1.5 flex-shrink-0">
+                  <p className="text-xs mb-1" style={{ color: 'rgba(255,255,255,0.2)' }}>Quick starts</p>
+                  {[
+                    '10 questions for the finance team, map all vulnerability types',
+                    '20 deep assessment questions targeting authority bias and urgency for C-suite',
+                    '15 questions for HR, focus on social engineering and trust exploitation',
+                  ].map((suggestion, i) => (
+                    <button key={i} onClick={() => setAiInput(suggestion)}
+                      className="text-left px-3 py-2 rounded-lg text-xs transition w-full"
+                      style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.07)' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; e.currentTarget.style.color = '#93c5fd'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.color = 'rgba(255,255,255,0.4)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)' }}>
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Input */}
+              <div className="px-5 py-4 flex-shrink-0"
+                style={{ borderTop: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                <div className="flex items-end gap-3 rounded-xl px-4 py-3"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)' }}>
+                  <textarea ref={inputRef} value={aiInput}
+                    onChange={e => { setAiInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 96) + 'px' }}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAiSend() } }}
+                    placeholder="Tell ARIA what you need..."
+                    rows={1} disabled={aiLoading}
+                    className="flex-1 bg-transparent text-sm outline-none resize-none"
+                    style={{ color: 'rgba(255,255,255,0.85)', caretColor: '#3b82f6', minHeight: '20px', maxHeight: '96px', scrollbarWidth: 'none' }} />
+                  <button onClick={handleAiSend} disabled={aiLoading || !aiInput.trim()}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+                    style={aiLoading || !aiInput.trim()
+                      ? { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }
+                      : { background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', color: '#fff', boxShadow: '0 0 20px rgba(59,130,246,0.45)' }}>
+                    {aiLoading
+                      ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      : <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" /></svg>
+                    }
+                  </button>
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>Enter to send · Shift+Enter for newline</p>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.15)' }}>Foresight metadata enabled</p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          )}
         </>
       )}
-
     </div>
   )
 }
