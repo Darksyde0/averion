@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AdminSidebar from '../../components/admin/AdminSidebar'
 import AdminTopBar from '../../components/admin/AdminTopBar'
@@ -9,76 +9,141 @@ import {
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts'
 
+// ── Score color helper ──
+const scoreColor = (s) => {
+  if (typeof s !== 'number' || isNaN(s)) return '#9ca3af'
+  if (s >= 80) return '#10b981'
+  if (s >= 50) return '#f59e0b'
+  return '#ef4444'
+}
+
+// ── Safe number formatter ──
+const safePercent = (v) => {
+  if (typeof v !== 'number' || isNaN(v)) return '—'
+  return `${Math.round(v)}%`
+}
+
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload || !payload.length) return null
-  const sim = payload.find(p => p.dataKey === 'score')
-  const pass = payload.find(p => p.dataKey === 'passRate')
-  const risk = payload.find(p => p.dataKey === 'atRisk')
-  const users = payload.find(p => p.dataKey === 'activeUsers')
-  const rows = [
-    sim && { label: 'Avg Score', value: `${sim.value}%`, color: '#3b82f6' },
-    pass && { label: 'Pass Rate', value: `${pass.value}%`, color: '#10b981' },
-    risk && { label: 'At Risk', value: `${risk.value}%`, color: '#ef4444' },
-    users && { label: 'Active Users', value: users.value, color: '#94a3b8' },
-  ].filter(Boolean)
-  return (
-    <div style={{
-      backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.06)',
-      borderRadius: '10px', padding: '12px 16px',
-      boxShadow: '0 20px 40px rgba(0,0,0,0.4)', minWidth: '170px',
-    }}>
-      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', fontWeight: 500, marginBottom: '10px', letterSpacing: '0.02em' }}>{label}</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-        {rows.map((row, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-              <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: row.color }} />
-              <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>{row.label}</span>
+  try {
+    const sim = payload.find(p => p.dataKey === 'score')
+    const pass = payload.find(p => p.dataKey === 'passRate')
+    const risk = payload.find(p => p.dataKey === 'atRisk')
+    const users = payload.find(p => p.dataKey === 'activeUsers')
+    const rows = [
+      sim && { label: 'Avg Score', value: `${sim.value}%`, color: '#3b82f6' },
+      pass && { label: 'Pass Rate', value: `${pass.value}%`, color: '#10b981' },
+      risk && { label: 'At Risk', value: `${risk.value}%`, color: '#ef4444' },
+      users && { label: 'Active Users', value: users.value, color: '#94a3b8' },
+    ].filter(Boolean)
+    return (
+      <div style={{
+        backgroundColor: '#111827', border: '1px solid rgba(255,255,255,0.06)',
+        borderRadius: '10px', padding: '12px 16px',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.4)', minWidth: '170px',
+      }}>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', fontWeight: 500, marginBottom: '10px', letterSpacing: '0.02em' }}>
+          {label}
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+          {rows.map((row, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: row.color }} />
+                <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>{row.label}</span>
+              </div>
+              <span style={{ color: '#fff', fontSize: '12px', fontWeight: 600 }}>{row.value}</span>
             </div>
-            <span style={{ color: '#fff', fontSize: '12px', fontWeight: 600 }}>{row.value}</span>
-          </div>
-        ))}
+          ))}
+        </div>
+      </div>
+    )
+  } catch {
+    return null
+  }
+}
+
+function DonutTooltip({ active, payload, donutTotal }) {
+  if (!active || !payload?.length) return null
+  try {
+    const d = payload[0]?.payload
+    if (!d || typeof d.value !== 'number') return null
+    const pct = donutTotal > 0 ? Math.round((d.value / donutTotal) * 100) : 0
+    return (
+      <div style={{
+        background: '#111827', border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: '8px', padding: '8px 12px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+      }}>
+        <p style={{ color: d.color || '#fff', fontSize: '11px', fontWeight: 600, marginBottom: '2px' }}>{d.name}</p>
+        <p style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>
+          {d.value} user{d.value !== 1 ? 's' : ''}
+        </p>
+        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>{pct}% of total</p>
+      </div>
+    )
+  } catch {
+    return null
+  }
+}
+
+function timeAgo(dateStr) {
+  try {
+    const now = new Date()
+    const date = new Date(dateStr)
+    if (isNaN(date.getTime())) return 'Unknown'
+    const diff = Math.floor((now - date) / 1000)
+    if (diff < 60) return 'Just now'
+    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+    if (diff < 172800) return 'Yesterday'
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  } catch {
+    return 'Unknown'
+  }
+}
+
+// ── Error state card ──
+function ErrorCard({ message, onRetry }) {
+  return (
+    <div className="bg-red-50 border border-red-100 rounded-xl p-5 flex items-start gap-3">
+      <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+        </svg>
+      </div>
+      <div className="flex-1">
+        <p className="text-red-700 text-sm font-medium">{message}</p>
+        {onRetry && (
+          <button onClick={onRetry} className="text-red-500 text-xs font-medium mt-1 hover:text-red-700 transition underline">
+            Try again
+          </button>
+        )}
       </div>
     </div>
   )
 }
 
-// ── Custom donut label ──
-function DonutCenterLabel({ viewBox, value, label }) {
-  const { cx, cy } = viewBox
+// ── Skeleton loader ──
+function SkeletonRow() {
   return (
-    <g>
-      <text x={cx} y={cy - 8} textAnchor="middle" dominantBaseline="middle"
-        style={{ fontSize: '22px', fontWeight: 700, fill: '#111827' }}>
-        {value}
-      </text>
-      <text x={cx} y={cy + 14} textAnchor="middle" dominantBaseline="middle"
-        style={{ fontSize: '10px', fontWeight: 500, fill: '#9ca3af', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-        {label}
-      </text>
-    </g>
+    <div className="animate-pulse flex items-center gap-3 py-2.5">
+      <div className="w-6 h-6 rounded-full bg-gray-100 flex-shrink-0" />
+      <div className="flex-1">
+        <div className="h-2.5 bg-gray-100 rounded w-3/4 mb-1.5" />
+        <div className="h-1.5 bg-gray-100 rounded w-1/2" />
+      </div>
+      <div className="w-8 h-2.5 bg-gray-100 rounded" />
+    </div>
   )
 }
 
-function timeAgo(dateStr) {
-  const now = new Date()
-  const date = new Date(dateStr)
-  const diff = Math.floor((now - date) / 1000)
-  if (diff < 60) return 'Just now'
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  if (diff < 172800) return 'Yesterday'
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-const scoreColor = (s) => s >= 80 ? '#10b981' : s >= 50 ? '#f59e0b' : '#ef4444'
-
 function AdminDashboard() {
   const navigate = useNavigate()
+  const profile = useProfile()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [view, setView] = useState('6M')
-  const profile = useProfile()
-  const [error, setError] = useState('')
+  const [activeDonutIndex, setActiveDonutIndex] = useState(null)
 
   const [stats, setStats] = useState({
     totalUsers: 0, avgScore: 0, completionRate: 0, atRiskUsers: 0,
@@ -89,15 +154,30 @@ function AdminDashboard() {
   const [recentActivity, setRecentActivity] = useState([])
   const [topPerformers, setTopPerformers] = useState([])
   const [atRiskList, setAtRiskList] = useState([])
+
   const [loading, setLoading] = useState(true)
   const [activityLoading, setActivityLoading] = useState(true)
   const [leaderboardLoading, setLeaderboardLoading] = useState(true)
-  const [activeDonutIndex, setActiveDonutIndex] = useState(null)
 
+  const [statsError, setStatsError] = useState('')
+  const [activityError, setActivityError] = useState('')
+  const [leaderboardError, setLeaderboardError] = useState('')
+
+  // ── Auth check ──
   useEffect(() => {
     async function checkAuth() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) navigate('/login')
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser()
+        if (error || !user) { navigate('/login'); return }
+        // Verify admin role
+        const { data: profile, error: profileError } = await supabase
+          .from('users').select('role').eq('id', user.id).single()
+        if (profileError || !profile || profile.role !== 'admin') {
+          navigate('/login')
+        }
+      } catch {
+        navigate('/login')
+      }
     }
     checkAuth()
   }, [])
@@ -110,74 +190,99 @@ function AdminDashboard() {
     }
   }, [profile])
 
-  async function fetchStats() {
+  const fetchStats = useCallback(async () => {
     if (!profile?.id) return
     setLoading(true)
-    setError('')
+    setStatsError('')
     try {
-      const { data: users } = await supabase
+      // ── Fetch users ──
+      const { data: users, error: usersError } = await supabase
         .from('users').select('id, full_name')
         .eq('role', 'user').eq('organization_id', profile.id)
+      if (usersError) throw new Error('Failed to load users: ' + usersError.message)
 
       const totalUsers = users?.length || 0
-      const userIds = users?.map(u => u.id) || []
-      let avgScore = 0, atRiskUsers = 0, computedBarData = []
+      const userIds = (users || []).map(u => u.id).filter(Boolean)
+
+      let avgScore = 0
+      let atRiskUsers = 0
+      let computedBarData = []
 
       if (userIds.length > 0) {
-        const { data: simResults } = await supabase
+        const { data: simResults, error: simError } = await supabase
           .from('simulation_results').select('score, completed_at, user_id')
           .in('user_id', userIds).order('completed_at', { ascending: true })
+        if (simError) throw new Error('Failed to load simulation results: ' + simError.message)
 
         if (simResults && simResults.length > 0) {
-          avgScore = Math.round(simResults.reduce((sum, r) => sum + r.score, 0) / simResults.length)
-          const userScores = {}
-          simResults.forEach(r => {
-            if (!userScores[r.user_id] || r.completed_at > userScores[r.user_id].date)
-              userScores[r.user_id] = { score: r.score, date: r.completed_at }
-          })
-          atRiskUsers = Object.values(userScores).filter(s => s.score < 50).length
-          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-          const grouped = {}
-          simResults.forEach(r => {
-            const date = new Date(r.completed_at)
-            const key = `${date.getFullYear()}-${date.getMonth()}`
-            if (!grouped[key]) grouped[key] = { scores: [], users: new Set(), month: monthNames[date.getMonth()], date }
-            grouped[key].scores.push(r.score)
-            grouped[key].users.add(r.user_id)
-          })
-          computedBarData = Object.values(grouped).sort((a, b) => a.date - b.date).map(m => ({
-            month: m.month,
-            score: Math.round(m.scores.reduce((a, b) => a + b, 0) / m.scores.length),
-            passRate: Math.round((m.scores.filter(s => s >= 80).length / m.scores.length) * 100),
-            atRisk: Math.round((m.scores.filter(s => s < 50).length / m.scores.length) * 100),
-            activeUsers: m.users.size,
-            date: m.date,
-          }))
+          const validResults = simResults.filter(r =>
+            typeof r.score === 'number' && !isNaN(r.score) && r.completed_at
+          )
+
+          if (validResults.length > 0) {
+            avgScore = Math.round(validResults.reduce((sum, r) => sum + r.score, 0) / validResults.length)
+
+            const userScores = {}
+            validResults.forEach(r => {
+              if (!userScores[r.user_id] || r.completed_at > userScores[r.user_id].date) {
+                userScores[r.user_id] = { score: r.score, date: r.completed_at }
+              }
+            })
+            atRiskUsers = Object.values(userScores).filter(s => s.score < 50).length
+
+            const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+            const grouped = {}
+            validResults.forEach(r => {
+              try {
+                const date = new Date(r.completed_at)
+                if (isNaN(date.getTime())) return
+                const key = `${date.getFullYear()}-${date.getMonth()}`
+                if (!grouped[key]) grouped[key] = { scores: [], users: new Set(), month: monthNames[date.getMonth()], date }
+                grouped[key].scores.push(r.score)
+                grouped[key].users.add(r.user_id)
+              } catch { /* skip malformed dates */ }
+            })
+
+            computedBarData = Object.values(grouped)
+              .sort((a, b) => a.date - b.date)
+              .map(m => ({
+                month: m.month,
+                score: Math.round(m.scores.reduce((a, b) => a + b, 0) / m.scores.length),
+                passRate: Math.round((m.scores.filter(s => s >= 80).length / m.scores.length) * 100),
+                atRisk: Math.round((m.scores.filter(s => s < 50).length / m.scores.length) * 100),
+                activeUsers: m.users.size,
+                date: m.date,
+              }))
+          }
         }
       }
 
-      // ── Fixed completion logic ──
+      // ── Completion logic ──
       let completedCount = 0, inProgressCount = 0, notStartedCount = 0
       let totalCompletedModules = 0, totalPossibleModules = 0
 
-      const { data: allModules } = await supabase.from('modules')
-        .select('id').eq('hidden', false).eq('organization_id', profile.id)
+      const { data: allModules, error: modulesError } = await supabase
+        .from('modules').select('id')
+        .eq('hidden', false).eq('organization_id', profile.id)
+      if (modulesError) throw new Error('Failed to load modules: ' + modulesError.message)
+
       const totalModules = allModules?.length || 0
 
       if (userIds.length > 0 && totalModules > 0) {
-        const moduleIds = allModules.map(m => m.id)
+        const moduleIds = allModules.map(m => m.id).filter(Boolean)
         totalPossibleModules = userIds.length * totalModules
 
-        const { data: progress } = await supabase.from('module_progress')
-          .select('user_id, module_id, quiz_completed')
+        const { data: progress, error: progressError } = await supabase
+          .from('module_progress').select('user_id, module_id, quiz_completed')
           .in('user_id', userIds).in('module_id', moduleIds)
+        if (progressError) throw new Error('Failed to load module progress: ' + progressError.message)
 
         const userModuleMap = {}
         userIds.forEach(id => {
           userModuleMap[id] = { completedModules: new Set(), startedModules: new Set() }
         })
         ;(progress || []).forEach(p => {
-          if (!userModuleMap[p.user_id]) return
+          if (!p.user_id || !userModuleMap[p.user_id]) return
           if (p.quiz_completed === true) {
             userModuleMap[p.user_id].completedModules.add(p.module_id)
             totalCompletedModules++
@@ -187,8 +292,8 @@ function AdminDashboard() {
         })
 
         userIds.forEach(id => {
-          const completed = userModuleMap[id].completedModules.size
-          const started = userModuleMap[id].startedModules.size
+          const completed = userModuleMap[id]?.completedModules.size || 0
+          const started = userModuleMap[id]?.startedModules.size || 0
           if (completed >= totalModules) completedCount++
           else if (completed > 0 || started > 0) inProgressCount++
           else notStartedCount++
@@ -209,97 +314,148 @@ function AdminDashboard() {
       setAllBarData(computedBarData)
     } catch (err) {
       console.error('fetchStats error:', err)
-      setError('Failed to load dashboard data. Please refresh.')
+      setStatsError(err.message || 'Failed to load dashboard stats.')
     } finally {
       setLoading(false)
     }
-  }
+  }, [profile])
 
-  async function fetchLeaderboard() {
+  const fetchLeaderboard = useCallback(async () => {
     if (!profile?.id) return
     setLeaderboardLoading(true)
+    setLeaderboardError('')
     try {
-      const { data: users } = await supabase.from('users').select('id, full_name, avatar_url')
+      const { data: users, error: usersError } = await supabase
+        .from('users').select('id, full_name, avatar_url')
         .eq('role', 'user').eq('organization_id', profile.id)
-      if (!users || users.length === 0) { setLeaderboardLoading(false); return }
-      const userIds = users.map(u => u.id)
+      if (usersError) throw new Error('Failed to load users: ' + usersError.message)
+      if (!users || users.length === 0) return
+
+      const userIds = users.map(u => u.id).filter(Boolean)
       const userMap = {}
       users.forEach(u => { userMap[u.id] = { name: u.full_name || 'User', avatar: u.avatar_url || null } })
-      const { data: simResults } = await supabase.from('simulation_results').select('user_id, score, completed_at')
+
+      const { data: simResults, error: simError } = await supabase
+        .from('simulation_results').select('user_id, score, completed_at')
         .in('user_id', userIds).order('completed_at', { ascending: false })
-      if (!simResults || simResults.length === 0) { setLeaderboardLoading(false); return }
+      if (simError) throw new Error('Failed to load results: ' + simError.message)
+      if (!simResults || simResults.length === 0) return
+
       const userStats = {}
       simResults.forEach(r => {
+        if (!r.user_id || typeof r.score !== 'number' || isNaN(r.score)) return
         if (!userStats[r.user_id]) userStats[r.user_id] = { scores: [] }
         userStats[r.user_id].scores.push(r.score)
       })
-      const ranked = Object.entries(userStats).map(([userId, data]) => ({
-        userId, name: userMap[userId]?.name || 'User', avatar: userMap[userId]?.avatar || null,
-        avgScore: Math.round(data.scores.reduce((a, b) => a + b, 0) / data.scores.length),
-        attempts: data.scores.length,
-      })).sort((a, b) => b.avgScore - a.avgScore)
+
+      const ranked = Object.entries(userStats)
+        .map(([userId, data]) => ({
+          userId,
+          name: userMap[userId]?.name || 'User',
+          avatar: userMap[userId]?.avatar || null,
+          avgScore: data.scores.length > 0
+            ? Math.round(data.scores.reduce((a, b) => a + b, 0) / data.scores.length)
+            : 0,
+          attempts: data.scores.length,
+        }))
+        .sort((a, b) => b.avgScore - a.avgScore)
+
       setTopPerformers(ranked.filter(u => u.avgScore >= 50).slice(0, 5))
       setAtRiskList(ranked.filter(u => u.avgScore < 50).slice(0, 5))
     } catch (err) {
       console.error('fetchLeaderboard error:', err)
+      setLeaderboardError(err.message || 'Failed to load leaderboard.')
     } finally {
       setLeaderboardLoading(false)
     }
-  }
+  }, [profile])
 
-  async function fetchRecentActivity() {
+  const fetchRecentActivity = useCallback(async () => {
     if (!profile?.id) return
     setActivityLoading(true)
+    setActivityError('')
     try {
-      const { data: users } = await supabase.from('users').select('id, full_name, avatar_url')
+      const { data: users, error: usersError } = await supabase
+        .from('users').select('id, full_name, avatar_url')
         .eq('role', 'user').eq('organization_id', profile.id)
-      if (!users || users.length === 0) { setActivityLoading(false); return }
-      const userIds = users.map(u => u.id)
+      if (usersError) throw new Error('Failed to load users: ' + usersError.message)
+      if (!users || users.length === 0) return
+
+      const userIds = users.map(u => u.id).filter(Boolean)
       const userMap = {}
       users.forEach(u => { userMap[u.id] = { name: u.full_name || 'A user', avatar: u.avatar_url || null } })
-      const { data: simResults } = await supabase.from('simulation_results').select('user_id, score, completed_at')
+
+      const { data: simResults, error: simError } = await supabase
+        .from('simulation_results').select('user_id, score, completed_at')
         .in('user_id', userIds).order('completed_at', { ascending: false }).limit(10)
-      const simActivities = (simResults || []).map(r => ({
-        id: `sim-${r.user_id}-${r.completed_at}`, user: userMap[r.user_id]?.name || 'A user',
-        avatar: userMap[r.user_id]?.avatar || null, action: 'Simulation', score: r.score,
-        time: r.completed_at, type: 'simulation',
-      }))
-      const { data: moduleProgress } = await supabase.from('module_progress')
-        .select('user_id, score, completed_at, modules(name)').in('user_id', userIds)
-        .eq('quiz_completed', true).order('completed_at', { ascending: false }).limit(10)
-      const moduleActivities = (moduleProgress || []).map(p => ({
-        id: `mod-${p.user_id}-${p.completed_at}`, user: userMap[p.user_id]?.name || 'A user',
-        avatar: userMap[p.user_id]?.avatar || null, action: 'Module', score: p.score,
-        time: p.completed_at, type: 'module',
-      }))
-      setRecentActivity([...simActivities, ...moduleActivities]
-        .sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 8))
+      if (simError) throw new Error('Failed to load simulation results: ' + simError.message)
+
+      const { data: moduleProgress, error: modError } = await supabase
+        .from('module_progress').select('user_id, score, completed_at, modules(name)')
+        .in('user_id', userIds).eq('quiz_completed', true)
+        .order('completed_at', { ascending: false }).limit(10)
+      if (modError) throw new Error('Failed to load module progress: ' + modError.message)
+
+      const simActivities = (simResults || [])
+        .filter(r => r.user_id && r.completed_at)
+        .map(r => ({
+          id: `sim-${r.user_id}-${r.completed_at}`,
+          user: userMap[r.user_id]?.name || 'A user',
+          avatar: userMap[r.user_id]?.avatar || null,
+          action: 'Simulation', score: r.score,
+          time: r.completed_at, type: 'simulation',
+        }))
+
+      const moduleActivities = (moduleProgress || [])
+        .filter(p => p.user_id && p.completed_at)
+        .map(p => ({
+          id: `mod-${p.user_id}-${p.completed_at}`,
+          user: userMap[p.user_id]?.name || 'A user',
+          avatar: userMap[p.user_id]?.avatar || null,
+          action: 'Module', score: p.score,
+          time: p.completed_at, type: 'module',
+        }))
+
+      setRecentActivity(
+        [...simActivities, ...moduleActivities]
+          .sort((a, b) => new Date(b.time) - new Date(a.time))
+          .slice(0, 8)
+      )
     } catch (err) {
       console.error('fetchRecentActivity error:', err)
+      setActivityError(err.message || 'Failed to load activity.')
     } finally {
       setActivityLoading(false)
     }
-  }
+  }, [profile])
 
   function getFilteredData() {
-    if (allBarData.length === 0) return []
-    const now = new Date()
-    if (view === '7D') { const c = new Date(now); c.setDate(c.getDate() - 7); return allBarData.filter(d => new Date(d.date) >= c) }
-    if (view === '1M') { const c = new Date(now); c.setMonth(c.getMonth() - 1); return allBarData.filter(d => new Date(d.date) >= c) }
-    if (view === '6M') return allBarData.slice(-6)
-    if (view === '1Y') return allBarData.slice(-12)
-    return allBarData
+    try {
+      if (!Array.isArray(allBarData) || allBarData.length === 0) return []
+      const now = new Date()
+      if (view === '7D') { const c = new Date(now); c.setDate(c.getDate() - 7); return allBarData.filter(d => new Date(d.date) >= c) }
+      if (view === '1M') { const c = new Date(now); c.setMonth(c.getMonth() - 1); return allBarData.filter(d => new Date(d.date) >= c) }
+      if (view === '6M') return allBarData.slice(-6)
+      if (view === '1Y') return allBarData.slice(-12)
+      return allBarData
+    } catch {
+      return []
+    }
   }
 
   const barData = getFilteredData()
 
   const donutData = [
-    { name: 'Completed', value: stats.completedCount, color: '#10b981' },
-    { name: 'In Progress', value: stats.inProgressCount, color: '#3b82f6' },
-    { name: 'Not Started', value: stats.notStartedCount, color: '#e5e7eb' },
-  ].filter(d => d.value > 0)
+    { name: 'Completed', value: stats.completedCount, color: '#10b981', bg: '#f0fdf4' },
+    { name: 'In Progress', value: stats.inProgressCount, color: '#3b82f6', bg: '#eff6ff' },
+    { name: 'Not Started', value: stats.notStartedCount, color: '#9ca3af', bg: '#f9fafb' },
+  ].filter(d => typeof d.value === 'number' && d.value > 0)
 
   const donutTotal = stats.totalUsers
+
+  const donutDisplay = donutData.length > 0
+    ? donutData
+    : [{ name: 'No Data', value: 1, color: '#f3f4f6', bg: '#f9fafb' }]
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: '#f8fafc' }}>
@@ -308,7 +464,7 @@ function AdminDashboard() {
       <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-48' : 'ml-16'}`}>
         <AdminTopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
-        <div className="flex-1 p-6">
+        <div className="flex-1 p-6 overflow-y-auto">
 
           <div className="mb-6">
             <h1 className="text-gray-900 text-2xl font-bold">
@@ -319,9 +475,9 @@ function AdminDashboard() {
             </p>
           </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-100 rounded-lg px-4 py-3 mb-4">
-              <p className="text-red-500 text-sm">{error}</p>
+          {statsError && (
+            <div className="mb-4">
+              <ErrorCard message={statsError} onRetry={fetchStats} />
             </div>
           )}
 
@@ -329,18 +485,20 @@ function AdminDashboard() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
             {[
               {
-                label: 'Total Users', value: loading ? '—' : stats.totalUsers,
-                sub: 'registered', valueColor: '#111827',
+                label: 'Total Users',
+                value: loading ? '—' : stats.totalUsers,
+                sub: 'registered',
+                valueColor: '#111827',
               },
               {
                 label: 'Avg Score',
-                value: loading ? '—' : stats.avgScore > 0 ? `${stats.avgScore}%` : '—',
+                value: loading ? '—' : stats.avgScore > 0 ? safePercent(stats.avgScore) : '—',
                 sub: 'all simulations',
                 valueColor: loading || stats.avgScore === 0 ? '#111827' : scoreColor(stats.avgScore),
               },
               {
                 label: 'Completion',
-                value: loading ? '—' : `${stats.completionRate}%`,
+                value: loading ? '—' : safePercent(stats.completionRate),
                 sub: loading ? '' : `${stats.totalCompletedModules} of ${stats.totalPossibleModules} modules done`,
                 valueColor: '#111827',
               },
@@ -441,13 +599,12 @@ function AdminDashboard() {
               </div>
             </div>
 
-            {/* Training Status — redesigned donut */}
+            {/* Training Status donut */}
             <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
               <div className="px-5 pt-4 pb-3 border-b border-gray-50">
                 <p className="text-gray-800 text-sm font-semibold">Training Status</p>
                 <p className="text-gray-400 text-xs mt-0.5">Module completion by user</p>
               </div>
-
               <div className="px-5 py-5">
                 {loading ? (
                   <div className="flex items-center justify-center h-52">
@@ -460,17 +617,11 @@ function AdminDashboard() {
                   </div>
                 ) : (
                   <>
-                    {/* Donut chart */}
                     <div className="relative flex items-center justify-center mb-5">
                       <ResponsiveContainer width="100%" height={160}>
                         <PieChart>
-                          <defs>
-                            <filter id="donutShadow" x="-20%" y="-20%" width="140%" height="140%">
-                              <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.08" />
-                            </filter>
-                          </defs>
                           <Pie
-                            data={donutData.length > 0 ? donutData : [{ name: 'Empty', value: 1, color: '#f3f4f6' }]}
+                            data={donutDisplay}
                             cx="50%" cy="50%"
                             innerRadius={48} outerRadius={68}
                             dataKey="value"
@@ -478,47 +629,32 @@ function AdminDashboard() {
                             paddingAngle={donutData.length > 1 ? 3 : 0}
                             onMouseEnter={(_, index) => setActiveDonutIndex(index)}
                             onMouseLeave={() => setActiveDonutIndex(null)}
+                            onClick={() => {}}
                           >
-                            {(donutData.length > 0 ? donutData : [{ color: '#f3f4f6' }]).map((entry, index) => (
+                            {donutDisplay.map((entry, index) => (
                               <Cell
-                                key={index}
+                                key={`cell-${index}`}
                                 fill={entry.color}
-                                opacity={activeDonutIndex === null || activeDonutIndex === index ? 1 : 0.4}
-                                style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
+                                opacity={activeDonutIndex === null || activeDonutIndex === index ? 1 : 0.35}
+                                style={{ cursor: donutData.length > 0 ? 'pointer' : 'default', outline: 'none' }}
                               />
                             ))}
                           </Pie>
                           {donutData.length > 0 && (
-                            <Tooltip
-                              content={({ active, payload }) => {
-                                if (!active || !payload?.length) return null
-                                const d = payload[0].payload
-                                const pct = donutTotal > 0 ? Math.round((d.value / donutTotal) * 100) : 0
-                                return (
-                                  <div style={{
-                                    background: '#111827', border: '1px solid rgba(255,255,255,0.08)',
-                                    borderRadius: '8px', padding: '8px 12px',
-                                    boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-                                  }}>
-                                    <p style={{ color: entry?.color || d.color, fontSize: '11px', fontWeight: 600, marginBottom: '2px' }}>{d.name}</p>
-                                    <p style={{ color: '#fff', fontSize: '13px', fontWeight: 700 }}>{d.value} user{d.value !== 1 ? 's' : ''}</p>
-                                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>{pct}% of total</p>
-                                  </div>
-                                )
-                              }}
-                            />
+                            <Tooltip content={<DonutTooltip donutTotal={donutTotal} />} />
                           )}
                         </PieChart>
                       </ResponsiveContainer>
 
-                      {/* Center label overlay */}
+                      {/* Center overlay */}
                       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <p className="text-gray-900 font-bold" style={{ fontSize: '22px', lineHeight: 1 }}>
                           {activeDonutIndex !== null && donutData[activeDonutIndex]
                             ? donutData[activeDonutIndex].value
                             : donutTotal}
                         </p>
-                        <p className="text-gray-400 font-medium mt-1" style={{ fontSize: '10px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                        <p className="text-gray-400 font-medium mt-1"
+                          style={{ fontSize: '10px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                           {activeDonutIndex !== null && donutData[activeDonutIndex]
                             ? donutData[activeDonutIndex].name
                             : 'Total Users'}
@@ -526,7 +662,7 @@ function AdminDashboard() {
                       </div>
                     </div>
 
-                    {/* Legend rows */}
+                    {/* Legend */}
                     <div className="flex flex-col gap-3">
                       {[
                         { name: 'Completed', value: stats.completedCount, color: '#10b981', bg: '#f0fdf4' },
@@ -546,10 +682,8 @@ function AdminDashboard() {
                                 <p className="text-gray-700 text-xs font-semibold">{item.value}</p>
                               </div>
                               <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full rounded-full transition-all duration-500"
-                                  style={{ width: `${pct}%`, backgroundColor: item.color }}
-                                />
+                                <div className="h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${pct}%`, backgroundColor: item.color }} />
                               </div>
                             </div>
                             <p className="text-gray-400 text-xs w-8 text-right flex-shrink-0">{pct}%</p>
@@ -558,10 +692,9 @@ function AdminDashboard() {
                       })}
                     </div>
 
-                    {/* Completion rate footer */}
                     <div className="mt-4 pt-3 border-t border-gray-50 flex items-center justify-between">
                       <p className="text-gray-400 text-xs">Module completion rate</p>
-                      <p className="text-gray-800 text-xs font-bold">{stats.completionRate}%</p>
+                      <p className="text-gray-800 text-xs font-bold">{safePercent(stats.completionRate)}</p>
                     </div>
                   </>
                 )}
@@ -582,18 +715,12 @@ function AdminDashboard() {
                 <span className="text-gray-400 text-xs">{topPerformers.length} users</span>
               </div>
               <div className="px-5 py-2">
-                {leaderboardLoading ? (
-                  <div className="flex flex-col gap-3 py-3">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="animate-pulse flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-full bg-gray-100 flex-shrink-0" />
-                        <div className="flex-1">
-                          <div className="h-2.5 bg-gray-100 rounded w-3/4 mb-1.5" />
-                          <div className="h-1.5 bg-gray-100 rounded w-1/2" />
-                        </div>
-                      </div>
-                    ))}
+                {leaderboardError ? (
+                  <div className="py-3">
+                    <ErrorCard message={leaderboardError} onRetry={fetchLeaderboard} />
                   </div>
+                ) : leaderboardLoading ? (
+                  <div className="py-2">{[1,2,3].map(i => <SkeletonRow key={i} />)}</div>
                 ) : topPerformers.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 gap-1">
                     <p className="text-gray-400 text-xs">No data yet</p>
@@ -603,10 +730,11 @@ function AdminDashboard() {
                   <div key={user.userId} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
                     <span className="text-gray-300 text-xs font-mono w-4 flex-shrink-0">{String(i + 1).padStart(2, '0')}</span>
                     {user.avatar ? (
-                      <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full object-cover flex-shrink-0" onError={e => e.target.style.display = 'none'} />
+                      <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                        onError={e => { e.target.style.display = 'none' }} />
                     ) : (
                       <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-gray-500">
-                        {user.name.charAt(0).toUpperCase()}
+                        {(user.name || 'U').charAt(0).toUpperCase()}
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
@@ -617,7 +745,9 @@ function AdminDashboard() {
                       <div className="w-12 h-1 bg-gray-100 rounded-full overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${user.avgScore}%`, backgroundColor: scoreColor(user.avgScore) }} />
                       </div>
-                      <p className="text-xs font-semibold w-8 text-right" style={{ color: scoreColor(user.avgScore) }}>{user.avgScore}%</p>
+                      <p className="text-xs font-semibold w-8 text-right" style={{ color: scoreColor(user.avgScore) }}>
+                        {user.avgScore}%
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -636,18 +766,12 @@ function AdminDashboard() {
                 )}
               </div>
               <div className="px-5 py-2">
-                {leaderboardLoading ? (
-                  <div className="flex flex-col gap-3 py-3">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="animate-pulse flex items-center gap-3">
-                        <div className="w-7 h-7 rounded-full bg-gray-100 flex-shrink-0" />
-                        <div className="flex-1">
-                          <div className="h-2.5 bg-gray-100 rounded w-3/4 mb-1.5" />
-                          <div className="h-1.5 bg-gray-100 rounded w-1/2" />
-                        </div>
-                      </div>
-                    ))}
+                {leaderboardError ? (
+                  <div className="py-3">
+                    <ErrorCard message={leaderboardError} onRetry={fetchLeaderboard} />
                   </div>
+                ) : leaderboardLoading ? (
+                  <div className="py-2">{[1,2,3].map(i => <SkeletonRow key={i} />)}</div>
                 ) : atRiskList.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 gap-1">
                     <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mb-1">
@@ -662,10 +786,11 @@ function AdminDashboard() {
                   <div key={user.userId} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
                     <div className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0" />
                     {user.avatar ? (
-                      <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full object-cover flex-shrink-0" onError={e => e.target.style.display = 'none'} />
+                      <img src={user.avatar} alt={user.name} className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                        onError={e => { e.target.style.display = 'none' }} />
                     ) : (
                       <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-gray-500">
-                        {user.name.charAt(0).toUpperCase()}
+                        {(user.name || 'U').charAt(0).toUpperCase()}
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
@@ -693,18 +818,12 @@ function AdminDashboard() {
                 <span className="text-gray-400 text-xs">{recentActivity.length} events</span>
               </div>
               <div className="px-3 py-1">
-                {activityLoading ? (
-                  <div className="flex flex-col gap-2 py-3">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="animate-pulse flex items-center gap-3 px-2 py-2">
-                        <div className="w-6 h-6 rounded-full bg-gray-100 flex-shrink-0" />
-                        <div className="flex-1">
-                          <div className="h-2.5 bg-gray-100 rounded w-3/4 mb-1.5" />
-                          <div className="h-2 bg-gray-100 rounded w-1/2" />
-                        </div>
-                      </div>
-                    ))}
+                {activityError ? (
+                  <div className="py-3 px-2">
+                    <ErrorCard message={activityError} onRetry={fetchRecentActivity} />
                   </div>
+                ) : activityLoading ? (
+                  <div className="py-2 px-2">{[1,2,3].map(i => <SkeletonRow key={i} />)}</div>
                 ) : recentActivity.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 gap-1">
                     <p className="text-gray-400 text-xs">No activity yet</p>
@@ -713,10 +832,11 @@ function AdminDashboard() {
                 ) : recentActivity.map((item) => (
                   <div key={item.id} className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-gray-50 transition">
                     {item.avatar ? (
-                      <img src={item.avatar} alt={item.user} className="w-6 h-6 rounded-full object-cover flex-shrink-0" onError={e => e.target.style.display = 'none'} />
+                      <img src={item.avatar} alt={item.user} className="w-6 h-6 rounded-full object-cover flex-shrink-0"
+                        onError={e => { e.target.style.display = 'none' }} />
                     ) : (
                       <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-gray-500">
-                        {item.user.charAt(0).toUpperCase()}
+                        {(item.user || 'U').charAt(0).toUpperCase()}
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
@@ -727,7 +847,7 @@ function AdminDashboard() {
                         <span className="text-gray-300 text-xs">{timeAgo(item.time)}</span>
                       </div>
                     </div>
-                    {item.score != null && (
+                    {typeof item.score === 'number' && !isNaN(item.score) && (
                       <p className="text-xs font-semibold flex-shrink-0" style={{ color: scoreColor(item.score) }}>
                         {item.score}%
                       </p>
