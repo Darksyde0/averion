@@ -220,7 +220,7 @@ function AddModule() {
 
                       <div className="p-5">
                         <div className="mb-4">
-                          <label className={labelClass}>Lesson Title <span className="text-red-400 ml-0.5">*</span><Tooltip text="Each lesson is a chapter — e.g. 'Introduction', 'How to Spot It'." /></label>
+                          <label className={labelClass}>Lesson Title <span className="text-red-400 ml-0.5">*</span><Tooltip text="Each lesson is a chapter e.g. 'Introduction', 'How to Spot It'." /></label>
                           <input type="text" value={lesson.title} onChange={e => updateLessonTitle(lesson.id, e.target.value)}
                             placeholder="e.g. Introduction to Phishing" className={inputClass} required />
                         </div>
@@ -427,7 +427,7 @@ function AddModule() {
                           </div>
                         </div>
                         <div>
-                          <label className={labelClass}>Explanation <span className="text-red-400 ml-0.5">*</span><Tooltip text="Shown after the user answers — reinforces the learning." /></label>
+                          <label className={labelClass}>Explanation <span className="text-red-400 ml-0.5">*</span><Tooltip text="Shown after the user answers, reinforces the learning." /></label>
                           <textarea value={q.explanation} onChange={e => updateQuestion(q.id, 'explanation', e.target.value)}
                             placeholder="Explain why the correct answer is right..." rows={2} className={`${inputClass} resize-none`} required />
                         </div>

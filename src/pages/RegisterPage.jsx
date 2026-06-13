@@ -374,7 +374,28 @@ function RegisterPage() {
                     onChange={handleChange} required
                     className="w-full bg-white border border-white/10 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
                     <option value="">Select</option>
-                    {['Engineering', 'Human Resources', 'Finance', 'Marketing', 'Operations', 'Sales', 'Management', 'IT'].map(d => (
+                    {[
+                      'C-Suite / Executive',
+                      'Engineering',
+                      'Information Technology',
+                      'Cybersecurity',
+                      'Human Resources',
+                      'Finance',
+                      'Accounting',
+                      'Marketing',
+                      'Sales',
+                      'Operations',
+                      'Legal & Compliance',
+                      'Customer Success',
+                      'Product Management',
+                      'Design',
+                      'Data & Analytics',
+                      'Research & Development',
+                      'Procurement',
+                      'Administration',
+                      'Management',
+                      'Other',
+                    ].map(d => (
                       <option key={d}>{d}</option>
                     ))}
                   </select>
@@ -541,7 +562,8 @@ function RegisterPage() {
 
               <div className="flex gap-3">
                 <button type="button" onClick={() => setStep(1)}
-                  className="flex-1 py-3.5 rounded-xl text-sm font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all duration-200">
+                  className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  style={{ colorScheme: 'dark' }}>
                   {t('common.back')}
                 </button>
                 <button type="submit" disabled={loading}
