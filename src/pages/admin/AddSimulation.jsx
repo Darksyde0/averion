@@ -357,6 +357,9 @@ function AddSimulation() {
         const sims = parsed.map(shuffleSim)
         setGeneratedSims(sims)
         setShowGenerated(true)
+        setTimeout(() => {
+          document.getElementById('generated-sims-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }, 300)
 
         const vulnCounts = {}
         sims.forEach(s => {
@@ -664,7 +667,7 @@ function AddSimulation() {
               </form>
 
               {showGenerated && generatedSims.length > 0 && (
-                <div className="pb-10">
+                <div id="generated-sims-section" className="pb-10">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <p className="text-gray-800 text-sm font-semibold">{generatedSims.length} Diagnostic Question{generatedSims.length > 1 ? 's' : ''} Generated</p>
