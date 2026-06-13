@@ -89,10 +89,11 @@ function DonutTooltip({ active, payload, donutTotal }) {
 
 function timeAgo(dateStr) {
   try {
-    const now = new Date()
-    const date = new Date(dateStr)
+    if (!dateStr) return 'Unknown'
+    const raw = dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
+    const date = new Date(raw)
     if (isNaN(date.getTime())) return 'Unknown'
-    const diff = Math.floor((now - date) / 1000)
+    const diff = Math.floor((Date.now() - date.getTime()) / 1000)
     if (diff < 60) return 'Just now'
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
