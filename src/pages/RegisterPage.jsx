@@ -1,7 +1,92 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useTranslation } from '../hooks/useTranslation'
+
+const DEPARTMENTS = [
+  'C-Suite / Executive',
+  'Engineering',
+  'Information Technology',
+  'Cybersecurity',
+  'Human Resources',
+  'Finance',
+  'Accounting',
+  'Marketing',
+  'Sales',
+  'Operations',
+  'Legal & Compliance',
+  'Customer Success',
+  'Product Management',
+  'Design',
+  'Data & Analytics',
+  'Research & Development',
+  'Procurement',
+  'Administration',
+  'Management',
+  'Other',
+]
+
+function DepartmentSelect({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="w-full bg-white/5 border border-white/10 text-sm rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition flex items-center justify-between"
+        style={{ color: value ? '#fff' : '#4b5563' }}>
+        <span>{value || 'Select department'}</span>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-4 w-4 text-gray-500 flex-shrink-0 transition-transform duration-200"
+          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl overflow-hidden"
+          style={{
+            background: '#0d1117',
+            border: '1px solid rgba(255,255,255,0.1)',
+            boxShadow: '0 16px 40px rgba(0,0,0,0.6)',
+            maxHeight: '220px',
+            overflowY: 'auto',
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(255,255,255,0.1) transparent',
+          }}>
+          {DEPARTMENTS.map(dept => (
+            <button
+              key={dept}
+              type="button"
+              onClick={() => { onChange(dept); setOpen(false) }}
+              className="w-full text-left px-4 py-2.5 text-sm transition-colors"
+              style={{
+                color: value === dept ? '#60a5fa' : 'rgba(255,255,255,0.75)',
+                backgroundColor: value === dept ? 'rgba(59,130,246,0.1)' : 'transparent',
+              }}
+              onMouseEnter={e => { if (value !== dept) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)' }}
+              onMouseLeave={e => { if (value !== dept) e.currentTarget.style.backgroundColor = 'transparent' }}>
+              {dept}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function RegisterPage() {
   const navigate = useNavigate()
@@ -65,7 +150,6 @@ function RegisterPage() {
     setLoading(true)
 
     try {
-      // ── Step 1: create auth user ──
       const { data, error: authError } = await supabase.auth.signUp({
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
@@ -92,14 +176,12 @@ function RegisterPage() {
         return
       }
 
-      // ── Step 2: guard against null user ──
       if (!data?.user?.id) {
         setError('Registration failed. Please try again with a different email.')
         setLoading(false)
         return
       }
 
-      // ── Step 3: insert profile ──
       const { error: profileError } = await supabase.from('users').insert({
         id: data.user.id,
         full_name: formData.fullName.trim(),
@@ -153,7 +235,6 @@ function RegisterPage() {
   const inputClass = "w-full bg-white/5 border border-white/10 text-white placeholder-gray-600 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
   const labelClass = "text-gray-300 text-xs font-semibold uppercase tracking-wide mb-2 block"
 
-  // ── Registration success screen ──
   if (registered) {
     return (
       <div className="min-h-screen bg-[#020408] flex items-center justify-center px-6 relative overflow-hidden">
@@ -226,7 +307,7 @@ function RegisterPage() {
   return (
     <div className="min-h-screen bg-[#020408] flex overflow-hidden">
 
-      {/* ── Left panel ── */}
+      {/* Left panel */}
       <div aria-hidden="true" className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),transparent)]" />
         <div className="absolute inset-0 opacity-[0.03]"
@@ -286,7 +367,7 @@ function RegisterPage() {
         </div>
       </div>
 
-      {/* ── Right panel ── */}
+      {/* Right panel */}
       <main id="main-content" className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 relative">
         <div aria-hidden="true" className="absolute inset-0 bg-[#04080f] lg:bg-transparent" />
 
@@ -342,7 +423,7 @@ function RegisterPage() {
             </div>
           )}
 
-          {/* ── Step 1 ── */}
+          {/* Step 1 */}
           {step === 1 && (
             <form onSubmit={handleNextStep} className="flex flex-col gap-5">
               <div>
@@ -367,38 +448,13 @@ function RegisterPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
+                {/* ── Department custom dropdown ── */}
                 <div>
-                  <label htmlFor="reg-department" className={labelClass}>{t('register.department')}</label>
-                  <select
-                    id="reg-department" name="department" value={formData.department}
-                    onChange={handleChange} required
-                    className="w-full bg-white border border-white/10 text-gray-800 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
-                    <option value="">Select</option>
-                    {[
-                      'C-Suite / Executive',
-                      'Engineering',
-                      'Information Technology',
-                      'Cybersecurity',
-                      'Human Resources',
-                      'Finance',
-                      'Accounting',
-                      'Marketing',
-                      'Sales',
-                      'Operations',
-                      'Legal & Compliance',
-                      'Customer Success',
-                      'Product Management',
-                      'Design',
-                      'Data & Analytics',
-                      'Research & Development',
-                      'Procurement',
-                      'Administration',
-                      'Management',
-                      'Other',
-                    ].map(d => (
-                      <option key={d}>{d}</option>
-                    ))}
-                  </select>
+                  <label className={labelClass}>{t('register.department')}</label>
+                  <DepartmentSelect
+                    value={formData.department}
+                    onChange={val => setFormData(prev => ({ ...prev, department: val }))}
+                  />
                 </div>
                 <div>
                   <label htmlFor="reg-jobTitle" className={labelClass}>{t('register.jobTitle')}</label>
@@ -431,7 +487,7 @@ function RegisterPage() {
             </form>
           )}
 
-          {/* ── Step 2 ── */}
+          {/* Step 2 */}
           {step === 2 && (
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               <div>
@@ -521,7 +577,7 @@ function RegisterPage() {
                 </div>
               </div>
 
-              {/* ── T&C Checkbox ── */}
+              {/* T&C Checkbox */}
               <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                 <label className="flex items-start gap-3 cursor-pointer group">
                   <div className="relative flex-shrink-0 mt-0.5">
@@ -562,8 +618,7 @@ function RegisterPage() {
 
               <div className="flex gap-3">
                 <button type="button" onClick={() => setStep(1)}
-                  className="w-full bg-white/5 border border-white/10 text-white rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
-                  style={{ colorScheme: 'dark' }}>
+                  className="flex-1 py-3.5 rounded-xl text-sm font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all duration-200">
                   {t('common.back')}
                 </button>
                 <button type="submit" disabled={loading}
