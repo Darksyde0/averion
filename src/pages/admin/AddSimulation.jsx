@@ -594,7 +594,7 @@ function AddSimulation() {
                     <input type="text" name="category" value={formData.category} onChange={handleChange}
                       placeholder="e.g. Phishing Detection" list="category-options" className={inputClass} />
                     <datalist id="category-options">
-                      {['Password Security','Phishing Detection','Social Engineering','Data Privacy','Network Security','Ransomware','USB and Physical Security','Insider Threat','Email Security','Mobile Security','Cloud Security','Zero-Day Awareness'].map(c => <option key={c} value={c} />)}
+                      {['Password Security', 'Phishing Detection', 'Social Engineering', 'Data Privacy', 'Network Security', 'Ransomware', 'USB and Physical Security', 'Insider Threat', 'Email Security', 'Mobile Security', 'Cloud Security', 'Zero-Day Awareness'].map(c => <option key={c} value={c} />)}
                     </datalist>
                   </div>
                   <div className="bg-white rounded-xl border border-gray-100 p-5">
@@ -882,14 +882,14 @@ function AddSimulation() {
         <>
           {!ariaMinimized && (
             <div className="fixed inset-0 z-40"
-              style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+              style={{ backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(5px)', WebkitBackdropFilter: 'blur(5px)' }}
               onClick={() => setAriaMinimized(true)} />
           )}
 
           <div className="fixed z-50 transition-all duration-300 ease-in-out"
             style={ariaMinimized ? { bottom: '24px', right: '24px' } : {
-              top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-              width: '100%', maxWidth: '520px', padding: '16px',
+              top: '50%', right: '24px', transform: 'translateY(-50%)',
+              width: '420px', padding: '0',
             }}>
 
             {ariaMinimized ? (
@@ -919,7 +919,7 @@ function AddSimulation() {
                 </div>
                 {aiLoading && (
                   <div className="flex items-center gap-1 ml-1">
-                    {[0,150,300].map(delay => (
+                    {[0, 150, 300].map(delay => (
                       <span key={delay} className="w-1 h-1 rounded-full animate-bounce"
                         style={{ background: '#3b82f6', animationDelay: `${delay}ms` }} />
                     ))}
@@ -939,7 +939,9 @@ function AddSimulation() {
             ) : (
               <div className="w-full flex flex-col rounded-2xl overflow-hidden"
                 style={{
-                  height: '640px',
+                  height: '78vh',
+                  maxHeight: '720px',
+                  minHeight: '560px',
                   background: 'linear-gradient(160deg, rgba(30,35,60,0.97) 0%, rgba(15,18,35,0.99) 100%)',
                   border: '1px solid rgba(255,255,255,0.1)',
                   boxShadow: '0 0 0 1px rgba(255,255,255,0.04), 0 30px 80px rgba(0,0,0,0.65), 0 0 50px rgba(37,99,235,0.1)',
@@ -1022,7 +1024,7 @@ function AddSimulation() {
                         }>
                         {msg.loading ? (
                           <span className="flex items-center gap-1.5 py-0.5">
-                            {[0,150,300].map(delay => (
+                            {[0, 150, 300].map(delay => (
                               <span key={delay} className="w-1.5 h-1.5 rounded-full animate-bounce"
                                 style={{ background: 'rgba(255,255,255,0.4)', animationDelay: `${delay}ms` }} />
                             ))}
