@@ -95,7 +95,14 @@ function HeroSection() {
         src="/images/hero-face.svg"
         alt=""
         aria-hidden="true"
-        className="absolute inset-0 w-full h-full object-contain object-center opacity-30 mix-blend-luminosity z-0" />
+        className="absolute opacity-30 mix-blend-luminosity z-0"
+        style={{
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -40%)',
+          width: '90%',
+          maxWidth: '700px',
+        }} />
 
       <div aria-hidden="true"
         className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#020408] to-transparent z-0" />
