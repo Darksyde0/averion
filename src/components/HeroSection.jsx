@@ -90,12 +90,33 @@ function HeroSection() {
       <div aria-hidden="true"
         className="absolute inset-0 z-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(29,78,216,0.25),transparent)]" />
 
-      {/* ── Decorative image ── */}
+      {/* ── Decorative image — desktop ── */}
       <img
         src="/images/hero-face.svg"
         alt=""
         aria-hidden="true"
-        className="absolute inset-0 w-full h-full object-contain object-center opacity-30 mix-blend-luminosity z-0" />
+        className="hidden md:block absolute opacity-30 mix-blend-luminosity z-0"
+        style={{
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -40%)',
+          width: '80%',
+          maxWidth: '700px',
+        }} />
+
+      {/* ── Decorative image — mobile ── */}
+      <img
+        src="/images/hero-face-mobile.svg"
+        alt=""
+        aria-hidden="true"
+        className="block md:hidden absolute opacity-20 mix-blend-luminosity z-0"
+        style={{
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -30%)',
+          width: '100%',
+          maxWidth: '400px',
+        }} />
 
       <div aria-hidden="true"
         className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-[#020408] to-transparent z-0" />
