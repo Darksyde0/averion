@@ -98,13 +98,12 @@ function HeroSection() {
         className="hidden md:block absolute opacity-30 mix-blend-luminosity z-0"
         style={{
           top: '50%',
-          right: '0',
-          transform: 'translateY(-50%)',
-          width: '55%',
-          maxWidth: '100%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '100%',
           height: '100%',
-          objectFit: 'contain',
-          objectPosition: 'right center',
+          objectFit: 'cover',
+          objectPosition: 'center center',
         }} />
 
       {/* ── Decorative image — mobile ── */}
