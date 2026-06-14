@@ -98,10 +98,13 @@ function HeroSection() {
         className="hidden md:block absolute opacity-30 mix-blend-luminosity z-0"
         style={{
           top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -40%)',
-          width: '80%',
-          maxWidth: '700px',
+          right: '0',
+          transform: 'translateY(-50%)',
+          width: '55%',
+          maxWidth: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          objectPosition: 'right center',
         }} />
 
       {/* ── Decorative image — mobile ── */}
@@ -109,13 +112,13 @@ function HeroSection() {
         src="/images/hero-face-mobile.svg"
         alt=""
         aria-hidden="true"
-        className="block md:hidden absolute opacity-20 mix-blend-luminosity z-0"
+        className="block md:hidden absolute opacity-25 mix-blend-luminosity z-0"
         style={{
-          top: '50%',
+          top: '30%',
           left: '50%',
-          transform: 'translate(-50%, -30%)',
-          width: '100%',
-          maxWidth: '400px',
+          transform: 'translate(-50%, -20%)',
+          width: '95%',
+          maxWidth: '420px',
         }} />
 
       <div aria-hidden="true"
