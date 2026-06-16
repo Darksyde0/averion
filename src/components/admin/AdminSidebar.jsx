@@ -151,7 +151,7 @@ function AdminSidebar({ isOpen }) {
               </div>
               <div className="min-w-0">
                 <p className="text-gray-300 text-xs font-semibold leading-tight">Admin</p>
-                <p className="text-gray-600 text-xs leading-tight">v1.0.0</p>
+                <p className="text-gray-600 text-xs leading-tight">v1.4.2</p>
               </div>
             </div>
             <button onClick={handleLogout}
