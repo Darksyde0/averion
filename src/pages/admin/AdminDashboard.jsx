@@ -595,7 +595,7 @@ function AdminDashboard() {
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height={220}>
-                    <ComposedChart data={barData} margin={{ top: 8, right: 44, left: -20, bottom: barData.length > 6 ? 20 : 0 }}>
+                    <ComposedChart data={barData} margin={{ top: 8, right: 60, left: -20, bottom: barData.length > 8 ? 50 : 5 }}>
                       <defs>
                         <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.12} />
@@ -612,7 +612,7 @@ function AdminDashboard() {
                         interval={Math.max(0, Math.floor(barData.length / 8))}
                         angle={barData.length > 8 ? -35 : 0}
                         textAnchor={barData.length > 8 ? 'end' : 'middle'}
-                        height={barData.length > 8 ? 45 : 20}
+                        height={barData.length > 8 ? 60 : 20}
                       />
                       <YAxis yAxisId="score" domain={[0, 100]} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} ticks={[0, 25, 50, 75, 100]} />
                       <YAxis
