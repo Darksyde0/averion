@@ -222,7 +222,7 @@ function AdminDashboard() {
             })
             atRiskUsers = Object.values(userScores).filter(s => s.score < 50).length
 
-            const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
             // ── Determine grouping mode based on data spread ──
             const dates = validResults.map(r => new Date(r.completed_at)).filter(d => !isNaN(d))
@@ -287,15 +287,15 @@ function AdminDashboard() {
         userIds.forEach(id => {
           userModuleMap[id] = { completedModules: new Set(), startedModules: new Set() }
         })
-        ;(progress || []).forEach(p => {
-          if (!p.user_id || !userModuleMap[p.user_id]) return
-          if (p.quiz_completed === true) {
-            userModuleMap[p.user_id].completedModules.add(p.module_id)
-            totalCompletedModules++
-          } else {
-            userModuleMap[p.user_id].startedModules.add(p.module_id)
-          }
-        })
+          ; (progress || []).forEach(p => {
+            if (!p.user_id || !userModuleMap[p.user_id]) return
+            if (p.quiz_completed === true) {
+              userModuleMap[p.user_id].completedModules.add(p.module_id)
+              totalCompletedModules++
+            } else {
+              userModuleMap[p.user_id].startedModules.add(p.module_id)
+            }
+          })
 
         userIds.forEach(id => {
           const completed = userModuleMap[id]?.completedModules.size || 0
@@ -609,13 +609,21 @@ function AdminDashboard() {
                         axisLine={false}
                         tickLine={false}
                         dy={6}
-                        interval="preserveStartEnd"
-                        angle={barData.length > 6 ? -35 : 0}
-                        textAnchor={barData.length > 6 ? 'end' : 'middle'}
-                        height={barData.length > 6 ? 45 : 20}
+                        interval={Math.max(0, Math.floor(barData.length / 8))}
+                        angle={barData.length > 8 ? -35 : 0}
+                        textAnchor={barData.length > 8 ? 'end' : 'middle'}
+                        height={barData.length > 8 ? 45 : 20}
                       />
                       <YAxis yAxisId="score" domain={[0, 100]} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} ticks={[0, 25, 50, 75, 100]} />
-                      <YAxis yAxisId="users" orientation="right" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                      <YAxis
+                        yAxisId="users"
+                        orientation="right"
+                        tick={{ fontSize: 11, fill: '#94a3b8' }}
+                        axisLine={false}
+                        tickLine={false}
+                        allowDecimals={false}
+                        domain={[0, dataMax => Math.max(dataMax + 1, 3)]}
+                      />
                       <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(59,130,246,0.06)', strokeWidth: 1, strokeDasharray: '3 3' }} />
                       <Bar yAxisId="users" dataKey="activeUsers" fill="#e2e8f0" radius={[2, 2, 0, 0]} maxBarSize={24} opacity={0.7} />
                       <Area yAxisId="score" type="monotone" dataKey="score" stroke="#3b82f6" strokeWidth={2} fill="url(#blueGrad)" dot={{ r: 3.5, fill: '#fff', stroke: '#3b82f6', strokeWidth: 2 }} activeDot={{ r: 5, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }} connectNulls={false} />
@@ -657,7 +665,7 @@ function AdminDashboard() {
                             paddingAngle={donutData.length > 1 ? 3 : 0}
                             onMouseEnter={(_, index) => setActiveDonutIndex(index)}
                             onMouseLeave={() => setActiveDonutIndex(null)}
-                            onClick={() => {}}
+                            onClick={() => { }}
                           >
                             {donutDisplay.map((entry, index) => (
                               <Cell
@@ -746,7 +754,7 @@ function AdminDashboard() {
                     <ErrorCard message={leaderboardError} onRetry={fetchLeaderboard} />
                   </div>
                 ) : leaderboardLoading ? (
-                  <div className="py-2">{[1,2,3].map(i => <SkeletonRow key={i} />)}</div>
+                  <div className="py-2">{[1, 2, 3].map(i => <SkeletonRow key={i} />)}</div>
                 ) : topPerformers.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 gap-1">
                     <p className="text-gray-400 text-xs">No data yet</p>
@@ -797,7 +805,7 @@ function AdminDashboard() {
                     <ErrorCard message={leaderboardError} onRetry={fetchLeaderboard} />
                   </div>
                 ) : leaderboardLoading ? (
-                  <div className="py-2">{[1,2,3].map(i => <SkeletonRow key={i} />)}</div>
+                  <div className="py-2">{[1, 2, 3].map(i => <SkeletonRow key={i} />)}</div>
                 ) : atRiskList.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 gap-1">
                     <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center mb-1">
@@ -849,7 +857,7 @@ function AdminDashboard() {
                     <ErrorCard message={activityError} onRetry={fetchRecentActivity} />
                   </div>
                 ) : activityLoading ? (
-                  <div className="py-2 px-2">{[1,2,3].map(i => <SkeletonRow key={i} />)}</div>
+                  <div className="py-2 px-2">{[1, 2, 3].map(i => <SkeletonRow key={i} />)}</div>
                 ) : recentActivity.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 gap-1">
                     <p className="text-gray-400 text-xs">No activity yet</p>
