@@ -9,7 +9,6 @@ import {
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts'
 
-// ── Score color helper ──
 const scoreColor = (s) => {
   if (typeof s !== 'number' || isNaN(s)) return '#9ca3af'
   if (s >= 80) return '#10b981'
@@ -17,7 +16,6 @@ const scoreColor = (s) => {
   return '#ef4444'
 }
 
-// ── Safe number formatter ──
 const safePercent = (v) => {
   if (typeof v !== 'number' || isNaN(v)) return '—'
   return `${Math.round(v)}%`
@@ -104,7 +102,6 @@ function timeAgo(dateStr) {
   }
 }
 
-// ── Error state card ──
 function ErrorCard({ message, onRetry }) {
   return (
     <div className="bg-red-50 border border-red-100 rounded-xl p-5 flex items-start gap-3">
@@ -125,7 +122,6 @@ function ErrorCard({ message, onRetry }) {
   )
 }
 
-// ── Skeleton loader ──
 function SkeletonRow() {
   return (
     <div className="animate-pulse flex items-center gap-3 py-2.5">
@@ -164,18 +160,14 @@ function AdminDashboard() {
   const [activityError, setActivityError] = useState('')
   const [leaderboardError, setLeaderboardError] = useState('')
 
-  // ── Auth check ──
   useEffect(() => {
     async function checkAuth() {
       try {
         const { data: { user }, error } = await supabase.auth.getUser()
         if (error || !user) { navigate('/login'); return }
-        // Verify admin role
         const { data: profile, error: profileError } = await supabase
           .from('users').select('role').eq('id', user.id).single()
-        if (profileError || !profile || profile.role !== 'admin') {
-          navigate('/login')
-        }
+        if (profileError || !profile || profile.role !== 'admin') navigate('/login')
       } catch {
         navigate('/login')
       }
@@ -196,7 +188,6 @@ function AdminDashboard() {
     setLoading(true)
     setStatsError('')
     try {
-      // ── Fetch users ──
       const { data: users, error: usersError } = await supabase
         .from('users').select('id, full_name')
         .eq('role', 'user').eq('organization_id', profile.id)
@@ -232,13 +223,28 @@ function AdminDashboard() {
             atRiskUsers = Object.values(userScores).filter(s => s.score < 50).length
 
             const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+            // ── Determine grouping mode based on data spread ──
+            const dates = validResults.map(r => new Date(r.completed_at)).filter(d => !isNaN(d))
+            const minDate = new Date(Math.min(...dates))
+            const maxDate = new Date(Math.max(...dates))
+            const daySpread = (maxDate - minDate) / (1000 * 60 * 60 * 24)
+            const groupByDay = daySpread <= 90
+
             const grouped = {}
             validResults.forEach(r => {
               try {
                 const date = new Date(r.completed_at)
                 if (isNaN(date.getTime())) return
-                const key = `${date.getFullYear()}-${date.getMonth()}`
-                if (!grouped[key]) grouped[key] = { scores: [], users: new Set(), month: monthNames[date.getMonth()], date }
+                let key, label
+                if (groupByDay) {
+                  key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`
+                  label = `${monthNames[date.getMonth()]} ${date.getDate()}`
+                } else {
+                  key = `${date.getFullYear()}-${date.getMonth()}`
+                  label = monthNames[date.getMonth()]
+                }
+                if (!grouped[key]) grouped[key] = { scores: [], users: new Set(), label, date }
                 grouped[key].scores.push(r.score)
                 grouped[key].users.add(r.user_id)
               } catch { /* skip malformed dates */ }
@@ -247,7 +253,7 @@ function AdminDashboard() {
             computedBarData = Object.values(grouped)
               .sort((a, b) => a.date - b.date)
               .map(m => ({
-                month: m.month,
+                month: m.label,
                 score: Math.round(m.scores.reduce((a, b) => a + b, 0) / m.scores.length),
                 passRate: Math.round((m.scores.filter(s => s >= 80).length / m.scores.length) * 100),
                 atRisk: Math.round((m.scores.filter(s => s < 50).length / m.scores.length) * 100),
@@ -258,7 +264,6 @@ function AdminDashboard() {
         }
       }
 
-      // ── Completion logic ──
       let completedCount = 0, inProgressCount = 0, notStartedCount = 0
       let totalCompletedModules = 0, totalPossibleModules = 0
 
@@ -434,10 +439,22 @@ function AdminDashboard() {
     try {
       if (!Array.isArray(allBarData) || allBarData.length === 0) return []
       const now = new Date()
-      if (view === '7D') { const c = new Date(now); c.setDate(c.getDate() - 7); return allBarData.filter(d => new Date(d.date) >= c) }
-      if (view === '1M') { const c = new Date(now); c.setMonth(c.getMonth() - 1); return allBarData.filter(d => new Date(d.date) >= c) }
-      if (view === '6M') return allBarData.slice(-6)
-      if (view === '1Y') return allBarData.slice(-12)
+      if (view === '7D') {
+        const c = new Date(now); c.setDate(c.getDate() - 7)
+        return allBarData.filter(d => new Date(d.date) >= c)
+      }
+      if (view === '1M') {
+        const c = new Date(now); c.setMonth(c.getMonth() - 1)
+        return allBarData.filter(d => new Date(d.date) >= c)
+      }
+      if (view === '6M') {
+        const c = new Date(now); c.setMonth(c.getMonth() - 6)
+        return allBarData.filter(d => new Date(d.date) >= c)
+      }
+      if (view === '1Y') {
+        const c = new Date(now); c.setFullYear(c.getFullYear() - 1)
+        return allBarData.filter(d => new Date(d.date) >= c)
+      }
       return allBarData
     } catch {
       return []
@@ -577,8 +594,8 @@ function AdminDashboard() {
                     <p className="text-gray-300 text-xs">Try a longer time range</p>
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={210}>
-                    <ComposedChart data={barData} margin={{ top: 8, right: 44, left: -20, bottom: 0 }}>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <ComposedChart data={barData} margin={{ top: 8, right: 44, left: -20, bottom: barData.length > 6 ? 20 : 0 }}>
                       <defs>
                         <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.12} />
@@ -586,7 +603,17 @@ function AdminDashboard() {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} dy={6} />
+                      <XAxis
+                        dataKey="month"
+                        tick={{ fontSize: 10, fill: '#94a3b8' }}
+                        axisLine={false}
+                        tickLine={false}
+                        dy={6}
+                        interval="preserveStartEnd"
+                        angle={barData.length > 6 ? -35 : 0}
+                        textAnchor={barData.length > 6 ? 'end' : 'middle'}
+                        height={barData.length > 6 ? 45 : 20}
+                      />
                       <YAxis yAxisId="score" domain={[0, 100]} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} ticks={[0, 25, 50, 75, 100]} />
                       <YAxis yAxisId="users" orientation="right" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                       <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(59,130,246,0.06)', strokeWidth: 1, strokeDasharray: '3 3' }} />
@@ -647,7 +674,6 @@ function AdminDashboard() {
                         </PieChart>
                       </ResponsiveContainer>
 
-                      {/* Center overlay */}
                       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                         <p className="text-gray-900 font-bold" style={{ fontSize: '22px', lineHeight: 1 }}>
                           {activeDonutIndex !== null && donutData[activeDonutIndex]
@@ -663,7 +689,6 @@ function AdminDashboard() {
                       </div>
                     </div>
 
-                    {/* Legend */}
                     <div className="flex flex-col gap-3">
                       {[
                         { name: 'Completed', value: stats.completedCount, color: '#10b981', bg: '#f0fdf4' },
