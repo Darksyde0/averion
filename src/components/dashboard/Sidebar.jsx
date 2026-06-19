@@ -1,17 +1,28 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../../supabaseClient'
 
-function Sidebar({ isOpen }) {
+function Sidebar({ isOpen, locked = false }) {
   const navigate = useNavigate()
   const location = useLocation()
 
   async function handleLogout() {
+    if (locked) {
+      alert('Please complete the simulation before logging out.')
+      return
+    }
     await supabase.auth.signOut()
     navigate('/login')
   }
 
   function isActive(path) {
     return location.pathname === path || location.pathname.startsWith(path + '/')
+  }
+
+  function handleLockedClick(e) {
+    if (locked) {
+      e.preventDefault()
+      alert('Please complete the simulation before navigating away.')
+    }
   }
 
   const navItems = [
@@ -68,21 +79,48 @@ function Sidebar({ isOpen }) {
       {/* Separator */}
       <div className="mx-3 mb-2" style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.04)' }} />
 
+      {/* Lock banner */}
+      {locked && (
+        <div className="mx-2 mb-2 px-3 py-2 rounded-lg"
+          style={{ backgroundColor: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.2)' }}>
+          {isOpen ? (
+            <div className="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-red-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+              <p className="text-red-400 text-xs font-medium leading-tight">Simulation in progress</p>
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Nav */}
       <div className="flex-1 overflow-y-auto py-2 px-2" style={{ scrollbarWidth: 'none' }}>
         <nav className="flex flex-col gap-0.5">
           {navItems.map(item => {
             const active = isActive(item.path)
             return (
-              <Link key={item.path} to={item.path} title={!isOpen ? item.label : undefined}
+              <Link
+                key={item.path}
+                to={item.path}
+                title={!isOpen ? item.label : undefined}
+                onClick={handleLockedClick}
                 className="relative flex items-center transition-all duration-200 rounded-xl group"
                 style={{
                   padding: isOpen ? '10px 12px' : '10px',
                   justifyContent: isOpen ? 'flex-start' : 'center',
                   gap: isOpen ? '10px' : '0',
                   backgroundColor: active ? 'rgba(59,130,246,0.12)' : 'transparent',
+                  opacity: locked && item.path !== '/simulations' ? 0.4 : 1,
+                  cursor: locked ? 'not-allowed' : 'pointer',
                 }}>
-                {active && (
+                {active && !locked && (
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-400 rounded-full" />
                 )}
                 <span
@@ -101,7 +139,7 @@ function Sidebar({ isOpen }) {
                   <div className="absolute left-full ml-3 px-2.5 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-lg
                     opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50
                     border border-white/10 shadow-xl">
-                    {item.label}
+                    {locked ? 'Simulation in progress' : item.label}
                   </div>
                 )}
               </Link>
@@ -127,23 +165,51 @@ function Sidebar({ isOpen }) {
                 <p className="text-gray-600 text-xs leading-tight">v1.4.2</p>
               </div>
             </div>
-            <button onClick={handleLogout}
+            <button
+              onClick={handleLogout}
               className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold transition-all duration-200"
-              style={{ color: '#f87171', backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)' }}
-              onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.18)'; e.currentTarget.style.color = '#fff' }}
-              onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.08)'; e.currentTarget.style.color = '#f87171' }}>
+              style={{
+                color: locked ? '#6b7280' : '#f87171',
+                backgroundColor: locked ? 'rgba(107,114,128,0.08)' : 'rgba(239,68,68,0.08)',
+                border: locked ? '1px solid rgba(107,114,128,0.15)' : '1px solid rgba(239,68,68,0.15)',
+                cursor: locked ? 'not-allowed' : 'pointer',
+              }}
+              onMouseEnter={e => {
+                if (!locked) {
+                  e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.18)'
+                  e.currentTarget.style.color = '#fff'
+                }
+              }}
+              onMouseLeave={e => {
+                if (!locked) {
+                  e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.08)'
+                  e.currentTarget.style.color = '#f87171'
+                }
+              }}>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
               </svg>
-              Logout
+              {locked ? 'Locked' : 'Logout'}
             </button>
           </div>
         ) : (
-          <button onClick={handleLogout} title="Logout"
+          <button
+            onClick={handleLogout}
+            title={locked ? 'Simulation in progress' : 'Logout'}
             className="w-9 h-9 flex items-center justify-center rounded-xl transition-all duration-200 mx-auto"
-            style={{ color: '#f87171' }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.15)'; e.currentTarget.style.color = '#fff' }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#f87171' }}>
+            style={{ color: locked ? '#6b7280' : '#f87171', cursor: locked ? 'not-allowed' : 'pointer' }}
+            onMouseEnter={e => {
+              if (!locked) {
+                e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.15)'
+                e.currentTarget.style.color = '#fff'
+              }
+            }}
+            onMouseLeave={e => {
+              if (!locked) {
+                e.currentTarget.style.backgroundColor = 'transparent'
+                e.currentTarget.style.color = '#f87171'
+              }
+            }}>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
             </svg>

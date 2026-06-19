@@ -63,6 +63,29 @@ function SimulationPage() {
 
   useEffect(() => { fetchData() }, [])
 
+  // ── Lock navigation during active simulation ──
+  useEffect(() => {
+    if (!activeBatch) return
+
+    function handlePopState() {
+      window.history.pushState(null, '', window.location.href)
+    }
+
+    function handleBeforeUnload(e) {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+
+    window.history.pushState(null, '', window.location.href)
+    window.addEventListener('popstate', handlePopState)
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [activeBatch])
+
   async function fetchData() {
     setLoading(true)
     try {
@@ -112,7 +135,13 @@ function SimulationPage() {
     }
   }
 
-  function handleStartBatch(batch) { setActiveBatch(batch); setCurrentIndex(0); setUserAnswers({}); setSubmitError('') }
+  function handleStartBatch(batch) {
+    setActiveBatch(batch)
+    setCurrentIndex(0)
+    setUserAnswers({})
+    setSubmitError('')
+  }
+
   function handleSelectOption(index) { setUserAnswers({ ...userAnswers, [currentIndex]: index }) }
   function handleNext() { setCurrentIndex(currentIndex + 1) }
 
@@ -183,7 +212,7 @@ function SimulationPage() {
 
     return (
       <div className="flex min-h-screen" style={{ backgroundColor: '#f8fafc' }}>
-        <Sidebar isOpen={sidebarOpen} />
+        <Sidebar isOpen={sidebarOpen} locked={true} />
         <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-60' : 'ml-16'}`}>
           <TopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
           <div className="flex-1 p-6">
@@ -342,11 +371,11 @@ function SimulationPage() {
                   <p className="text-gray-400 text-xs leading-relaxed">Always verify the sender's email address before clicking any links or downloading attachments.</p>
                 </div>
 
-                <div className="border border-gray-100 rounded-xl p-3.5 flex items-start gap-2.5">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-amber-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                <div className="border border-red-100 bg-red-50 rounded-xl p-3.5 flex items-start gap-2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                   </svg>
-                  <p className="text-gray-400 text-xs leading-relaxed">One attempt only. Your answers will be submitted to your administrator.</p>
+                  <p className="text-red-500 text-xs leading-relaxed font-medium">Navigation is locked until you submit this simulation.</p>
                 </div>
               </div>
             </div>
