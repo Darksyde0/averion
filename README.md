@@ -1,4 +1,4 @@
-# Averion — AI-Powered Cybersecurity Awareness Training
+# Averion - AI-Powered Cybersecurity Awareness Training
 
 Live at: https://averiontech.vercel.app
 
@@ -118,12 +118,12 @@ The project auto-deploys to Vercel on every push to the `main` branch. To set up
 
 ## Key Features
 
-- **Admin Dashboard** — real-time stats, performance charts, leaderboard, at-risk users
-- **ARIA AI Assistant** — conversational AI that generates security simulations via GPT-4o
-- **Simulation Engine** — one-attempt phishing simulations with scoring
-- **Training Modules** — lessons, sections, and quizzes with progress tracking
-- **Multi-Tenancy** — full data isolation per organisation via Row Level Security
-- **Realtime Notifications** — live alerts for completions and at-risk events
+- **Admin Dashboard** - real-time stats, performance charts, leaderboard, at-risk users
+- **ARIA AI Assistant** -conversational AI that generates security simulations via GPT-4o
+- **Simulation Engine** - one-attempt phishing simulations with scoring
+- **Training Modules** - lessons, sections, and quizzes with progress tracking
+- **Multi-Tenancy** - full data isolation per organisation via Row Level Security
+- **Realtime Notifications** - live alerts for completions and at-risk events
 
 ## Security
 
