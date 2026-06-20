@@ -430,7 +430,16 @@ function AddSimulation() {
           text: `${sims.length} diagnostic question${sims.length > 1 ? 's' : ''} generated.\n\nVulnerability coverage: ${vulnSummary}\n\nReview each question below. I can regenerate specific ones, adjust difficulty distribution, or add more questions targeting a specific vulnerability.`,
         }])
       } else {
-        setAiMessages(prev => [...prev, { role: 'ai', text: responseText }])
+        // Never show raw JSON in the chat
+        const cleanText = responseText.trim()
+        if (cleanText.startsWith('[') || cleanText.startsWith('{')) {
+          setAiMessages(prev => [...prev, {
+            role: 'ai',
+            text: 'Questions were generated but could not be displayed correctly. Please scroll down to review them, or try again.',
+          }])
+        } else {
+          setAiMessages(prev => [...prev, { role: 'ai', text: cleanText }])
+        }
       }
     } catch (err) {
       setAiMessages(prev => prev.filter(m => !m.loading))
@@ -1115,8 +1124,8 @@ function AddSimulation() {
                     {aiLoading
                       ? <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       : genCooldown
-                      ? <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      : <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" /></svg>
+                        ? <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        : <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" /></svg>
                     }
                   </button>
                 </div>
