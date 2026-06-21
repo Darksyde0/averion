@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useTranslation } from '../hooks/useTranslation'
@@ -12,6 +12,23 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // ── Auth redirect guard ──
+  useEffect(() => {
+    async function checkSession() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const { data: profile } = await supabase
+        .from('users')
+        .select('role, first_login')
+        .eq('id', session.user.id)
+        .single()
+      if (!profile) return
+      if (profile.first_login) { navigate('/change-password'); return }
+      navigate(profile.role === 'admin' ? '/admin/dashboard' : '/dashboard')
+    }
+    checkSession()
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
