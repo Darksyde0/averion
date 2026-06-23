@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useTranslation } from '../hooks/useTranslation'
+import { Turnstile } from '@marsidev/react-turnstile'
 
 function LoginPage() {
   const navigate = useNavigate()
@@ -12,6 +13,7 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [turnstileToken, setTurnstileToken] = useState('')
 
   // ── Auth redirect guard ──
   useEffect(() => {
@@ -35,8 +37,13 @@ function LoginPage() {
     setLoading(true)
     setError('')
 
+    if (!turnstileToken) {
+      setError('Please complete the security check.')
+      setLoading(false)
+      return
+    }
+
     try {
-      // ── Step 1: authenticate ──
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
@@ -52,7 +59,6 @@ function LoginPage() {
         return
       }
 
-      // ── Step 2: fetch profile (only needed fields) ──
       const { data: profile, error: profileError } = await supabase
         .from('users')
         .select('id, role, first_login, full_name')
@@ -66,7 +72,6 @@ function LoginPage() {
         return
       }
 
-      // ── Step 3: check role matches selected tab ──
       if (profile.role !== role) {
         setError(`${t('login.wrongRole')} ${role === 'admin' ? 'an Admin' : 'a User'}.`)
         await supabase.auth.signOut()
@@ -74,7 +79,6 @@ function LoginPage() {
         return
       }
 
-      // ── Step 4: redirect ──
       setLoading(false)
       if (profile.first_login) {
         navigate('/change-password')
@@ -92,18 +96,16 @@ function LoginPage() {
   return (
     <div className="min-h-screen bg-[#020408] flex overflow-hidden">
 
-      {/* ── Left panel — decorative ── */}
+      {/* ── Left panel ── */}
       <div
         aria-hidden="true"
         className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden">
-
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(29,78,216,0.3),transparent)]" />
         <div className="absolute inset-0 opacity-[0.03]"
           style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-cyan-600/10 rounded-full blur-3xl" />
 
-        {/* Logo + back */}
         <div className="relative z-10 flex items-center justify-between">
           <img src="/images/logo.svg" alt="" className="h-9 w-auto" />
           <Link to="/" tabIndex={-1}
@@ -115,7 +117,6 @@ function LoginPage() {
           </Link>
         </div>
 
-        {/* Center content */}
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 py-1 mb-6">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
@@ -131,13 +132,8 @@ function LoginPage() {
           <p className="text-gray-300 text-sm leading-relaxed max-w-sm">
             Averion helps your team recognize threats and make safer decisions through real-world cybersecurity training.
           </p>
-
           <ul className="flex flex-col gap-3 mt-8 list-none">
-            {[
-              t('hero.stat1Label'),
-              t('hero.stat2Label'),
-              t('hero.stat3Label'),
-            ].map((item, i) => (
+            {[t('hero.stat1Label'), t('hero.stat2Label'), t('hero.stat3Label')].map((item, i) => (
               <li key={i} className="flex items-center gap-3">
                 <div className="w-5 h-5 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -150,7 +146,6 @@ function LoginPage() {
           </ul>
         </div>
 
-        {/* Bottom quote */}
         <blockquote className="relative z-10 bg-white/5 border border-white/10 rounded-2xl p-5">
           <p className="text-gray-300 text-sm leading-relaxed italic mb-3">
             "The weakest link in cybersecurity is always the human element. Training is the fix."
@@ -162,22 +157,18 @@ function LoginPage() {
         </blockquote>
       </div>
 
-      {/* ── Right panel — main login form ── */}
-      <main
-        id="main-content"
-        className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 relative">
+      {/* ── Right panel ── */}
+      <main id="main-content" className="w-full lg:w-1/2 flex items-center justify-center px-6 py-12 relative">
         <div aria-hidden="true" className="absolute inset-0 bg-[#04080f] lg:bg-transparent" />
 
         <div className="relative z-10 w-full max-w-md">
 
-          {/* Mobile logo */}
           <div className="flex justify-center mb-8 lg:hidden">
             <Link to="/" aria-label="Averion — go to homepage">
               <img src="/images/logo.svg" alt="Averion logo" className="h-9 w-auto" />
             </Link>
           </div>
 
-          {/* Back to home — mobile */}
           <Link to="/"
             className="inline-flex items-center gap-1.5 text-gray-300 hover:text-white text-xs font-medium transition-colors duration-200 mb-6 group lg:hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform duration-200" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -187,31 +178,22 @@ function LoginPage() {
           </Link>
 
           <div className="mb-8">
-            <h1 className="text-white text-3xl font-bold mb-1"
-              style={{ fontFamily: "'Poppins', sans-serif" }}>
+            <h1 className="text-white text-3xl font-bold mb-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
               {t('login.welcome')}
             </h1>
             <p className="text-gray-300 text-sm">{t('login.subtext')}</p>
           </div>
 
-          {/* ── Role switcher ── */}
-          <div
-            role="group"
-            aria-label="Select account type"
+          {/* Role switcher */}
+          <div role="group" aria-label="Select account type"
             className="flex bg-white/5 border border-white/10 rounded-xl p-1 mb-6">
-            <button
-              type="button"
-              onClick={() => setRole('user')}
-              aria-pressed={role === 'user'}
+            <button type="button" onClick={() => setRole('user')} aria-pressed={role === 'user'}
               aria-label="Sign in as User"
               className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
                 ${role === 'user' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-300 hover:text-white'}`}>
               {t('login.userTab')}
             </button>
-            <button
-              type="button"
-              onClick={() => setRole('admin')}
-              aria-pressed={role === 'admin'}
+            <button type="button" onClick={() => setRole('admin')} aria-pressed={role === 'admin'}
               aria-label="Sign in as Administrator"
               className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500
                 ${role === 'admin' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-300 hover:text-white'}`}>
@@ -219,11 +201,9 @@ function LoginPage() {
             </button>
           </div>
 
-          {/* ── Error message ── */}
+          {/* Error */}
           {error && (
-            <div
-              role="alert"
-              aria-live="assertive"
+            <div role="alert" aria-live="assertive"
               className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-5 flex items-start gap-2.5">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
@@ -232,67 +212,38 @@ function LoginPage() {
             </div>
           )}
 
-          {/* ── Login form ── */}
-          <form
-            onSubmit={handleSubmit}
-            noValidate
-            aria-label="Sign in form"
-            className="flex flex-col gap-5">
+          {/* Form */}
+          <form onSubmit={handleSubmit} noValidate aria-label="Sign in form" className="flex flex-col gap-5">
 
-            {/* Email */}
             <div>
-              <label
-                htmlFor="login-email"
+              <label htmlFor="login-email"
                 className="text-gray-300 text-xs font-semibold uppercase tracking-wide mb-2 block">
-                {t('login.email')}
-                <span className="sr-only"> (required)</span>
+                {t('login.email')}<span className="sr-only"> (required)</span>
               </label>
-              <input
-                type="email"
-                id="login-email"
-                name="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="you@company.com"
-                autoComplete="email"
-                required
-                aria-required="true"
+              <input type="email" id="login-email" name="email" value={email}
+                onChange={e => setEmail(e.target.value)} placeholder="you@company.com"
+                autoComplete="email" required aria-required="true"
                 className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-500 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
             </div>
 
-            {/* Password */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label
-                  htmlFor="login-password"
+                <label htmlFor="login-password"
                   className="text-gray-300 text-xs font-semibold uppercase tracking-wide">
-                  {t('login.password')}
-                  <span className="sr-only"> (required)</span>
+                  {t('login.password')}<span className="sr-only"> (required)</span>
                 </label>
-                <Link
-                  to="/forgot-password"
+                <Link to="/forgot-password"
                   className="text-blue-400 text-xs hover:text-blue-300 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
                   {t('login.forgotPassword')}
                 </Link>
               </div>
-
               <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  id="login-password"
-                  name="password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  autoComplete="current-password"
-                  required
-                  aria-required="true"
-                  aria-describedby="password-toggle-hint"
+                <input type={showPassword ? 'text' : 'password'} id="login-password" name="password"
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  placeholder="Enter your password" autoComplete="current-password"
+                  required aria-required="true" aria-describedby="password-toggle-hint"
                   className="w-full bg-white/5 border border-white/10 text-white placeholder-gray-500 rounded-xl px-4 py-3 pr-12 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" />
-
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                <button type="button" onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   aria-controls="login-password"
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-300 hover:text-white transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
@@ -313,14 +264,21 @@ function LoginPage() {
               </div>
             </div>
 
+            {/* Turnstile */}
+            <Turnstile
+              siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+              onSuccess={token => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken('')}
+              onError={() => setTurnstileToken('')}
+              options={{ theme: 'dark', size: 'flexible' }}
+            />
+
             {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              aria-disabled={loading}
+            <button type="submit" disabled={loading || !turnstileToken}
+              aria-disabled={loading || !turnstileToken}
               aria-label={loading ? 'Signing in, please wait' : 'Sign in to your account'}
               className={`w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-white
-                ${loading ? 'bg-blue-800 text-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
+                ${loading || !turnstileToken ? 'bg-blue-800 text-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
               {loading ? (
                 <>
                   <div aria-hidden="true" className="w-4 h-4 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
@@ -333,8 +291,7 @@ function LoginPage() {
 
           <p className="text-gray-300 text-xs text-center mt-6">
             {t('login.noAccount')}{' '}
-            <Link
-              to="/register"
+            <Link to="/register"
               className="text-blue-400 hover:text-blue-300 transition font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm">
               {t('login.createAccount')}
             </Link>

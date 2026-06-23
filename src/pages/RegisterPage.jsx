@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { useTranslation } from '../hooks/useTranslation'
+import { Turnstile } from '@marsidev/react-turnstile'
 
 const DEPARTMENTS = [
   'C-Suite / Executive',
@@ -40,37 +41,28 @@ function DepartmentSelect({ value, onChange }) {
 
   return (
     <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
+      <button type="button" onClick={() => setOpen(!open)}
         className="w-full bg-white/5 border border-white/10 text-sm rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition flex items-center justify-between"
         style={{ color: value ? '#fff' : '#4b5563' }}>
         <span>{value || 'Select department'}</span>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
+        <svg xmlns="http://www.w3.org/2000/svg"
           className="h-4 w-4 text-gray-500 flex-shrink-0 transition-transform duration-200"
           style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
           fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-
       {open && (
-        <div
-          className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl overflow-hidden"
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 rounded-xl overflow-hidden"
           style={{
             background: '#0d1117',
             border: '1px solid rgba(255,255,255,0.1)',
             boxShadow: '0 16px 40px rgba(0,0,0,0.6)',
-            maxHeight: '220px',
-            overflowY: 'auto',
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'rgba(255,255,255,0.1) transparent',
+            maxHeight: '220px', overflowY: 'auto',
+            scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent',
           }}>
           {DEPARTMENTS.map(dept => (
-            <button
-              key={dept}
-              type="button"
+            <button key={dept} type="button"
               onClick={() => { onChange(dept); setOpen(false) }}
               className="w-full text-left px-4 py-2.5 text-sm transition-colors"
               style={{
@@ -96,16 +88,11 @@ function RegisterPage() {
   const [step, setStep] = useState(1)
   const [registered, setRegistered] = useState(false)
   const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState('')
 
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    companyName: '',
-    department: '',
-    jobTitle: '',
-    employeeId: '',
-    password: '',
-    confirmPassword: '',
+    fullName: '', email: '', companyName: '', department: '',
+    jobTitle: '', employeeId: '', password: '', confirmPassword: '',
   })
 
   const [showPassword, setShowPassword] = useState(false)
@@ -120,8 +107,7 @@ function RegisterPage() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!formData.fullName.trim()) { setError('Full name is required.'); return }
     if (!formData.email.trim() || !emailRegex.test(formData.email.trim())) {
-      setError('Please enter a valid email address.')
-      return
+      setError('Please enter a valid email address.'); return
     }
     if (!formData.companyName.trim()) { setError('Company name is required.'); return }
     if (!formData.department) { setError('Please select a department.'); return }
@@ -134,17 +120,19 @@ function RegisterPage() {
     e.preventDefault()
     setError('')
 
+    if (!turnstileToken) {
+      setError('Please complete the security check.')
+      return
+    }
     if (!agreedToTerms) {
       setError('You must agree to the Terms & Conditions and Privacy Policy to create an account.')
       return
     }
     if (formData.password !== formData.confirmPassword) {
-      setError(t('register.passwordMismatch'))
-      return
+      setError(t('register.passwordMismatch')); return
     }
     if (formData.password.length < 8) {
-      setError(t('register.passwordTooShort'))
-      return
+      setError(t('register.passwordTooShort')); return
     }
 
     setLoading(true)
@@ -241,10 +229,8 @@ function RegisterPage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(29,78,216,0.2),transparent)]" />
         <div className="absolute inset-0 opacity-[0.03]"
           style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
-
         <div className="relative z-10 text-center max-w-md w-full">
           <img src="/images/logo.svg" alt="Averion" className="h-9 w-auto mx-auto mb-10" />
-
           <div className="flex justify-center mb-6">
             <div className="w-20 h-20 bg-green-500/10 border border-green-500/20 rounded-full flex items-center justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -252,7 +238,6 @@ function RegisterPage() {
               </svg>
             </div>
           </div>
-
           <h1 className="text-white text-3xl font-bold mb-3" style={{ fontFamily: "'Poppins', sans-serif" }}>
             Registration Successful!
           </h1>
@@ -260,7 +245,6 @@ function RegisterPage() {
             Your account has been created. We sent a verification link to:
           </p>
           <p className="text-blue-400 font-semibold text-sm mb-8">{formData.email}</p>
-
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8 text-left">
             <p className="text-white text-xs font-semibold uppercase tracking-widest mb-4">Next Steps</p>
             <div className="flex flex-col gap-4">
@@ -278,11 +262,9 @@ function RegisterPage() {
               ))}
             </div>
           </div>
-
           <p className="text-gray-500 text-xs mb-8">
             Don't see the email? Check your spam or junk folder.
           </p>
-
           <div className="flex flex-col items-center gap-4">
             <Link to="/login"
               className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm px-8 py-3.5 rounded-xl transition-all duration-200 text-center">
@@ -293,6 +275,7 @@ function RegisterPage() {
                 setRegistered(false)
                 setStep(1)
                 setAgreedToTerms(false)
+                setTurnstileToken('')
                 setFormData({ fullName: '', email: '', companyName: '', department: '', jobTitle: '', employeeId: '', password: '', confirmPassword: '' })
               }}
               className="text-gray-500 hover:text-white text-xs font-medium transition-colors duration-200">
@@ -340,7 +323,6 @@ function RegisterPage() {
           <p className="text-gray-300 text-sm leading-relaxed max-w-sm">
             Set up your admin account to start training your team, running simulations, and tracking security awareness.
           </p>
-
           <div className="flex flex-col gap-4 mt-10">
             {[
               { n: '01', title: 'Create your admin account' },
@@ -399,8 +381,8 @@ function RegisterPage() {
                   ${step >= s ? 'bg-blue-600 text-white' : 'bg-white/5 border border-white/10 text-gray-500'}`}>
                   {step > s
                     ? <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                    </svg>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
                     : s}
                 </div>
                 <div className="flex-1">
@@ -428,27 +410,20 @@ function RegisterPage() {
             <form onSubmit={handleNextStep} className="flex flex-col gap-5">
               <div>
                 <label htmlFor="reg-fullName" className={labelClass}>{t('register.fullName')}</label>
-                <input
-                  type="text" id="reg-fullName" name="fullName" value={formData.fullName}
+                <input type="text" id="reg-fullName" name="fullName" value={formData.fullName}
                   onChange={handleChange} placeholder="John Doe" required className={inputClass} />
               </div>
-
               <div>
                 <label htmlFor="reg-email" className={labelClass}>{t('register.email')}</label>
-                <input
-                  type="email" id="reg-email" name="email" value={formData.email}
+                <input type="email" id="reg-email" name="email" value={formData.email}
                   onChange={handleChange} placeholder="you@company.com" required className={inputClass} />
               </div>
-
               <div>
                 <label htmlFor="reg-companyName" className={labelClass}>{t('register.companyName')}</label>
-                <input
-                  type="text" id="reg-companyName" name="companyName" value={formData.companyName}
+                <input type="text" id="reg-companyName" name="companyName" value={formData.companyName}
                   onChange={handleChange} placeholder="e.g. Acme Corporation" required className={inputClass} />
               </div>
-
               <div className="grid grid-cols-2 gap-4">
-                {/* ── Department custom dropdown ── */}
                 <div>
                   <label className={labelClass}>{t('register.department')}</label>
                   <DepartmentSelect
@@ -458,12 +433,10 @@ function RegisterPage() {
                 </div>
                 <div>
                   <label htmlFor="reg-jobTitle" className={labelClass}>{t('register.jobTitle')}</label>
-                  <input
-                    type="text" id="reg-jobTitle" name="jobTitle" value={formData.jobTitle}
+                  <input type="text" id="reg-jobTitle" name="jobTitle" value={formData.jobTitle}
                     onChange={handleChange} placeholder="IT Manager" required className={inputClass} />
                 </div>
               </div>
-
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label htmlFor="reg-employeeId" className={labelClass} style={{ marginBottom: 0 }}>
@@ -471,12 +444,10 @@ function RegisterPage() {
                   </label>
                   <span className="text-gray-300 text-xs">{t('common.optional')}</span>
                 </div>
-                <input
-                  type="text" id="reg-employeeId" name="employeeId" value={formData.employeeId}
+                <input type="text" id="reg-employeeId" name="employeeId" value={formData.employeeId}
                   onChange={handleChange} placeholder="e.g. EMP-1234" className={inputClass} />
                 <p className="text-gray-300 text-xs mt-1.5">{t('register.employeeIdHint')}</p>
               </div>
-
               <button type="submit"
                 className="w-full py-3.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all duration-200 flex items-center justify-center gap-2 mt-1">
                 {t('register.continue')}
@@ -493,15 +464,9 @@ function RegisterPage() {
               <div>
                 <label htmlFor="reg-password" className={labelClass}>{t('register.password')}</label>
                 <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    id="reg-password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    placeholder="Min. 8 characters"
-                    required
-                    className={inputClass} />
+                  <input type={showPassword ? 'text' : 'password'} id="reg-password" name="password"
+                    value={formData.password} onChange={handleChange} placeholder="Min. 8 characters"
+                    required className={inputClass} />
                   <button type="button" onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition">
                     {showPassword ? eyeOff : eyeOpen}
@@ -529,19 +494,13 @@ function RegisterPage() {
               <div>
                 <label htmlFor="reg-confirmPassword" className={labelClass}>{t('register.confirmPassword')}</label>
                 <div className="relative">
-                  <input
-                    type={showConfirm ? 'text' : 'password'}
-                    id="reg-confirmPassword"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    placeholder="Repeat your password"
-                    required
+                  <input type={showConfirm ? 'text' : 'password'} id="reg-confirmPassword"
+                    name="confirmPassword" value={formData.confirmPassword} onChange={handleChange}
+                    placeholder="Repeat your password" required
                     className={`${inputClass} ${formData.confirmPassword && formData.confirmPassword !== formData.password
                       ? 'border-red-500/50 focus:ring-red-500'
                       : formData.confirmPassword && formData.confirmPassword === formData.password
-                        ? 'border-green-500/50 focus:ring-green-500'
-                        : ''}`} />
+                        ? 'border-green-500/50 focus:ring-green-500' : ''}`} />
                   <button type="button" onClick={() => setShowConfirm(!showConfirm)}
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition">
                     {showConfirm ? eyeOff : eyeOpen}
@@ -577,22 +536,15 @@ function RegisterPage() {
                 </div>
               </div>
 
-              {/* T&C Checkbox */}
+              {/* T&C */}
               <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                 <label className="flex items-start gap-3 cursor-pointer group">
                   <div className="relative flex-shrink-0 mt-0.5">
-                    <input
-                      type="checkbox"
-                      checked={agreedToTerms}
+                    <input type="checkbox" checked={agreedToTerms}
                       onChange={e => setAgreedToTerms(e.target.checked)}
-                      className="sr-only peer"
-                      required
-                      aria-required="true"
-                      aria-describedby="terms-desc" />
+                      className="sr-only peer" required aria-required="true" aria-describedby="terms-desc" />
                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200
-                      ${agreedToTerms
-                        ? 'bg-blue-600 border-blue-600'
-                        : 'bg-transparent border-white/30 group-hover:border-blue-500'}`}>
+                      ${agreedToTerms ? 'bg-blue-600 border-blue-600' : 'bg-transparent border-white/30 group-hover:border-blue-500'}`}>
                       {agreedToTerms && (
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -616,14 +568,23 @@ function RegisterPage() {
                 </label>
               </div>
 
+              {/* Turnstile */}
+              <Turnstile
+                siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY}
+                onSuccess={token => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken('')}
+                onError={() => setTurnstileToken('')}
+                options={{ theme: 'dark', size: 'flexible' }}
+              />
+
               <div className="flex gap-3">
                 <button type="button" onClick={() => setStep(1)}
                   className="flex-1 py-3.5 rounded-xl text-sm font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white transition-all duration-200">
                   {t('common.back')}
                 </button>
-                <button type="submit" disabled={loading}
+                <button type="submit" disabled={loading || !turnstileToken}
                   className={`flex-1 py-3.5 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2
-                    ${loading ? 'bg-blue-800 text-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
+                    ${loading || !turnstileToken ? 'bg-blue-800 text-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
                   {loading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-blue-300 border-t-transparent rounded-full animate-spin" />
