@@ -9,8 +9,9 @@
   border-radius: 1.25rem;
   font-weight: 500;
   transition: box-shadow 0.5s ease-out;
-  overflow: hidden;
+  overflow: visible;
   cursor: default;
+  padding-bottom: 4px;
 }
 
 .animated-gradient-text.with-border {
