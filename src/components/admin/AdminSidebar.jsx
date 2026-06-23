@@ -32,23 +32,37 @@ function AdminSidebar({ isOpen }) {
     )
   }
 
-  function NavItem({ to, icon, label, collapsed }) {
+  function NavItem({ to, icon, label }) {
     const active = isActive(to)
-    if (collapsed) {
+
+    if (!isOpen) {
       return (
-        <Link to={to} title={label}
-          className="relative flex items-center justify-center w-9 h-9 rounded-lg mx-auto transition-all duration-150 group"
-          style={{ backgroundColor: active ? 'rgba(59,130,246,0.2)' : 'transparent' }}>
-          <span style={{ color: active ? '#93c5fd' : '#9ca3af' }}
+        <Link
+          to={to}
+          title={label}
+          className="relative flex items-center justify-center rounded-lg transition-all duration-150 group"
+          style={{
+            width: '36px',
+            height: '36px',
+            backgroundColor: active ? 'rgba(59,130,246,0.2)' : 'transparent',
+            margin: '0 auto',
+          }}>
+          <span
+            style={{ color: active ? '#93c5fd' : '#9ca3af' }}
             className="transition-colors duration-150 group-hover:!text-white">
             {icon}
           </span>
           {active && (
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-400 rounded-full" />
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-blue-400 rounded-full" />
           )}
-          <div className="absolute left-full ml-3 px-2.5 py-1.5 rounded-md text-xs font-medium whitespace-nowrap
-            opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-50"
-            style={{ backgroundColor: '#1e2433', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div
+            className="absolute left-full ml-3 px-2.5 py-1.5 rounded-md text-xs font-medium whitespace-nowrap
+              opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-50"
+            style={{
+              backgroundColor: '#1e2433',
+              color: '#e2e8f0',
+              border: '1px solid rgba(255,255,255,0.1)',
+            }}>
             {label}
           </div>
         </Link>
@@ -56,14 +70,17 @@ function AdminSidebar({ isOpen }) {
     }
 
     return (
-      <Link to={to}
+      <Link
+        to={to}
         className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150 group w-full"
         style={{ backgroundColor: active ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
-        <span style={{ color: active ? '#93c5fd' : '#9ca3af' }}
+        <span
+          style={{ color: active ? '#93c5fd' : '#9ca3af' }}
           className="flex-shrink-0 transition-colors duration-150 group-hover:!text-white">
           {icon}
         </span>
-        <span className="text-xs font-medium transition-colors duration-150 flex-1"
+        <span
+          className="text-xs font-medium transition-colors duration-150 flex-1 group-hover:!text-white"
           style={{ color: active ? '#bfdbfe' : '#9ca3af' }}>
           {label}
         </span>
@@ -83,10 +100,18 @@ function AdminSidebar({ isOpen }) {
   const addModuleIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
   const settingsIcon = <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
 
-  const divider = (
-    <div className={`${isOpen ? 'mx-3' : 'mx-auto w-6'}`}
-      style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.07)' }} />
-  )
+  function Divider() {
+    return (
+      <div
+        style={{
+          height: '1px',
+          backgroundColor: 'rgba(255,255,255,0.07)',
+          marginLeft: isOpen ? '12px' : '10px',
+          marginRight: isOpen ? '12px' : '10px',
+        }}
+      />
+    )
+  }
 
   return (
     <div
@@ -94,7 +119,9 @@ function AdminSidebar({ isOpen }) {
       style={{ backgroundColor: '#0a0e1a', borderRight: '1px solid rgba(255,255,255,0.07)' }}>
 
       {/* Logo */}
-      <div className={`flex items-center flex-shrink-0 h-14 ${isOpen ? 'px-5' : 'justify-center px-0'}`}>
+      <div
+        className="flex items-center flex-shrink-0 h-14"
+        style={{ paddingLeft: isOpen ? '20px' : '0', justifyContent: isOpen ? 'flex-start' : 'center' }}>
         {isOpen ? (
           <img src="/images/logo.svg" alt="Averion" className="h-6 w-auto" />
         ) : (
@@ -102,57 +129,55 @@ function AdminSidebar({ isOpen }) {
         )}
       </div>
 
-      {divider}
+      <Divider />
 
       {/* Nav */}
-      <div className="flex-1 overflow-y-auto py-3 flex flex-col gap-3" style={{ scrollbarWidth: 'none' }}>
+      <div
+        className="flex-1 overflow-y-auto flex flex-col gap-3"
+        style={{ padding: isOpen ? '12px 8px' : '12px 9px', scrollbarWidth: 'none' }}>
 
-        {/* Dashboard */}
         <div className="flex flex-col gap-0.5">
-          <NavItem to="/admin/dashboard" icon={dashIcon} label="Dashboard" collapsed={!isOpen} />
+          <NavItem to="/admin/dashboard" icon={dashIcon} label="Dashboard" />
         </div>
 
-        {divider}
+        <Divider />
 
-        {/* Users */}
         <div className="flex flex-col gap-0.5">
-          <NavItem to="/admin/users" icon={usersIcon} label="All Users" collapsed={!isOpen} />
-          <NavItem to="/admin/users/add" icon={addUserIcon} label="Add User" collapsed={!isOpen} />
+          <NavItem to="/admin/users" icon={usersIcon} label="All Users" />
+          <NavItem to="/admin/users/add" icon={addUserIcon} label="Add User" />
         </div>
 
-        {divider}
+        <Divider />
 
-        {/* Simulations */}
         <div className="flex flex-col gap-0.5">
-          <NavItem to="/admin/simulations/add" icon={addSimIcon} label="Add Simulation" collapsed={!isOpen} />
-          <NavItem to="/admin/simulations" icon={simIcon} label="View Simulations" collapsed={!isOpen} />
+          <NavItem to="/admin/simulations/add" icon={addSimIcon} label="Add Simulation" />
+          <NavItem to="/admin/simulations" icon={simIcon} label="View Simulations" />
         </div>
 
-        {divider}
+        <Divider />
 
-        {/* Training */}
         <div className="flex flex-col gap-0.5">
-          <NavItem to="/admin/training/add" icon={addModuleIcon} label="Add Module" collapsed={!isOpen} />
-          <NavItem to="/admin/training" icon={trainingIcon} label="View Modules" collapsed={!isOpen} />
+          <NavItem to="/admin/training/add" icon={addModuleIcon} label="Add Module" />
+          <NavItem to="/admin/training" icon={trainingIcon} label="View Modules" />
         </div>
 
-        {divider}
+        <Divider />
 
-        {/* Settings */}
         <div className="flex flex-col gap-0.5">
-          <NavItem to="/admin/settings" icon={settingsIcon} label="Settings" collapsed={!isOpen} />
+          <NavItem to="/admin/settings" icon={settingsIcon} label="Settings" />
         </div>
 
       </div>
 
-      {divider}
+      <Divider />
 
       {/* Bottom */}
-      <div className="flex-shrink-0 py-3">
+      <div style={{ padding: isOpen ? '12px 8px' : '12px 9px' }}>
         {isOpen ? (
-          <div className="flex flex-col gap-0.5 w-full">
+          <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-2.5 px-3 py-2">
-              <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
                 style={{ backgroundColor: '#1d4ed8' }}>
                 {(profile?.full_name || 'A').charAt(0).toUpperCase()}
               </div>
@@ -179,7 +204,8 @@ function AdminSidebar({ isOpen }) {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3 py-1">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
               title={profile?.full_name || 'Admin'}
               style={{ backgroundColor: '#1d4ed8' }}>
               {(profile?.full_name || 'A').charAt(0).toUpperCase()}
