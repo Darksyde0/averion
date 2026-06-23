@@ -176,62 +176,62 @@ function AdminTopBar({ onMenuClick }) {
 
     const { data: simResults } = await supabase.from('simulation_results').select('user_id, score, completed_at')
       .in('user_id', userIds).order('completed_at', { ascending: false }).limit(5)
-    ;(simResults || []).forEach(r => notifs.push({
-      id: `sim-${r.user_id}-${r.completed_at}`, type: 'simulation_complete',
-      title: `${userMap[r.user_id]?.name} completed a simulation`,
-      subtitle: `Scored ${r.score}%`, time: r.completed_at, score: r.score,
-    }))
+      ; (simResults || []).forEach(r => notifs.push({
+        id: `sim-${r.user_id}-${r.completed_at}`, type: 'simulation_complete',
+        title: `${userMap[r.user_id]?.name} completed a simulation`,
+        subtitle: `Scored ${r.score}%`, time: r.completed_at, score: r.score,
+      }))
 
     const { data: moduleProgress } = await supabase.from('module_progress').select('user_id, completed_at, modules(name)')
       .in('user_id', userIds).eq('quiz_completed', true).order('completed_at', { ascending: false }).limit(5)
-    ;(moduleProgress || []).forEach(p => notifs.push({
-      id: `mod-${p.user_id}-${p.completed_at}`, type: 'module_complete',
-      title: `${userMap[p.user_id]?.name} completed a module`,
-      subtitle: p.modules?.name || 'Training Module', time: p.completed_at,
-    }))
+      ; (moduleProgress || []).forEach(p => notifs.push({
+        id: `mod-${p.user_id}-${p.completed_at}`, type: 'module_complete',
+        title: `${userMap[p.user_id]?.name} completed a module`,
+        subtitle: p.modules?.name || 'Training Module', time: p.completed_at,
+      }))
 
     const { data: allSims } = await supabase.from('simulation_results').select('user_id, score, completed_at')
       .in('user_id', userIds).lt('score', 50).order('completed_at', { ascending: false }).limit(5)
-    ;(allSims || []).forEach(r => notifs.push({
-      id: `risk-${r.user_id}-${r.completed_at}`, type: 'at_risk',
-      title: `${userMap[r.user_id]?.name} is at risk`,
-      subtitle: `Scored ${r.score}% — below the 50% threshold`, time: r.completed_at, score: r.score,
-    }))
+      ; (allSims || []).forEach(r => notifs.push({
+        id: `risk-${r.user_id}-${r.completed_at}`, type: 'at_risk',
+        title: `${userMap[r.user_id]?.name} is at risk`,
+        subtitle: `Scored ${r.score}% — below the 50% threshold`, time: r.completed_at, score: r.score,
+      }))
 
     const sevenDaysAgo = new Date(Date.now() - 86400000 * 7).toISOString()
     const { data: newUsers } = await supabase.from('users').select('id, full_name, created_at')
       .eq('role', 'user').eq('organization_id', profile.id).gte('created_at', sevenDaysAgo).order('created_at', { ascending: false })
-    ;(newUsers || []).forEach(u => notifs.push({
-      id: `user-${u.id}`, type: 'new_user',
-      title: `${u.full_name || 'A new user'} joined your organization`,
-      subtitle: 'Ready to begin training', time: u.created_at,
-    }))
+      ; (newUsers || []).forEach(u => notifs.push({
+        id: `user-${u.id}`, type: 'new_user',
+        title: `${u.full_name || 'A new user'} joined your organization`,
+        subtitle: 'Ready to begin training', time: u.created_at,
+      }))
 
     const { data: achievements } = await supabase.from('achievements').select('user_id, badge_type, earned_at')
       .in('user_id', userIds).order('earned_at', { ascending: false }).limit(5)
-    ;(achievements || []).forEach(a => notifs.push({
-      id: `ach-${a.user_id}-${a.badge_type}`, type: 'achievement',
-      title: `${userMap[a.user_id]?.name} earned an achievement`,
-      subtitle: a.badge_type?.replace(/_/g, ' '), time: a.earned_at,
-    }))
+      ; (achievements || []).forEach(a => notifs.push({
+        id: `ach-${a.user_id}-${a.badge_type}`, type: 'achievement',
+        title: `${userMap[a.user_id]?.name} earned an achievement`,
+        subtitle: a.badge_type?.replace(/_/g, ' '), time: a.earned_at,
+      }))
 
     const now = new Date().toISOString()
     const in48hrs = new Date(Date.now() + 86400000 * 2).toISOString()
     const { data: expiringSims } = await supabase.from('simulations').select('id, scenario_name, expires_at, batch_id')
       .eq('organization_id', profile.id).gte('expires_at', now).lte('expires_at', in48hrs).order('expires_at', { ascending: true })
     const seenBatches = new Set()
-    ;(expiringSims || []).forEach(s => {
-      const key = s.batch_id || s.id
-      if (!seenBatches.has(key)) {
-        seenBatches.add(key)
-        notifs.push({
-          id: `exp-${key}`, type: 'expiring_soon',
-          title: 'Simulation batch expiring soon',
-          subtitle: `Expires ${new Date(s.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
-          time: s.expires_at,
-        })
-      }
-    })
+      ; (expiringSims || []).forEach(s => {
+        const key = s.batch_id || s.id
+        if (!seenBatches.has(key)) {
+          seenBatches.add(key)
+          notifs.push({
+            id: `exp-${key}`, type: 'expiring_soon',
+            title: 'Simulation batch expiring soon',
+            subtitle: `Expires ${new Date(s.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`,
+            time: s.expires_at,
+          })
+        }
+      })
 
     const sorted = notifs.filter(n => n.time).sort((a, b) => new Date(b.time) - new Date(a.time))
       .slice(0, 15).map(n => ({ ...n, read: new Date(n.time) <= new Date(lastSeen) }))
@@ -319,7 +319,7 @@ function AdminTopBar({ onMenuClick }) {
               <div className="overflow-y-auto" style={{ maxHeight: '400px' }}>
                 {notifLoading ? (
                   <div className="flex flex-col gap-2 p-3">
-                    {[1,2,3].map(i => (
+                    {[1, 2, 3].map(i => (
                       <div key={i} className="animate-pulse flex items-center gap-3 px-2 py-2">
                         <div className="w-7 h-7 rounded-lg bg-gray-100 flex-shrink-0" />
                         <div className="flex-1">
@@ -383,7 +383,7 @@ function AdminTopBar({ onMenuClick }) {
         <div className="flex items-center gap-2.5 bg-white bg-opacity-5 border border-white border-opacity-5 rounded-full pl-3 pr-1.5 py-1.5">
           <div className="text-right">
             <p className="text-white text-xs font-medium leading-tight">
-              {profile?.full_name || 'Loading...'}
+              {profile?.company_name || profile?.full_name || 'Loading...'}
             </p>
             <div className="flex items-center justify-end gap-1.5 mt-0.5">
               <div className="relative flex items-center justify-center w-2.5 h-2.5 flex-shrink-0">
@@ -397,9 +397,9 @@ function AdminTopBar({ onMenuClick }) {
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
             ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
-              </svg>
+              <div className="w-full h-full flex items-center justify-center bg-blue-700 text-white text-xs font-bold">
+                {(profile?.company_name || profile?.full_name || 'A').charAt(0).toUpperCase()}
+              </div>
             )}
           </div>
         </div>
