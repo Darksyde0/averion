@@ -150,8 +150,8 @@ function BubbleSection() {
               <img
                 src="/images/woman-laptop.jpg"
                 alt="A professional working on a laptop, representing Averion cybersecurity training in action"
-                className="w-full object-cover"
-                style={{ height: '480px' }}
+                className="w-full object-cover object-center"
+                style={{ height: 'clamp(280px, 40vw, 480px)' }}
                 onError={e => {
                   e.target.src = 'https://placehold.co/800x480/0d1117/1d4ed8?text=Averion+Training'
                   e.target.alt = 'Averion cybersecurity training platform preview'
@@ -177,7 +177,8 @@ function BubbleSection() {
                   {t('bubble.activeProtection')}
                 </p>
               </div>
-              <p className="text-white font-bold" style={{ fontSize: '28px', letterSpacing: '-0.02em', lineHeight: 1 }}
+              <p className="text-white font-bold"
+                style={{ fontSize: '28px', letterSpacing: '-0.02em', lineHeight: 1 }}
                 aria-label="94 percent">
                 94%
               </p>
@@ -185,25 +186,6 @@ function BubbleSection() {
                 {t('bubble.statLabel')}
               </p>
             </aside>
-
-            {/* Second floating card — top right */}
-            <div
-              aria-hidden="true"
-              className="absolute top-6 right-6 z-20 rounded-xl px-3 py-2.5 flex items-center gap-2.5"
-              style={{
-                backgroundColor: 'rgba(4,8,15,0.9)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                backdropFilter: 'blur(16px)',
-                WebkitBackdropFilter: 'blur(16px)',
-              }}>
-              <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.2)' }}>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                </svg>
-              </div>
-            
-            </div>
 
           </div>
         </div>
