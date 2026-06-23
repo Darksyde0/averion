@@ -3,12 +3,9 @@
   margin: 0 auto;
   display: inline;
   max-width: fit-content;
-  border-radius: 0;
   font-weight: 500;
-  transition: box-shadow 0.5s ease-out;
   overflow: visible;
   cursor: default;
-  padding-bottom: 6px;
 }
 
 .animated-gradient-text.with-border {
@@ -46,6 +43,7 @@
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
-  overflow: visible;
-  padding-bottom: 6px;
+  padding-bottom: 0.2em;
+  background-size: 300% 130% !important;
+  background-position-y: top;
 }
