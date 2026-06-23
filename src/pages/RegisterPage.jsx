@@ -142,6 +142,7 @@ function RegisterPage() {
         email: formData.email.trim().toLowerCase(),
         password: formData.password,
         options: {
+          captchaToken: turnstileToken,
           data: {
             full_name: formData.fullName.trim(),
             company_name: formData.companyName.trim(),

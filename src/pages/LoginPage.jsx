@@ -47,6 +47,9 @@ function LoginPage() {
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
+        options: {
+          captchaToken: turnstileToken,
+        }
       })
 
       if (authError) {
