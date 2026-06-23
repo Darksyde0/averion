@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useEffect, useRef } from 'react'
 import { useTranslation } from '../hooks/useTranslation'
+import GradientText from './GradientText'
 
 function HeroSection() {
   const canvasRef = useRef(null)
@@ -144,10 +145,15 @@ function HeroSection() {
           className="text-white text-5xl md:text-7xl font-bold leading-tight mb-6 max-w-4xl"
           style={{ fontFamily: "'Poppins', sans-serif", letterSpacing: '-0.02em' }}>
           {t('hero.heading1')}{' '}
-          <span
-            className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400"
-            aria-hidden="true">
-            {t('hero.heading2')}
+          <span aria-hidden="true">
+            <GradientText
+              colors={["#3b82f6", "#06b6d4", "#60a5fa", "#3b82f6"]}
+              animationSpeed={6}
+              showBorder={false}
+              className="text-5xl md:text-7xl font-bold"
+            >
+              {t('hero.heading2')}
+            </GradientText>
           </span>
           <span className="sr-only">{t('hero.heading2')}</span>
         </h1>
