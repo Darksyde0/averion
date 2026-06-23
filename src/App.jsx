@@ -30,6 +30,7 @@ import UserProfile from './pages/admin/UserProfile'
 import EmailVerifiedPage from './pages/EmailVerifiedPage'
 import CookieDeclaration from './pages/CookieDeclaration'
 import TermsAndConditions from './pages/TermsAndConditions'
+import PrivacyPage from './pages/PrivacyPage'
 
 // ── Protected Route ──
 function ProtectedRoute({ children, adminOnly = false }) {
@@ -93,6 +94,7 @@ function App() {
         <Route path="/terms" element={<TermsAndConditions />} />
         <Route path="/change-password" element={<ChangePasswordPage />} />
         <Route path="/email-verified" element={<EmailVerifiedPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
 
         {/* ── User protected routes ── */}
         <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />
