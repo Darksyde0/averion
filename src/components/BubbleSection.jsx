@@ -1,91 +1,127 @@
 import { useTranslation } from '../hooks/useTranslation'
+import { useEffect, useRef } from 'react'
 
 function BubbleSection() {
   const { t } = useTranslation()
+  const itemRefs = useRef([])
+
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (prefersReducedMotion) return
+
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.style.opacity = '1'
+            entry.target.style.transform = 'translateY(0)'
+            observer.unobserve(entry.target)
+          }
+        })
+      },
+      { threshold: 0.1 }
+    )
+
+    itemRefs.current.forEach(el => { if (el) observer.observe(el) })
+    return () => observer.disconnect()
+  }, [])
 
   const steps = [
     {
       number: '01',
       title: t('bubble.step1Title'),
       desc: t('bubble.step1Desc'),
-      size: 'small',
     },
     {
       number: '02',
       title: t('bubble.step2Title'),
       desc: t('bubble.step2Desc'),
-      size: 'medium',
     },
     {
       number: '03',
       title: t('bubble.step3Title'),
       desc: t('bubble.step3Desc'),
-      size: 'large',
     },
   ]
 
   return (
     <section
       aria-labelledby="how-it-works-heading"
-      className="bg-[#04080f] py-28 px-8 relative overflow-hidden">
+      className="relative py-32 px-8 overflow-hidden"
+      style={{ backgroundColor: '#04080f' }}>
 
-      {/* ── Decorative glow ── */}
-      <div
-        aria-hidden="true"
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
+      {/* Subtle center glow */}
+      <div aria-hidden="true"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%)' }} />
 
-      <div className="max-w-7xl mx-auto relative">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+      <div className="max-w-6xl mx-auto relative">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
 
-          {/* ── Left — text content ── */}
+          {/* Left — text */}
           <div>
-            {/* Badge — decorative */}
-            <p
-              aria-hidden="true"
-              className="text-blue-500 text-xs font-semibold tracking-widest uppercase mb-3">
-              {t('bubble.badge')}
-            </p>
+            <div
+              ref={el => itemRefs.current[0] = el}
+              style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.6s ease, transform 0.6s ease' }}>
+              <p className="text-xs font-semibold tracking-widest uppercase mb-5"
+                style={{ color: 'rgba(59,130,246,0.7)' }}>
+                {t('bubble.badge')}
+              </p>
+              <h2
+                id="how-it-works-heading"
+                className="text-white font-bold mb-5"
+                style={{ fontFamily: "'Poppins', sans-serif", fontSize: '42px', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+                {t('bubble.heading1')}
+                <br />
+                <span style={{ color: 'rgba(255,255,255,0.3)' }}>{t('bubble.heading2')}</span>
+              </h2>
+              <p className="text-sm leading-relaxed mb-14 max-w-sm"
+                style={{ color: 'rgba(255,255,255,0.4)' }}>
+                {t('bubble.subtext')}
+              </p>
+            </div>
 
-            <h2
-              id="how-it-works-heading"
-              className="text-white text-4xl md:text-5xl font-bold leading-tight mb-6"
-              style={{ fontFamily: "'Syne', sans-serif", letterSpacing: '-0.02em' }}>
-              {t('bubble.heading1')}
-              <br />
-              {/* ── Improved contrast: gray-400 instead of gray-500 ── */}
-              <span className="text-gray-400">{t('bubble.heading2')}</span>
-            </h2>
-
-            <p className="text-gray-400 text-sm leading-relaxed mb-12 max-w-md">
-              {t('bubble.subtext')}
-            </p>
-
-            {/* ── Steps — ordered list for semantic meaning ── */}
-            <ol
-              aria-label="How Averion works"
-              className="flex flex-col gap-6 list-none">
+            {/* Steps */}
+            <ol className="flex flex-col list-none" aria-label="How Averion works"
+              style={{ gap: '0' }}>
               {steps.map((step, i) => (
-                <li key={i} className="flex items-start gap-5 group">
+                <li
+                  key={i}
+                  ref={el => itemRefs.current[i + 1] = el}
+                  className="flex items-start gap-6 group relative"
+                  style={{
+                    opacity: 0,
+                    transform: 'translateY(20px)',
+                    transition: `opacity 0.5s ease ${i * 100 + 200}ms, transform 0.5s ease ${i * 100 + 200}ms`,
+                    paddingBottom: i < steps.length - 1 ? '32px' : '0',
+                  }}>
 
-                  {/* Step number circle — aria-hidden since li position conveys order */}
-                  <div
-                    aria-hidden="true"
-                    className={`rounded-full flex items-center justify-center flex-shrink-0 border-2 font-bold text-sm transition-all duration-300
-                      ${step.size === 'small'
-                        ? 'w-10 h-10 border-blue-800 text-blue-400 group-hover:border-blue-500 group-hover:text-blue-300'
-                        : step.size === 'medium'
-                          ? 'w-12 h-12 border-blue-700 text-blue-400 group-hover:border-blue-400 group-hover:text-blue-300'
-                          : 'w-14 h-14 border-blue-600 text-blue-400 group-hover:border-blue-400 group-hover:text-blue-200'}`}>
-                    {step.number}
+                  {/* Number + connector line */}
+                  <div className="flex flex-col items-center flex-shrink-0">
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0 transition-all duration-300"
+                      style={{
+                        backgroundColor: 'rgba(59,130,246,0.08)',
+                        border: '1px solid rgba(59,130,246,0.2)',
+                        color: '#3b82f6',
+                        fontFamily: 'monospace',
+                      }}>
+                      {step.number}
+                    </div>
+                    {i < steps.length - 1 && (
+                      <div className="w-px flex-1 mt-3"
+                        style={{ backgroundColor: 'rgba(59,130,246,0.1)', minHeight: '32px' }} />
+                    )}
                   </div>
 
-                  <div className="pt-1">
-                    <h3 className="text-white font-bold text-base mb-1">
-                      {/* ── Step number for screen readers ── */}
+                  {/* Content */}
+                  <div className="pt-1 pb-2">
+                    <h3 className="text-white font-semibold text-sm mb-1.5 tracking-tight">
                       <span className="sr-only">Step {step.number}: </span>
                       {step.title}
                     </h3>
-                    <p className="text-gray-400 text-sm leading-relaxed">
+                    <p className="text-xs leading-relaxed"
+                      style={{ color: 'rgba(255,255,255,0.38)' }}>
                       {step.desc}
                     </p>
                   </div>
@@ -94,44 +130,83 @@ function BubbleSection() {
             </ol>
           </div>
 
-          {/* ── Right — image ── */}
-          <div className="relative">
+          {/* Right — image */}
+          <div
+            ref={el => itemRefs.current[4] = el}
+            className="relative"
+            style={{ opacity: 0, transform: 'translateY(24px)', transition: 'opacity 0.7s ease 0.3s, transform 0.7s ease 0.3s' }}>
 
-            {/* Decorative gradients */}
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 bg-gradient-to-t from-[#04080f] via-transparent to-transparent z-10 pointer-events-none rounded-2xl" />
-            <div
-              aria-hidden="true"
-              className="absolute inset-0 bg-gradient-to-r from-[#04080f] via-transparent to-transparent z-10 pointer-events-none rounded-2xl" />
+            {/* Glow behind image */}
+            <div aria-hidden="true"
+              className="absolute -inset-4 rounded-3xl pointer-events-none"
+              style={{ background: 'radial-gradient(ellipse at center, rgba(59,130,246,0.08) 0%, transparent 70%)' }} />
 
-            <img
-              src="/images/woman-laptop.jpg"
-              alt="A professional working on a laptop, representing Averion's cybersecurity training in action"
-              className="w-full h-[500px] object-cover rounded-2xl"
-              onError={e => {
-                e.target.src = 'https://placehold.co/800x500/0d1117/1d4ed8?text=Averion+Training'
-                e.target.alt = 'Averion cybersecurity training platform preview'
-              }} />
+            {/* Image */}
+            <div className="relative rounded-2xl overflow-hidden"
+              style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div aria-hidden="true"
+                className="absolute inset-0 z-10 pointer-events-none"
+                style={{ background: 'linear-gradient(to top, #04080f 0%, transparent 40%), linear-gradient(to right, #04080f 0%, transparent 30%)' }} />
+              <img
+                src="/images/woman-laptop.jpg"
+                alt="A professional working on a laptop, representing Averion cybersecurity training in action"
+                className="w-full object-cover"
+                style={{ height: '480px' }}
+                onError={e => {
+                  e.target.src = 'https://placehold.co/800x480/0d1117/1d4ed8?text=Averion+Training'
+                  e.target.alt = 'Averion cybersecurity training platform preview'
+                }} />
+            </div>
 
-            {/* ── Floating stat card ── */}
+            {/* Floating stat card */}
             <aside
               aria-label="Platform stat: active protection rate"
-              className="absolute bottom-8 left-8 z-20 bg-black/80 backdrop-blur-md border border-white/10 rounded-2xl p-5 max-w-[220px]">
+              className="absolute bottom-6 left-6 z-20 rounded-xl p-4"
+              style={{
+                backgroundColor: 'rgba(4,8,15,0.9)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                maxWidth: '180px',
+              }}>
               <div className="flex items-center gap-2 mb-2">
-                {/* Decorative pulse dot */}
-                <div aria-hidden="true" className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                <p className="text-green-400 text-xs font-semibold">
+                <div aria-hidden="true"
+                  className="w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: '#10b981', boxShadow: '0 0 6px rgba(16,185,129,0.6)' }} />
+                <p className="text-xs font-medium" style={{ color: '#10b981' }}>
                   {t('bubble.activeProtection')}
                 </p>
               </div>
-              <p className="text-white text-2xl font-bold" aria-label="94 percent">
+              <p className="text-white font-bold" style={{ fontSize: '28px', letterSpacing: '-0.02em', lineHeight: 1 }}
+                aria-label="94 percent">
                 94%
               </p>
-              <p className="text-gray-400 text-xs mt-0.5">
+              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
                 {t('bubble.statLabel')}
               </p>
             </aside>
+
+            {/* Second floating card — top right */}
+            <div
+              aria-hidden="true"
+              className="absolute top-6 right-6 z-20 rounded-xl px-3 py-2.5 flex items-center gap-2.5"
+              style={{
+                backgroundColor: 'rgba(4,8,15,0.9)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+              }}>
+              <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-white text-xs font-semibold leading-tight">ARIA</p>
+                <p className="text-xs leading-tight" style={{ color: 'rgba(255,255,255,0.35)' }}>AI-Powered</p>
+              </div>
+            </div>
 
           </div>
         </div>
