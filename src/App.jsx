@@ -27,6 +27,7 @@ import ViewModules from './pages/admin/ViewModules'
 import AboutPage from './pages/AboutPage'
 import EditModule from './pages/admin/EditModule'
 import UserProfile from './pages/admin/UserProfile'
+import EmailVerifiedPage from './pages/EmailVerifiedPage'
 import CookieDeclaration from './pages/CookieDeclaration'
 import TermsAndConditions from './pages/TermsAndConditions'
 
@@ -91,6 +92,7 @@ function App() {
         <Route path="/cookies" element={<CookieDeclaration />} />
         <Route path="/terms" element={<TermsAndConditions />} />
         <Route path="/change-password" element={<ChangePasswordPage />} />
+        <Route path="/email-verified" element={<EmailVerifiedPage />} />
 
         {/* ── User protected routes ── */}
         <Route path="/dashboard" element={<ProtectedRoute><UserDashboard /></ProtectedRoute>} />

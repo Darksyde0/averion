@@ -143,6 +143,7 @@ function RegisterPage() {
         password: formData.password,
         options: {
           captchaToken: turnstileToken,
+          emailRedirectTo: 'https://averiontech.vercel.app/email-verified',
           data: {
             full_name: formData.fullName.trim(),
             company_name: formData.companyName.trim(),
@@ -382,8 +383,8 @@ function RegisterPage() {
                   ${step >= s ? 'bg-blue-600 text-white' : 'bg-white/5 border border-white/10 text-gray-500'}`}>
                   {step > s
                     ? <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                      </svg>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
                     : s}
                 </div>
                 <div className="flex-1">
