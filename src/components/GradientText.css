@@ -1,17 +1,14 @@
 .animated-gradient-text {
   position: relative;
   margin: 0 auto;
-  display: flex;
+  display: inline;
   max-width: fit-content;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  border-radius: 1.25rem;
+  border-radius: 0;
   font-weight: 500;
   transition: box-shadow 0.5s ease-out;
   overflow: visible;
   cursor: default;
-  padding-bottom: 4px;
+  padding-bottom: 6px;
 }
 
 .animated-gradient-text.with-border {
@@ -43,10 +40,12 @@
 }
 
 .text-content {
-  display: inline-block;
+  display: inline;
   position: relative;
   z-index: 2;
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
+  overflow: visible;
+  padding-bottom: 6px;
 }
