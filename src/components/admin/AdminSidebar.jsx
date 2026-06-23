@@ -105,7 +105,7 @@ function AdminSidebar({ isOpen }) {
       {divider}
 
       {/* Nav */}
-      <div className="flex-1 overflow-y-auto py-3 px-2 flex flex-col gap-3" style={{ scrollbarWidth: 'none' }}>
+      <div className="flex-1 overflow-y-auto py-3 flex flex-col gap-3" style={{ scrollbarWidth: 'none' }}>
 
         {/* Dashboard */}
         <div className="flex flex-col gap-0.5">
@@ -148,9 +148,9 @@ function AdminSidebar({ isOpen }) {
       {divider}
 
       {/* Bottom */}
-      <div className={`flex-shrink-0 py-3 ${isOpen ? 'px-2' : 'px-0'}`}>
+      <div className="flex-shrink-0 py-3">
         {isOpen ? (
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-0.5 w-full">
             <div className="flex items-center gap-2.5 px-3 py-2">
               <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
                 style={{ backgroundColor: '#1d4ed8' }}>
