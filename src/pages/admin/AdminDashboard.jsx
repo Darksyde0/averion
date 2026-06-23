@@ -485,14 +485,24 @@ function AdminDashboard() {
         <div className="flex-1 p-6 overflow-y-auto">
 
           <div className="mb-6">
-            <p className="text-gray-400 text-xs font-medium mb-0.5">
-              {profile?.company_name || profile?.full_name || ''}
-            </p>
             <h1 className="text-gray-900 text-2xl font-bold">
-              {profile?.full_name?.split(' ')[0] ? `Good day, ${profile.full_name.split(' ')[0]}` : 'Dashboard'}
+              {profile?.company_name || profile?.full_name || 'Dashboard'}
             </h1>
-            <p className="text-gray-400 text-xs mt-0.5">
-              Security training overview · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            <p className="text-gray-500 text-sm mt-0.5">Security Awareness Dashboard</p>
+            <p className="text-gray-400 text-xs mt-1.5 flex items-center gap-2 flex-wrap">
+              <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+              {!loading && (
+                <>
+                  <span className="text-gray-200">·</span>
+                  <span>{stats.totalUsers} user{stats.totalUsers !== 1 ? 's' : ''}</span>
+                  {recentActivity.length > 0 && (
+                    <>
+                      <span className="text-gray-200">·</span>
+                      <span>Last activity {timeAgo(recentActivity[0]?.time)}</span>
+                    </>
+                  )}
+                </>
+              )}
             </p>
           </div>
 
