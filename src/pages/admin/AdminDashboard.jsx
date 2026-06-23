@@ -479,7 +479,7 @@ function AdminDashboard() {
     <div className="flex min-h-screen" style={{ backgroundColor: '#f8fafc' }}>
       <AdminSidebar isOpen={sidebarOpen} />
 
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-48' : 'ml-16'}`}>
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'ml-48' : 'ml-14'}`}>
         <AdminTopBar onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
 
         <div className="flex-1 p-6 overflow-y-auto">
