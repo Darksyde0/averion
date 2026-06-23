@@ -485,6 +485,9 @@ function AdminDashboard() {
         <div className="flex-1 p-6 overflow-y-auto">
 
           <div className="mb-6">
+            <p className="text-gray-400 text-xs font-medium mb-0.5">
+              {profile?.company_name || profile?.full_name || ''}
+            </p>
             <h1 className="text-gray-900 text-2xl font-bold">
               {profile?.full_name?.split(' ')[0] ? `Good day, ${profile.full_name.split(' ')[0]}` : 'Dashboard'}
             </h1>

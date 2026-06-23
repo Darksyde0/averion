@@ -122,24 +122,20 @@ function AdminSidebar({ isOpen }) {
       {/* Separator */}
       <div className="mx-3" style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.04)' }} />
 
-      {/* Organisation identity card */}
+      {/* Organisation identity */}
       {isOpen ? (
-        <div className="mx-3 my-3 px-3 py-2.5 rounded-xl flex items-center gap-2.5"
-          style={{ backgroundColor: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}>
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-white text-xs font-bold"
+        <div className="flex items-center gap-2.5 px-5 py-3">
+          <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 text-white text-xs font-bold"
             style={{ backgroundColor: '#1d4ed8' }}>
             {companyInitial}
           </div>
-          <div className="min-w-0">
-            <p className="text-white text-xs font-semibold leading-tight truncate">{companyName}</p>
-            <p className="text-xs leading-tight mt-0.5" style={{ color: 'rgba(255,255,255,0.3)' }}>
-              Powered by Averion
-            </p>
-          </div>
+          <p className="text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.5)' }}>
+            {companyName}
+          </p>
         </div>
       ) : (
-        <div className="flex justify-center my-3">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+        <div className="flex justify-center py-3">
+          <div className="w-6 h-6 rounded-md flex items-center justify-center text-white text-xs font-bold"
             title={companyName}
             style={{ backgroundColor: '#1d4ed8' }}>
             {companyInitial}
