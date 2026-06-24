@@ -137,7 +137,7 @@ function Navbar({ showRegister = false }) {
             ) : (
               <Link to="/login"
                 className="text-sm font-semibold px-5 py-2 rounded-full transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                style={{ backgroundColor: '#0bceff', color: '#ffffff' }}
+                style={{ backgroundColor: '#0bceff', color: '#000000' }}
                 onMouseEnter={e => e.currentTarget.style.backgroundColor = '#09b8e6'}
                 onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0bceff'}>
                 {t('nav.signIn')}
@@ -153,7 +153,7 @@ function Navbar({ showRegister = false }) {
             aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
             className="md:hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded p-1"
             style={{ color: 'rgba(255,255,255,0.6)' }}
-            onMouseEnter={e => e.currentTarget.style.color = '#ffffff'}
+            onMouseEnter={e => e.currentTarget.style.color = '#000000'}
             onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.6)'}>
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               {mobileOpen
