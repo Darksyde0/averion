@@ -179,7 +179,7 @@ function HeroSection() {
           <Link
             to="/register"
             className="group relative text-white font-semibold text-sm px-8 py-3.5 rounded-xl transition-all duration-200 tracking-wide focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            style={{ backgroundColor: '#2563eb' }}
+            style={{ backgroundColor: '#0bceff' }}
             aria-label="Get started with Averion for free"
             onMouseEnter={e => e.currentTarget.style.backgroundColor = '#1d4ed8'}
             onMouseLeave={e => e.currentTarget.style.backgroundColor = '#2563eb'}>
