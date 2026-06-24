@@ -178,11 +178,11 @@ function HeroSection() {
         <div className="flex flex-col sm:flex-row gap-3 items-center mb-20">
           <Link
             to="/register"
-            className="group relative text-white font-semibold text-sm px-8 py-3.5 rounded-xl transition-all duration-200 tracking-wide focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-            style={{ backgroundColor: '#0bceff' }}
+            className="group relative font-semibold text-sm px-8 py-3.5 rounded-xl transition-all duration-200 tracking-wide focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            style={{ backgroundColor: '#0bceff', color: '#0a0c12' }}
             aria-label="Get started with Averion for free"
-            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#1d4ed8'}
-            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#2563eb'}>
+            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#09b8e6'}
+            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0bceff'}>
             {t('hero.cta')}
           </Link>
 
