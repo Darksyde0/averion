@@ -132,16 +132,16 @@ function Navbar({ showRegister = false }) {
               <Link to="/register"
                 className="text-sm font-semibold px-5 py-2 rounded-full transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 style={{ backgroundColor: '#24d3ff', color: '#0a0c12' }}
-                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e5e7eb'}
-                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#ffffff'}>
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#09b8e6'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0bceff'}>
                 {t('nav.getStarted')}
               </Link>
             ) : (
               <Link to="/login"
                 className="text-sm font-semibold px-5 py-2 rounded-full transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 style={{ backgroundColor: '#0bceff', color: '#0a0c12' }}
-                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e5e7eb'}
-                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#ffffff'}>
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#09b8e6'}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0bceff'}>
                 {t('nav.signIn')}
               </Link>
             )}
@@ -216,13 +216,13 @@ function Navbar({ showRegister = false }) {
               {showRegister ? (
                 <Link to="/register" onClick={() => setMobileOpen(false)}
                   className="block text-sm font-semibold px-5 py-3 rounded-full transition text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                  style={{ backgroundColor: '#ffffff', color: '#0a0c12' }}>
+                  style={{ backgroundColor: '#0bceff', color: '#0a0c12' }}>
                   {t('nav.getStarted')}
                 </Link>
               ) : (
                 <Link to="/login" onClick={() => setMobileOpen(false)}
                   className="block text-sm font-semibold px-5 py-3 rounded-full transition text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                  style={{ backgroundColor: '#ffffff', color: '#0a0c12' }}>
+                  style={{ backgroundColor: '#0bceff', color: '#0a0c12' }}>
                   {t('nav.signIn')}
                 </Link>
               )}
