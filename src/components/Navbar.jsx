@@ -131,7 +131,7 @@ function Navbar({ showRegister = false }) {
             {showRegister ? (
               <Link to="/register"
                 className="text-sm font-semibold px-5 py-2 rounded-full transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                style={{ backgroundColor: '#ffffff', color: '#0a0c12' }}
+                style={{ backgroundColor: '#24d3ff', color: '#0a0c12' }}
                 onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e5e7eb'}
                 onMouseLeave={e => e.currentTarget.style.backgroundColor = '#ffffff'}>
                 {t('nav.getStarted')}
@@ -139,7 +139,7 @@ function Navbar({ showRegister = false }) {
             ) : (
               <Link to="/login"
                 className="text-sm font-semibold px-5 py-2 rounded-full transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                style={{ backgroundColor: '#ffffff', color: '#0a0c12' }}
+                style={{ backgroundColor: '#0bceff', color: '#0a0c12' }}
                 onMouseEnter={e => e.currentTarget.style.backgroundColor = '#e5e7eb'}
                 onMouseLeave={e => e.currentTarget.style.backgroundColor = '#ffffff'}>
                 {t('nav.signIn')}
