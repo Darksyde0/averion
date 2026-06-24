@@ -45,11 +45,9 @@ function Navbar({ showRegister = false }) {
         Skip to main content
       </a>
 
-      {/* Outer wrapper — full width, fixed, centers the floating pill */}
       <div className="fixed top-0 left-0 w-full z-50 flex justify-center"
         style={{ padding: '16px 24px' }}>
 
-        {/* The floating pill */}
         <nav
           aria-label="Main navigation"
           className="w-full max-w-3xl flex items-center justify-between px-5 py-3 rounded-2xl"
@@ -68,7 +66,7 @@ function Navbar({ showRegister = false }) {
             <img src="/images/logo.svg" alt="Averion logo" className="h-6 w-auto" />
           </Link>
 
-          {/* Desktop nav links — center */}
+          {/* Desktop nav links */}
           <div className="hidden md:flex items-center gap-1">
             {navLinks.map(item => (
               <Link
@@ -116,7 +114,7 @@ function Navbar({ showRegister = false }) {
                       <button
                         onClick={() => { changeLang(l.code); setLangOpen(false) }}
                         className="w-full text-left px-4 py-2.5 text-xs font-medium transition-colors duration-150 focus:outline-none"
-                        style={{ color: lang === l.code ? '#60a5fa' : 'rgba(255,255,255,0.6)' }}
+                        style={{ color: lang === l.code ? '#0bceff' : 'rgba(255,255,255,0.6)' }}
                         onMouseEnter={e => { if (lang !== l.code) e.currentTarget.style.color = '#ffffff' }}
                         onMouseLeave={e => { if (lang !== l.code) e.currentTarget.style.color = 'rgba(255,255,255,0.6)' }}>
                         <span className="font-bold mr-1.5 uppercase">{l.code}</span>{l.label}
@@ -127,11 +125,11 @@ function Navbar({ showRegister = false }) {
               )}
             </div>
 
-            {/* CTA — solid white pill with dark text, exactly like the screenshot */}
+            {/* CTA */}
             {showRegister ? (
               <Link to="/register"
                 className="text-sm font-semibold px-5 py-2 rounded-full transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                style={{ backgroundColor: '#24d3ff', color: '#0a0c12' }}
+                style={{ backgroundColor: '#0bceff', color: '#0a0c12' }}
                 onMouseEnter={e => e.currentTarget.style.backgroundColor = '#09b8e6'}
                 onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0bceff'}>
                 {t('nav.getStarted')}
@@ -166,7 +164,7 @@ function Navbar({ showRegister = false }) {
 
         </nav>
 
-        {/* Mobile menu — sits below the pill */}
+        {/* Mobile menu */}
         {mobileOpen && (
           <div
             id="mobile-menu"
@@ -204,7 +202,7 @@ function Navbar({ showRegister = false }) {
                   aria-label={`Switch to ${l.label}`}
                   className="text-xs font-bold uppercase px-3 py-1.5 rounded-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
                   style={{
-                    backgroundColor: lang === l.code ? '#ffffff' : 'rgba(255,255,255,0.05)',
+                    backgroundColor: lang === l.code ? '#0bceff' : 'rgba(255,255,255,0.05)',
                     color: lang === l.code ? '#0a0c12' : 'rgba(255,255,255,0.5)',
                   }}>
                   {l.code}
@@ -216,13 +214,17 @@ function Navbar({ showRegister = false }) {
               {showRegister ? (
                 <Link to="/register" onClick={() => setMobileOpen(false)}
                   className="block text-sm font-semibold px-5 py-3 rounded-full transition text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                  style={{ backgroundColor: '#0bceff', color: '#0a0c12' }}>
+                  style={{ backgroundColor: '#0bceff', color: '#0a0c12' }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#09b8e6'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0bceff'}>
                   {t('nav.getStarted')}
                 </Link>
               ) : (
                 <Link to="/login" onClick={() => setMobileOpen(false)}
                   className="block text-sm font-semibold px-5 py-3 rounded-full transition text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                  style={{ backgroundColor: '#0bceff', color: '#0a0c12' }}>
+                  style={{ backgroundColor: '#0bceff', color: '#0a0c12' }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#09b8e6'}
+                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0bceff'}>
                   {t('nav.signIn')}
                 </Link>
               )}
